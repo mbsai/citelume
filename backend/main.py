@@ -34,6 +34,7 @@ from services.llm_service import (
 )
 from frameworks.reporting import build_review_protocol_report
 from services import demo_mode
+from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
 from services.source_health import begin_source_health, set_openalex_api_key, source_failure_warnings
 from services.query_utils import generate_multi_api_decomposition_plan
@@ -307,6 +308,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     begin_llm_request_health()
     begin_synthesis_scope()
     begin_source_health()
+    begin_search_budget()
     set_openalex_api_key(cfg.openalex_api_key)
     # Stage A, B, C: Universal Question Understanding -> Research Strategy -> 5-API Compilation
     _report_stage(req, 1)
@@ -575,6 +577,9 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
 
 @app.post("/api/expand-node")
 async def expand_graph_node(req: ExpandNodeRequest) -> Dict[str, Any]:
+    if demo_mode.demo_enabled():
+        req = req.model_copy(update={"config": demo_mode.fill_source_keys(req.config)})
+    begin_search_budget()
     set_openalex_api_key(req.config.openalex_api_key)
     neighbors = await expand_paper_neighbors(
         title=req.title,

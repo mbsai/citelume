@@ -34,7 +34,7 @@ gcloud run deploy "$SERVICE" --source . --project "$PROJECT" --region "$REGION" 
   --allow-unauthenticated --cpu 1 --memory 2Gi --min-instances 0 --max-instances 1 \
   --concurrency 20 --timeout 1800 --execution-environment gen2 \
   --set-env-vars CITELUME_DEMO=1,DEMO_STATE_DIR=/data,DEMO_PROXY_HOPS=1 \
-  --set-secrets DEMO_OPENROUTER_API_KEY=demo-openrouter-key:latest \
+  --set-secrets DEMO_OPENROUTER_API_KEY=demo-openrouter-key:latest,DEMO_S2_API_KEY=demo-s2-key:latest,DEMO_OPENALEX_API_KEY=demo-openalex-key:latest \
   --add-volume name=usage,type=cloud-storage,bucket="$BUCKET" --add-volume-mount volume=usage,mount-path=/data
 
 gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)'

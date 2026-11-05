@@ -3,6 +3,7 @@ from typing import List, Optional
 import httpx
 from models import PaperRecord
 from services.query_utils import build_concise_search_phrase
+from services.source_budget import openalex_call_allowed, pace_semantic_scholar
 from services.source_health import openalex_api_key, report_source_failure, retrying_transport
 
 S2_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
@@ -50,6 +51,10 @@ async def _fallback_openalex_search(
     }
     if openalex_api_key():
         params["api_key"] = openalex_api_key()
+        blocked = openalex_call_allowed(openalex_api_key())
+        if blocked:
+            report_source_failure("Semantic Scholar / OpenAlex", RuntimeError(f"OpenAlex skipped: {blocked}"))
+            return []
     filters = []
     if year_from:
         filters.append(f"from_publication_date:{year_from}-01-01")
@@ -143,6 +148,7 @@ async def search_semantic_scholar(
     papers: List[PaperRecord] = []
     async with httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, headers=headers, follow_redirects=True) as client:
         try:
+            await pace_semantic_scholar("x-api-key" in headers)
             resp = await client.get(S2_SEARCH_URL, params=params)
             if resp.status_code in (429, 403):
                 return await _fallback_openalex_search(query, max_results, year_from, year_to)
@@ -246,6 +252,7 @@ async def expand_paper_neighbors(
         )
         async with httpx.AsyncClient(transport=retrying_transport(), timeout=15.0, headers=headers, follow_redirects=True) as client:
             try:
+                await pace_semantic_scholar("x-api-key" in headers)
                 resp = await client.get(f"{S2_PAPER_URL}/{identifier}", params={"fields": fields})
                 if resp.status_code == 200:
                     data = resp.json()

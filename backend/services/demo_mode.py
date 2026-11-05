@@ -218,7 +218,7 @@ def apply_demo_config(cfg: ApiKeysConfig) -> Tuple[ApiKeysConfig, bool]:
         raise DemoLimitError("Local models (Ollama or a local server address) cannot be used on the public demo. "
                              "Install CiteLume on your own computer to use a local model.", status=400)
     if has_own_llm_key(cfg):
-        return cfg, False
+        return fill_source_keys(cfg), False
     if not server_key_configured():
         raise DemoLimitError("The demo's shared model key is not configured. Add your own LLM API key in "
                              "⚙ API Keys & Sources Setup to run a search.", status=503)
@@ -229,12 +229,17 @@ def apply_demo_config(cfg: ApiKeysConfig) -> Tuple[ApiKeysConfig, bool]:
     out.llm_model = model
     out.llm_base_url = ""
     out.llm_fallback_models = [m for m in allowed_models() if m != model][:2]
-    # Optional server-side literature-source keys, only when the visitor gave none
+    return fill_source_keys(out), True
+
+
+def fill_source_keys(cfg: ApiKeysConfig) -> ApiKeysConfig:
+    """Server-side literature-source keys, used only where the visitor gave none (OpenAlex use is budgeted)."""
+    out = cfg.model_copy(deep=True)
     for field, env in (("openalex_api_key", "DEMO_OPENALEX_API_KEY"), ("s2_api_key", "DEMO_S2_API_KEY"),
                        ("pubmed_api_key", "DEMO_PUBMED_API_KEY")):
-        if not getattr(out, field) and os.environ.get(env):
+        if not (getattr(out, field) or "").strip() and os.environ.get(env, "").strip():
             setattr(out, field, os.environ[env].strip())
-    return out, True
+    return out
 
 
 def bucket_for(mode: str, uses_server_key: bool) -> str:
