@@ -1,0 +1,20 @@
+# Local assistant settings (contain API keys) - never commit
+.claude/
+# Secrets
+.env
+.env.*
+!.env.example
+# macOS / external-drive metadata
+._*
+.DS_Store
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+# Caches (downloaded full texts etc.)
+backend/.cache/
+# Frontend
+frontend/node_modules/
+frontend/dist/

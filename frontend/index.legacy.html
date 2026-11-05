@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CiteLume — Synthesis, Evidence Table, Gap Matrix & Network Map</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      background-color: #f8fafc;
+      color: #1e293b;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const PROVIDER_PRESETS = {
+      gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+      openai: ['gpt-4o-mini', 'gpt-4o', 'o3-mini'],
+      anthropic: ['claude-3-7-sonnet-latest', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'],
+      openrouter: [
+        'deepseek/deepseek-r1:free',
+        'google/gemini-2.0-flash-exp:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'anthropic/claude-3.5-sonnet',
+        'google/gemini-2.5-flash',
+      ],
+      huggingface: [
+        'Qwen/Qwen2.5-72B-Instruct',
+        'meta-llama/Llama-3.3-70B-Instruct',
+        'mistralai/Mixtral-8x7B-Instruct-v0.1',
+        'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
+      ],
+      ollama: ['llama3.2:latest', 'qwen2.5:latest', 'deepseek-r1:latest', 'mistral:latest'],
+      custom: ['gpt-4o-mini', 'llama-3.3-70b-versatile', 'deepseek-chat'],
+    };
+
+    const CUSTOM_AGGREGATOR_PRESETS = [
+      { label: 'LM Studio (Local)', url: 'http://localhost:1234/v1' },
+      { label: 'vLLM (Local)', url: 'http://localhost:8000/v1' },
+      { label: 'Groq Cloud', url: 'https://api.groq.com/openai/v1' },
+      { label: 'Together AI', url: 'https://api.together.xyz/v1' },
+      { label: 'DeepSeek API', url: 'https://api.deepseek.com/v1' },
+      { label: 'Fireworks AI', url: 'https://api.fireworks.ai/inference/v1' },
+    ];
+
+    const RUNNING_STATUS_SENTENCES = [
+      'Decomposing research question into domain-specific technical entities and 5-API search facets...',
+      'Harvesting peer-reviewed literature and preprints from enabled academic repositories...',
+      'Cross-referencing DOIs, PMIDs, and arXiv IDs to deduplicate and rank top papers...',
+      'Extracting study methodology, experimental systems, key findings, and limitations...',
+      'Constructing interactive literature network graph and Methods × Domains knowledge gap matrix...',
+      'Synthesizing cited literature review with Evidence Agreement Meter and complete bibliography...',
+    ];
+
+    const CLUSTER_COLORS = ['#4f46e5', '#059669', '#0284c7', '#d97706', '#db2777', '#7c3aed'];
+
+    function renderCitedText(text, onCitationClick) {
+      if (!text) return null;
+      const parts = text.split(/(\[\d+(?:,\s*\d+)*\])/g);
+      return parts.map((part, idx) => {
+        const match = part.match(/^\[(\d+(?:,\s*\d+)*)\]$/);
+        if (match) {
+          const nums = match[1].split(',').map((s) => parseInt(s.trim(), 10));
+          return (
+            <span key={idx} className="inline-flex items-center gap-0.5 mx-0.5">
+              {nums.map((num) => (
+                <button
+                  key={num}
+                  onClick={() => onCitationClick && onCitationClick(num)}
+                  className="px-1.5 py-0.5 text-[11px] font-mono font-semibold rounded bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+                  title={`Jump to Reference [${num}]`}
+                >
+                  [{num}]
+                </button>
+              ))}
+            </span>
+          );
+        }
+        return <span key={idx}>{part}</span>;
+      });
+    }
+
+    function ApiConfigModal({ isOpen, onClose, config, setConfig }) {
+      const [providerModels, setProviderModels] = useState([]);
+      const [loadingProviderModels, setLoadingProviderModels] = useState(false);
+      const [providerStatusMsg, setProviderStatusMsg] = useState('');
+      const [modelFilter, setModelFilter] = useState('');
+      const [testingLlm, setTestingLlm] = useState(false);
+      const [llmTestResult, setLlmTestResult] = useState(null);
+      const [sourceTestStatus, setSourceTestStatus] = useState({});
+      const [hfModels, setHfModels] = useState([]);
+      const [scrapingHf, setScrapingHf] = useState(false);
+      const [hfSearchTerm, setHfSearchTerm] = useState('');
+
+      const saveConfigToStorage = (nextCfg) => {
+        localStorage.setItem('citelume_config', JSON.stringify(nextCfg));
+      };
+
+      const refreshModelsForProvider = useCallback(async () => {
+        setLoadingProviderModels(true);
+        try {
+          const resp = await fetch('/api/provider-models', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              llm_provider: config.llm_provider,
+              llm_api_key: config.llm_api_key || '',
+              llm_base_url: config.llm_base_url || '',
+              hf_api_key: config.hf_api_key || '',
+            }),
+          });
+          const res = await resp.json();
+          const fetched = res.models || [];
+          setProviderModels(fetched);
+
+          if (res.detected_provider && res.detected_provider !== config.llm_provider) {
+            setConfig((prev) => {
+              const next = {
+                ...prev,
+                llm_provider: res.detected_provider,
+                llm_base_url: res.detected_base_url || prev.llm_base_url,
+                llm_model: (fetched[0] && fetched[0].id) || prev.llm_model,
+              };
+              saveConfigToStorage(next);
+              return next;
+            });
+          } else if (fetched.length > 0 && !fetched.some((m) => m.id === config.llm_model)) {
+            setConfig((prev) => {
+              const next = { ...prev, llm_model: fetched[0].id };
+              saveConfigToStorage(next);
+              return next;
+            });
+          }
+
+          const freeCount = fetched.filter((m) => m.is_free).length;
+          if (res.live_fetched) {
+            setProviderStatusMsg(`✓ Loaded ${fetched.length} models from ${res.source_label} (${freeCount} Free models at top, sorted A–Z)`);
+          } else {
+            setProviderStatusMsg(
+              `Showing ${fetched.length} preset models for ${config.llm_provider.toUpperCase()} (sorted Free first, then A–Z)`
+            );
+          }
+        } catch (err) {
+          console.error(err);
+          setProviderStatusMsg('Could not reach provider models endpoint; using sorted presets.');
+        } finally {
+          setLoadingProviderModels(false);
+        }
+      }, [config.llm_provider, config.llm_api_key, config.llm_base_url, config.hf_api_key, config.llm_model, setConfig]);
+
+      useEffect(() => {
+        if (!isOpen) return;
+        const timer = setTimeout(() => {
+          refreshModelsForProvider();
+        }, 450);
+        return () => clearTimeout(timer);
+      }, [isOpen, config.llm_provider, config.llm_api_key, config.llm_base_url, refreshModelsForProvider]);
+
+      if (!isOpen) return null;
+
+      const updateField = (key, val) => {
+        setConfig((prev) => {
+          const next = { ...prev, [key]: val };
+          if (key === 'llm_provider') {
+            next.llm_model = (PROVIDER_PRESETS[val] && PROVIDER_PRESETS[val][0]) || '';
+            if (val === 'ollama' && !next.llm_base_url) {
+              next.llm_base_url = 'http://localhost:11434';
+            } else if (val === 'openrouter') {
+              next.llm_base_url = 'https://openrouter.ai/api/v1';
+            } else if (val === 'custom' && (!next.llm_base_url || next.llm_base_url.includes('11434'))) {
+              next.llm_base_url = 'http://localhost:1234/v1';
+            } else if (!['ollama', 'custom', 'openrouter'].includes(val)) {
+              next.llm_base_url = '';
+            }
+          }
+          if (key === 'llm_api_key' && typeof val === 'string') {
+            const k = val.trim();
+            if (k.startsWith('sk-or-v1-')) {
+              next.llm_provider = 'openrouter';
+              next.llm_base_url = 'https://openrouter.ai/api/v1';
+            } else if (k.startsWith('sk-ant-')) {
+              next.llm_provider = 'anthropic';
+            } else if (k.startsWith('hf_')) {
+              next.llm_provider = 'huggingface';
+            } else if (k.startsWith('AIza')) {
+              next.llm_provider = 'gemini';
+            } else if (k.startsWith('gsk_')) {
+              next.llm_provider = 'custom';
+              next.llm_base_url = 'https://api.groq.com/openai/v1';
+            }
+          }
+          saveConfigToStorage(next);
+          return next;
+        });
+      };
+
+      const handleTestAndSaveLlm = async () => {
+        setTestingLlm(true);
+        setLlmTestResult(null);
+        saveConfigToStorage(config);
+        try {
+          const resp = await fetch('/api/test-llm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              llm_provider: config.llm_provider,
+              llm_api_key: config.llm_api_key || '',
+              llm_model: config.llm_model || '',
+              llm_base_url: config.llm_base_url || '',
+              hf_api_key: config.hf_api_key || '',
+            }),
+          });
+          const res = await resp.json();
+          setLlmTestResult(res);
+        } catch (err) {
+          setLlmTestResult({ success: false, message: err.message });
+        } finally {
+          setTestingLlm(false);
+        }
+      };
+
+      const handleTestAndSaveSource = async (sourceKey, apiKeyVal) => {
+        saveConfigToStorage(config);
+        setSourceTestStatus((prev) => ({
+          ...prev,
+          [sourceKey]: { loading: true, success: null, message: 'Testing connection & API key...' },
+        }));
+        try {
+          const resp = await fetch('/api/test-source', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: sourceKey, api_key: apiKeyVal || '' }),
+          });
+          const res = await resp.json();
+          setSourceTestStatus((prev) => ({
+            ...prev,
+            [sourceKey]: { loading: false, success: res.success, message: res.message },
+          }));
+        } catch (err) {
+          setSourceTestStatus((prev) => ({
+            ...prev,
+            [sourceKey]: { loading: false, success: false, message: err.message },
+          }));
+        }
+      };
+
+      const handleScrapeHf = async () => {
+        setScrapingHf(true);
+        try {
+          const params = new URLSearchParams();
+          if (config.hf_api_key) params.set('hf_api_key', config.hf_api_key);
+          if (hfSearchTerm) params.set('search', hfSearchTerm);
+          const res = await fetch(`/api/hf-models?${params.toString()}`);
+          const data = await res.json();
+          setHfModels(data.models || []);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setScrapingHf(false);
+        }
+      };
+
+      const rawOptions =
+        providerModels.length > 0
+          ? providerModels
+          : (PROVIDER_PRESETS[config.llm_provider] || []).map((id) => ({
+              id,
+              name: id.includes(':free') ? `★ [FREE] ${id}` : id,
+              clean_name: id,
+              is_free: id.includes(':free') || config.llm_provider === 'ollama',
+            }));
+
+      const filteredModels = rawOptions.filter((m) => {
+        if (!modelFilter.trim()) return true;
+        const q = modelFilter.toLowerCase();
+        return (m.id || '').toLowerCase().includes(q) || (m.name || '').toLowerCase().includes(q);
+      });
+
+      const freeModels = filteredModels
+        .filter((m) => m.is_free)
+        .sort((a, b) => (a.clean_name || a.name || a.id).localeCompare(b.clean_name || b.name || b.id));
+      const otherModels = filteredModels
+        .filter((m) => !m.is_free)
+        .sort((a, b) => (a.clean_name || a.name || a.id).localeCompare(b.clean_name || b.name || b.id));
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-6 shadow-2xl text-slate-800 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">API Keys, Local/Custom LLMs & Source Verification</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Models are organized with ★ Free Models at the top (A–Z) followed by All Other Models (A–Z). Test & Save each API key individually.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  saveConfigToStorage(config);
+                  onClose();
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm"
+              >
+                Save All & Close
+              </button>
+            </div>
+
+            <div className="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                  1. LLM Provider / Aggregator (Cloud, OpenRouter, Local Ollama, or Custom Provider)
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={refreshModelsForProvider}
+                    disabled={loadingProviderModels}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold transition"
+                  >
+                    {loadingProviderModels ? '↻ Loading Models...' : '↻ Refresh Models'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestAndSaveLlm}
+                    disabled={testingLlm}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition"
+                  >
+                    {testingLlm ? 'Testing LLM Key...' : '✓ Test & Save LLM Key'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-600 font-medium mb-1">Provider / Aggregator</label>
+                  <select
+                    value={config.llm_provider}
+                    onChange={(e) => updateField('llm_provider', e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800"
+                  >
+                    <option value="gemini">Google Gemini</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic Claude</option>
+                    <option value="openrouter">OpenRouter (Aggregator)</option>
+                    <option value="ollama">Ollama (Local LLM)</option>
+                    <option value="custom">Custom Provider / Aggregator (OpenAI-Compatible)</option>
+                    <option value="huggingface">Hugging Face Inference API</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 font-medium mb-1">
+                    {config.llm_provider === 'ollama' ? 'API Key (Optional for Local Ollama)' : 'LLM API Key (Auto-recognizes Aggregator)'}
+                  </label>
+                  <input
+                    type="password"
+                    value={config.llm_api_key}
+                    onChange={(e) => updateField('llm_api_key', e.target.value)}
+                    placeholder={
+                      config.llm_provider === 'ollama'
+                        ? 'Leave blank for local Ollama'
+                        : 'Paste API Key (sk-or-v1-..., gsk_..., sk-..., AIza...)'
+                    }
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {(config.llm_provider === 'ollama' ||
+                config.llm_provider === 'custom' ||
+                config.llm_provider === 'openrouter' ||
+                config.llm_base_url) && (
+                <div className="pt-1 space-y-2">
+                  <label className="block text-xs text-slate-600 font-medium">Provider Base URL / Endpoint</label>
+                  <input
+                    type="text"
+                    value={
+                      config.llm_base_url ||
+                      (config.llm_provider === 'ollama'
+                        ? 'http://localhost:11434'
+                        : config.llm_provider === 'openrouter'
+                        ? 'https://openrouter.ai/api/v1'
+                        : 'http://localhost:1234/v1')
+                    }
+                    onChange={(e) => updateField('llm_base_url', e.target.value)}
+                    placeholder="e.g. http://localhost:11434 or https://api.groq.com/openai/v1"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800"
+                  />
+                  {config.llm_provider === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 mr-1">Quick Aggregator Endpoints:</span>
+                      {CUSTOM_AGGREGATOR_PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => updateField('llm_base_url', preset.url)}
+                          className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-[11px] text-indigo-700 border border-indigo-200"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                <div className="md:col-span-2">
+                  <label className="block text-xs text-slate-600 font-medium mb-1">
+                    Select Model (★ {freeModels.length} Free at Top A–Z • {otherModels.length} Standard A–Z)
+                  </label>
+                  <select
+                    value={config.llm_model}
+                    onChange={(e) => updateField('llm_model', e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800"
+                  >
+                    {freeModels.length > 0 && (
+                      <optgroup label={`★ Free Models (A–Z) — ${freeModels.length} available`}>
+                        {freeModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {otherModels.length > 0 && (
+                      <optgroup label={`Standard / Paid Models (A–Z) — ${otherModels.length} available`}>
+                        {otherModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 font-medium mb-1">Filter Models / Custom ID</label>
+                  <input
+                    type="text"
+                    value={modelFilter}
+                    onChange={(e) => setModelFilter(e.target.value)}
+                    placeholder="Filter models (e.g. free, claude, qwen)..."
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {providerStatusMsg && (
+                <div className="text-[11px] text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                  {providerStatusMsg}
+                </div>
+              )}
+
+              {llmTestResult && (
+                <div
+                  className={`text-xs rounded-lg px-3 py-2 border font-medium ${
+                    llmTestResult.success
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                      : 'bg-rose-50 border-rose-300 text-rose-800'
+                  }`}
+                >
+                  {llmTestResult.success ? '✓ Verified & Saved: ' : '✗ Test Failed: '}
+                  {llmTestResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">
+                2. Academic Literature APIs — Individual Test & Save
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <input type="checkbox" checked={config.enable_pubmed} onChange={(e) => updateField('enable_pubmed', e.target.checked)} />
+                      PubMed (NCBI E-utilities)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestAndSaveSource('pubmed', config.pubmed_api_key)}
+                      disabled={sourceTestStatus.pubmed?.loading}
+                      className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 text-[11px] font-semibold text-slate-700 hover:text-white border border-slate-300 transition"
+                    >
+                      {sourceTestStatus.pubmed?.loading ? 'Testing...' : 'Test & Save'}
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    value={config.pubmed_api_key}
+                    onChange={(e) => updateField('pubmed_api_key', e.target.value)}
+                    placeholder="Optional PubMed API Key"
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800"
+                  />
+                  {sourceTestStatus.pubmed && (
+                    <div className={`text-[11px] font-medium ${sourceTestStatus.pubmed.success ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {sourceTestStatus.pubmed.success ? '✓ ' : '✗ '}{sourceTestStatus.pubmed.message}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <input type="checkbox" checked={config.enable_s2} onChange={(e) => updateField('enable_s2', e.target.checked)} />
+                      Semantic Scholar API
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestAndSaveSource('s2', config.s2_api_key)}
+                      disabled={sourceTestStatus.s2?.loading}
+                      className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 text-[11px] font-semibold text-slate-700 hover:text-white border border-slate-300 transition"
+                    >
+                      {sourceTestStatus.s2?.loading ? 'Testing...' : 'Test & Save'}
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    value={config.s2_api_key}
+                    onChange={(e) => updateField('s2_api_key', e.target.value)}
+                    placeholder="Optional Semantic Scholar API Key"
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800"
+                  />
+                  {sourceTestStatus.s2 && (
+                    <div className={`text-[11px] font-medium ${sourceTestStatus.s2.success ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {sourceTestStatus.s2.success ? '✓ ' : '✗ '}{sourceTestStatus.s2.message}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                      <input type="checkbox" checked={config.enable_arxiv} onChange={(e) => updateField('enable_arxiv', e.target.checked)} />
+                      arXiv Preprint API
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestAndSaveSource('arxiv', '')}
+                      disabled={sourceTestStatus.arxiv?.loading}
+                      className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 text-[11px] font-semibold text-slate-700 hover:text-white border border-slate-300 transition"
+                    >
+                      {sourceTestStatus.arxiv?.loading ? 'Testing...' : 'Test Connection'}
+                    </button>
+                  </div>
+                  <div className="w-full bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1.5 text-[11px] text-emerald-800 flex items-center justify-between">
+                    <span>✓ Open Public API — No API key required</span>
+                    <span className="font-mono text-[10px] text-slate-500">export.arxiv.org</span>
+                  </div>
+                  {sourceTestStatus.arxiv && (
+                    <div className={`text-[11px] font-medium ${sourceTestStatus.arxiv.success ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {sourceTestStatus.arxiv.success ? '✓ ' : '✗ '}{sourceTestStatus.arxiv.message}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                      <input type="checkbox" checked={config.enable_biorxiv} onChange={(e) => updateField('enable_biorxiv', e.target.checked)} />
+                      bioRxiv / medRxiv API
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestAndSaveSource('biorxiv', '')}
+                      disabled={sourceTestStatus.biorxiv?.loading}
+                      className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 text-[11px] font-semibold text-slate-700 hover:text-white border border-slate-300 transition"
+                    >
+                      {sourceTestStatus.biorxiv?.loading ? 'Testing...' : 'Test Connection'}
+                    </button>
+                  </div>
+                  <div className="w-full bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1.5 text-[11px] text-emerald-800 flex items-center justify-between">
+                    <span>✓ Open Public API — No API key required</span>
+                    <span className="font-mono text-[10px] text-slate-500">api.biorxiv.org</span>
+                  </div>
+                  {sourceTestStatus.biorxiv && (
+                    <div className={`text-[11px] font-medium ${sourceTestStatus.biorxiv.success ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {sourceTestStatus.biorxiv.success ? '✓ ' : '✗ '}{sourceTestStatus.biorxiv.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wider">
+                  <input type="checkbox" checked={config.enable_hf} onChange={(e) => updateField('enable_hf', e.target.checked)} />
+                  3. Hugging Face Hub Token & Available Models Scraper
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleTestAndSaveSource('huggingface', config.hf_api_key)}
+                  disabled={sourceTestStatus.huggingface?.loading}
+                  className="px-2.5 py-1 rounded bg-white hover:bg-emerald-600 text-[11px] font-semibold text-slate-700 hover:text-white border border-slate-300 transition"
+                >
+                  {sourceTestStatus.huggingface?.loading ? 'Testing Token...' : 'Test & Save HF Token'}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                <input
+                  type="password"
+                  value={config.hf_api_key}
+                  onChange={(e) => updateField('hf_api_key', e.target.value)}
+                  placeholder="Optional HF Read Token (hf_...)"
+                  className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800"
+                />
+                <input
+                  type="text"
+                  value={hfSearchTerm}
+                  onChange={(e) => setHfSearchTerm(e.target.value)}
+                  placeholder="Filter HF models (e.g., Qwen, Bio, Llama)..."
+                  className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800"
+                />
+                <button
+                  onClick={handleScrapeHf}
+                  disabled={scrapingHf}
+                  className="bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 rounded-lg px-3 py-1.5 text-xs font-semibold transition"
+                >
+                  {scrapingHf ? 'Scraping HF Hub...' : 'Scrape Available HF Models'}
+                </button>
+              </div>
+              {sourceTestStatus.huggingface && (
+                <div className={`text-[11px] font-medium ${sourceTestStatus.huggingface.success ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {sourceTestStatus.huggingface.success ? '✓ ' : '✗ '}{sourceTestStatus.huggingface.message}
+                </div>
+              )}
+              {hfModels.length > 0 && (
+                <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-2 bg-white space-y-1">
+                  {hfModels.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-slate-50 border border-slate-200">
+                      <span className="font-mono text-amber-800 font-medium">{m.id} <span className="text-slate-400">({m.downloads?.toLocaleString()} dl)</span></span>
+                      <button
+                        onClick={() => {
+                          updateField('llm_provider', 'huggingface');
+                          updateField('llm_model', m.id);
+                        }}
+                        className="text-indigo-600 font-semibold hover:underline"
+                      >
+                        Select as LLM
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [config, setConfig] = useState({
+        llm_provider: 'gemini',
+        llm_api_key: '',
+        llm_model: 'gemini-2.5-flash',
+        llm_base_url: '',
+        pubmed_api_key: '',
+        s2_api_key: '',
+        hf_api_key: '',
+        arxiv_api_key: '',
+        biorxiv_api_key: '',
+        enable_pubmed: true,
+        enable_arxiv: true,
+        enable_biorxiv: true,
+        enable_s2: true,
+        enable_hf: true,
+      });
+      const [configOpen, setConfigOpen] = useState(false);
+      const [query, setQuery] = useState('Multi-modal foundation models and deep learning architectures for protein sequence structure prediction');
+      const [mode, setMode] = useState('standard');
+      const [activeTab, setActiveTab] = useState('synthesis');
+      const [loading, setLoading] = useState(false);
+      const [statusStep, setStatusStep] = useState(0);
+      const [error, setError] = useState('');
+      const [result, setResult] = useState(null);
+      const [bibStyle, setBibStyle] = useState('apa');
+      const [highlightedRef, setHighlightedRef] = useState(null);
+      const [layoutMode, setLayoutMode] = useState('timeline');
+      const [colorMode, setColorMode] = useState('cluster');
+      const [selectedNode, setSelectedNode] = useState(null);
+      const [expandingNode, setExpandingNode] = useState(false);
+      const [selectedGapCell, setSelectedGapCell] = useState(null);
+      const [exportingFmt, setExportingFmt] = useState('');
+      const [showDecomposition, setShowDecomposition] = useState(false);
+
+      // Export section inclusion checkboxes
+      const [exportOptions, setExportOptions] = useState({
+        include_evidence_table: true,
+        include_gap_matrix: true,
+        include_network_summary: true,
+        include_hf_models: true,
+      });
+
+      // Query History state with saved results
+      const [history, setHistory] = useState([]);
+      const [activeHistoryId, setActiveHistoryId] = useState(null);
+
+      useEffect(() => {
+        try {
+          const saved = localStorage.getItem('citelume_config');
+          if (saved) setConfig((p) => ({ ...p, ...JSON.parse(saved) }));
+          const savedHist = localStorage.getItem('citelume_history');
+          if (savedHist) {
+            const parsed = JSON.parse(savedHist);
+            if (Array.isArray(parsed)) setHistory(parsed);
+          }
+        } catch (e) {}
+      }, []);
+
+      // Repeating / cycling status sentences while search & synthesis is running
+      useEffect(() => {
+        if (!loading) {
+          setStatusStep(0);
+          return;
+        }
+        const interval = setInterval(() => {
+          setStatusStep((prev) => (prev + 1) % RUNNING_STATUS_SENTENCES.length);
+        }, 2200);
+        return () => clearInterval(interval);
+      }, [loading]);
+
+      const saveHistoryToStorage = (nextHistory) => {
+        setHistory(nextHistory);
+        try {
+          localStorage.setItem('citelume_history', JSON.stringify(nextHistory.slice(0, 12)));
+        } catch (e) {
+          try {
+            localStorage.setItem('citelume_history', JSON.stringify(nextHistory.slice(0, 5)));
+          } catch (_) {}
+        }
+      };
+
+      const runSearch = async (e) => {
+        if (e) e.preventDefault();
+        if (!query.trim()) return;
+        setLoading(true);
+        setError('');
+        try {
+          const resp = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: query.trim(),
+              mode,
+              max_per_source: mode === 'deep_research' ? 18 : 10,
+              config,
+            }),
+          });
+          if (!resp.ok) throw new Error(await resp.text());
+          const data = await resp.json();
+          setResult(data);
+          setSelectedNode(data.graph?.nodes?.[0] || null);
+          setSelectedGapCell(data.gap_matrix?.top_opportunities?.[0] || data.gap_matrix?.cells?.[0]?.[0] || null);
+
+          const entryId = `hist_${Date.now()}`;
+          const newEntry = {
+            id: entryId,
+            query: query.trim(),
+            mode,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
+            paperCount: data.papers?.length || 0,
+            hfCount: data.hf_resources?.length || 0,
+            verdict: data.consensus?.consensus_verdict || 'Synthesized',
+            resultData: data,
+          };
+          setActiveHistoryId(entryId);
+          const filteredPrev = history.filter(
+            (h) => !(h.query.toLowerCase() === newEntry.query.toLowerCase() && h.mode === newEntry.mode)
+          );
+          saveHistoryToStorage([newEntry, ...filteredPrev].slice(0, 15));
+        } catch (err) {
+          setError(err.message || 'Search failed');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleSelectHistoryItem = (item) => {
+        if (!item || !item.resultData) return;
+        setQuery(item.query);
+        setMode(item.mode || 'standard');
+        setResult(item.resultData);
+        setSelectedNode(item.resultData.graph?.nodes?.[0] || null);
+        setSelectedGapCell(item.resultData.gap_matrix?.top_opportunities?.[0] || item.resultData.gap_matrix?.cells?.[0]?.[0] || null);
+        setActiveHistoryId(item.id);
+        setError('');
+      };
+
+      const handleDeleteHistoryItem = (id, e) => {
+        if (e) e.stopPropagation();
+        const next = history.filter((h) => h.id !== id);
+        saveHistoryToStorage(next);
+        if (activeHistoryId === id) setActiveHistoryId(null);
+      };
+
+      const handleClearHistory = () => {
+        saveHistoryToStorage([]);
+        setActiveHistoryId(null);
+      };
+
+      const toggleExportOption = (key) => {
+        setExportOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+      };
+
+      const handleExport = async (fmt) => {
+        if (!result) return;
+        setExportingFmt(fmt);
+        try {
+          const resp = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              format: fmt,
+              query: result.query,
+              mode: result.mode,
+              executive_answer: result.executive_answer,
+              sections: result.sections || [],
+              consensus: result.consensus || {},
+              papers: result.papers || [],
+              bibliography: result.bibliography || [],
+              gap_matrix: result.gap_matrix || null,
+              graph: result.graph || null,
+              hf_resources: result.hf_resources || [],
+              include_evidence_table: !!exportOptions.include_evidence_table,
+              include_gap_matrix: !!exportOptions.include_gap_matrix,
+              include_network_summary: !!exportOptions.include_network_summary,
+              include_hf_models: !!exportOptions.include_hf_models,
+            }),
+          });
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const slug = (result.query || 'synthesis').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 36);
+          a.href = url;
+          a.download = `literature_review_${result.mode}_${slug}.${fmt}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert('Export failed: ' + err.message);
+        } finally {
+          setExportingFmt('');
+        }
+      };
+
+      const handleExpandNode = async () => {
+        if (!selectedNode || selectedNode.node_type !== 'paper' || !result) return;
+        const paperObj = (result.papers || []).find((p) => p.id === selectedNode.id) || {};
+        setExpandingNode(true);
+        try {
+          const resp = await fetch('/api/expand-node', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paper_id: selectedNode.id,
+              title: selectedNode.full_title,
+              doi: paperObj.doi,
+              arxiv_id: paperObj.arxiv_id,
+              pmid: paperObj.pmid,
+              s2_id: paperObj.s2_id,
+              config,
+            }),
+          });
+          const data = await resp.json();
+          const neighbors = data.neighbors || [];
+          if (neighbors.length > 0) {
+            setResult((prev) => {
+              const existingIds = new Set(prev.graph.nodes.map((n) => n.id));
+              const newNodes = [...prev.graph.nodes];
+              const newEdges = [...prev.graph.edges];
+              neighbors.forEach((nb, idx) => {
+                if (!existingIds.has(nb.id)) {
+                  existingIds.add(nb.id);
+                  const angle = (idx / neighbors.length) * Math.PI * 2;
+                  newNodes.push({
+                    id: nb.id,
+                    label: `${(nb.authors && nb.authors[0] ? nb.authors[0].split(' ').pop() : 'Paper')} (${nb.year || 'n.d.'})`,
+                    full_title: nb.title,
+                    node_type: 'paper',
+                    citation_index: null,
+                    year: nb.year || 2024,
+                    citations: nb.citation_count || 0,
+                    source: nb.source || 'Semantic Scholar',
+                    cluster_id: selectedNode.cluster_id,
+                    cluster_label: selectedNode.cluster_label,
+                    stance: 'supporting',
+                    url: nb.url,
+                    x_timeline: Math.min(0.92, Math.max(0.08, selectedNode.x_timeline + Math.cos(angle) * 0.08)),
+                    y_timeline: Math.min(0.90, Math.max(0.10, selectedNode.y_timeline + Math.sin(angle) * 0.12)),
+                    x_force: Math.min(0.92, Math.max(0.08, selectedNode.x_force + Math.cos(angle) * 0.09)),
+                    y_force: Math.min(0.90, Math.max(0.10, selectedNode.y_force + Math.sin(angle) * 0.12)),
+                    pagerank: 0.05,
+                  });
+                }
+                newEdges.push({
+                  id: `exp:${selectedNode.id}->${nb.id}`,
+                  source: selectedNode.id,
+                  target: nb.id,
+                  edge_type: 'citation',
+                  weight: 0.9,
+                  label: 'cites',
+                });
+              });
+              return { ...prev, graph: { ...prev.graph, nodes: newNodes, edges: newEdges } };
+            });
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setExpandingNode(false);
+        }
+      };
+
+      const jumpToCitation = (num) => {
+        setActiveTab('synthesis');
+        setHighlightedRef(num);
+        setTimeout(() => {
+          const el = document.getElementById(`bib-entry-${num}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+      };
+
+      const nodeMap = {};
+      if (result && result.graph && result.graph.nodes) {
+        result.graph.nodes.forEach((n) => { nodeMap[n.id] = n; });
+      }
+
+      const getNodeColor = (node) => {
+        if (node.node_type !== 'paper') return '#d97706';
+        if (colorMode === 'stance') {
+          if (node.stance === 'supporting') return '#059669';
+          if (node.stance === 'contradicting') return '#e11d48';
+          return '#d97706';
+        }
+        if (colorMode === 'source') {
+          if (node.source === 'PubMed') return '#2563eb';
+          if (node.source === 'arXiv') return '#dc2626';
+          if (node.source === 'bioRxiv') return '#059669';
+          return '#7c3aed';
+        }
+        return CLUSTER_COLORS[Math.abs(node.cluster_id || 0) % CLUSTER_COLORS.length];
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-50 text-slate-800">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-30 shadow-sm">
+            <div className="max-w-[1440px] mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-sm">
+                  LI
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-slate-900">
+                    CiteLume — Synthesis, Evidence Matrix, Gap Discovery & Network Mapping
+                  </h1>
+                  <p className="text-[11px] text-slate-500">
+                    Multi-Repository Literature Synthesis • Structured Evidence Table • Knowledge Gap Matrix • Interactive Network Map • Hugging Face Hub
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfigOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-semibold text-slate-800 flex items-center gap-2 transition"
+              >
+                <span>⚙ API Keys & Sources Setup</span>
+                <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
+                  {config.llm_provider.toUpperCase()}
+                </span>
+              </button>
+            </div>
+          </header>
+
+          {/* Main Grid: Left Query History Side Box + Right Workspace */}
+          <div className="max-w-[1440px] mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Side Box: Query History with Saved Results */}
+            <aside className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm lg:sticky lg:top-20 max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
+                <div>
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Query History & Saved Results
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Click any past query to reload its synthesis & tables
+                  </p>
+                </div>
+                {history.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearHistory}
+                    className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold px-2 py-0.5 rounded hover:bg-rose-50 transition"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              {history.length === 0 ? (
+                <div className="text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center my-2">
+                  No queries run yet. Your search queries and full synthesized results will appear here automatically.
+                </div>
+              ) : (
+                <div className="space-y-2.5 overflow-y-auto pr-1 flex-1">
+                  {history.map((item) => {
+                    const isActive = activeHistoryId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelectHistoryItem(item)}
+                        className={`p-3 rounded-xl border cursor-pointer transition group ${
+                          isActive
+                            ? 'bg-indigo-50/90 border-indigo-300 shadow-sm'
+                            : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
+                            {item.query}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteHistoryItem(item.id, e)}
+                            className="text-slate-400 hover:text-rose-600 text-xs px-1 opacity-70 group-hover:opacity-100"
+                            title="Remove from history"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px]">
+                          <span
+                            className={`px-1.5 py-0.5 rounded font-semibold ${
+                              item.mode === 'deep_research'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                            }`}
+                          >
+                            {item.mode === 'deep_research' ? 'Deep (≤60)' : 'Standard (≤20)'}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                            {item.paperCount} papers
+                          </span>
+                          {item.hfCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+                              {item.hfCount} HF
+                            </span>
+                          )}
+                          <span className="text-slate-400 ml-auto">{item.timestamp}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </aside>
+
+            {/* Right Main Workspace */}
+            <main className="lg:col-span-9 space-y-6">
+              <form onSubmit={runSearch} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Enter your research question or literature topic..."
+                    className="flex-1 bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-3 text-sm text-slate-900 outline-none transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold text-sm shadow-sm transition shrink-0"
+                  >
+                    {loading
+                      ? mode === 'deep_research'
+                        ? 'Running Deep Review (≤60 Papers)...'
+                        : 'Synthesizing (≤20 Papers)...'
+                      : mode === 'deep_research'
+                      ? 'Run Deep Research Review (Up to 60 Papers)'
+                      : 'Synthesize & Map Literature (Up to 20 Papers)'}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Synthesis Depth:</span>
+                    <button
+                      type="button"
+                      onClick={() => setMode('standard')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                        mode === 'standard'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      ⚡ Standard Synthesis (Max 20 Papers)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode('deep_research')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                        mode === 'deep_research'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                          : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      🔬 Deep Research Literature Review (Up to 60 Papers)
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-slate-500 font-medium mr-1">Include Repositories:</span>
+                    {[
+                      ['enable_pubmed', 'PubMed'],
+                      ['enable_arxiv', 'arXiv (Public)'],
+                      ['enable_biorxiv', 'bioRxiv / medRxiv (Public)'],
+                      ['enable_s2', 'Semantic Scholar'],
+                      ['enable_hf', 'Hugging Face Hub'],
+                    ].map(([fieldKey, lbl]) => {
+                      const en = !!config[fieldKey];
+                      return (
+                        <label
+                          key={fieldKey}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition ${
+                            en
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold'
+                              : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={en}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setConfig((prev) => {
+                                const next = { ...prev, [fieldKey]: checked };
+                                localStorage.setItem('citelume_config', JSON.stringify(next));
+                                return next;
+                              });
+                            }}
+                            className="accent-emerald-600 rounded cursor-pointer"
+                          />
+                          <span>{lbl}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </form>
+
+              {/* Animated Progress Banner with Repeating/Cycling Sentences */}
+              {loading && (
+                <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-5 shadow-sm space-y-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-7 h-7 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                          {mode === 'deep_research'
+                            ? 'Deep Research Literature Review Running (Up to 60 Papers)...'
+                            : 'Standard Literature Synthesis Running (Up to 20 Papers)...'}
+                        </span>
+                        <span className="text-[11px] font-mono text-indigo-600 font-semibold">
+                          Stage {statusStep + 1} of {RUNNING_STATUS_SENTENCES.length}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-slate-800 mt-1 transition-all duration-300">
+                        {RUNNING_STATUS_SENTENCES[statusStep]}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-600 rounded-full transition-all duration-500 animate-pulse"
+                      style={{ width: `${Math.min(95, ((statusStep + 1) / RUNNING_STATUS_SENTENCES.length) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-xl p-4 text-xs font-medium">{error}</div>
+              )}
+
+              {result && (
+                <>
+                  {result.warnings && result.warnings.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs">
+                      {result.warnings.map((w, i) => <div key={i}>• {w}</div>)}
+                    </div>
+                  )}
+
+                  {/* Navigation Tabs in Exact User-Requested Order:
+                      1. Cited Synthesis & Bibliography
+                      2. Structured Evidence Table
+                      3. Knowledge Gap Matrix
+                      4. Literature Network Map
+                      5. Hugging Face Models & Datasets
+                  */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        ['synthesis', `1. Cited Synthesis & Bibliography (${result.bibliography?.length || 0})`],
+                        ['evidence', `2. Structured Evidence Table (${result.papers?.length || 0})`],
+                        ['gap_matrix', '3. Knowledge Gap Matrix'],
+                        ['network', `4. Literature Network Map (${result.graph?.nodes?.length || 0})`],
+                        ['huggingface', `5. Hugging Face Models & Datasets (${result.hf_resources?.length || 0})`],
+                      ].map(([tid, lbl]) => (
+                        <button
+                          key={tid}
+                          onClick={() => setActiveTab(tid)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition border ${
+                            activeTab === tid
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TAB 1: CITED SYNTHESIS + BIBLIOGRAPHY + SELECTABLE EXPORT */}
+                  {activeTab === 'synthesis' && (
+                    <div className="space-y-6">
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {result.mode === 'deep_research' ? 'Deep Research Literature Review (Up to 60 Papers)' : 'Standard Evidence Synthesis (Up to 20 Papers)'}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {result.bibliography?.length || 0} cited papers • Full bibliography included at bottom
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-slate-500 font-medium mr-1">Download Report:</span>
+                            {['txt', 'md', 'pdf'].map((fmt) => (
+                              <button
+                                key={fmt}
+                                onClick={() => handleExport(fmt)}
+                                disabled={exportingFmt === fmt}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition uppercase"
+                              >
+                                {exportingFmt === fmt ? `Exporting .${fmt}...` : `Download .${fmt}`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Checkboxes to Include / Exclude Sections in Downloaded Reports */}
+                        <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs">
+                          <span className="font-semibold text-slate-600">Include in Downloaded Report:</span>
+                          {[
+                            ['include_evidence_table', 'Structured Evidence Table'],
+                            ['include_gap_matrix', 'Knowledge Gap Matrix'],
+                            ['include_network_summary', 'Literature Network Summary'],
+                            ['include_hf_models', 'Hugging Face Models'],
+                          ].map(([optKey, label]) => (
+                            <label
+                              key={optKey}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition ${
+                                exportOptions[optKey]
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium'
+                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-700'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!exportOptions[optKey]}
+                                onChange={() => toggleExportOption(optKey)}
+                                className="accent-emerald-600 rounded cursor-pointer"
+                              />
+                              <span>{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Multi-API Query Decomposition Plan */}
+                      {result.decomposition_plan && (
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                                Multi-API Query Decomposition Engine
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-semibold">
+                                Domain: {result.decomposition_plan.detected_domain}
+                              </span>
+                              {(result.decomposition_plan.extracted_technical_entities || []).map((ent, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[11px]"
+                                >
+                                  {ent}
+                                </span>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowDecomposition((v) => !v)}
+                              className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded bg-indigo-50 border border-indigo-200"
+                            >
+                              {showDecomposition
+                                ? 'Hide 5-API Facet Payloads ▲'
+                                : `Inspect ${result.decomposition_plan.search_facets?.length || 0} Search Facets & 5-API Queries ▼`}
+                            </button>
+                          </div>
+
+                          {showDecomposition && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                              {(result.decomposition_plan.search_facets || []).map((facet, fIdx) => (
+                                <div key={fIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+                                  <div className="font-bold text-slate-800 text-xs">{facet.facet_name}</div>
+                                  {facet.facet_intent && <div className="text-[11px] text-slate-500">{facet.facet_intent}</div>}
+                                  <div className="space-y-1 pt-1 font-mono text-[11px]">
+                                    <div><span className="text-blue-700 font-semibold">PubMed: </span><span className="text-slate-700">{facet.queries?.pubmed}</span></div>
+                                    <div><span className="text-purple-700 font-semibold">Semantic Scholar: </span><span className="text-slate-700">{facet.queries?.semantic_scholar}</span></div>
+                                    <div><span className="text-rose-700 font-semibold">arXiv: </span><span className="text-slate-700">{facet.queries?.arxiv}</span></div>
+                                    <div><span className="text-emerald-700 font-semibold">bioRxiv/medRxiv: </span><span className="text-slate-700">{(facet.queries?.biorxiv_medrxiv || []).join(' | ')}</span></div>
+                                    <div><span className="text-amber-700 font-semibold">Hugging Face: </span><span className="text-slate-700">{facet.queries?.hugging_face}</span></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Evidence Agreement Meter */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                              Evidence Agreement Meter — {result.consensus?.consensus_verdict}
+                            </h3>
+                            <p className="text-xs text-slate-600 mt-1">
+                              {renderCitedText(result.consensus?.consensus_summary, jumpToCitation)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs font-semibold">
+                            <span className="text-emerald-700">Supporting: {result.consensus?.supporting_pct}%</span>
+                            <span className="text-amber-700">Mixed: {result.consensus?.mixed_pct}%</span>
+                            <span className="text-rose-700">Contradicting: {result.consensus?.contradicting_pct}%</span>
+                          </div>
+                        </div>
+                        <div className="w-full h-3 rounded-full overflow-hidden bg-slate-100 flex border border-slate-200">
+                          <div style={{ width: `${result.consensus?.supporting_pct || 0}%` }} className="bg-emerald-500" />
+                          <div style={{ width: `${result.consensus?.mixed_pct || 0}%` }} className="bg-amber-400" />
+                          <div style={{ width: `${result.consensus?.contradicting_pct || 0}%` }} className="bg-rose-500" />
+                        </div>
+                      </div>
+
+                      {/* Executive Synthesis & Sections */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-900 mb-3">Executive Synthesis</h2>
+                          <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                            {renderCitedText(result.executive_answer, jumpToCitation)}
+                          </div>
+                        </div>
+                        {(result.sections || []).map((sec, idx) => (
+                          <div key={idx} className="border-t border-slate-200 pt-5">
+                            <h3 className="text-base font-bold text-indigo-800 mb-2">{sec.heading}</h3>
+                            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                              {renderCitedText(sec.content, jumpToCitation)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Complete Bibliography at the end */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-4">
+                          <div>
+                            <h2 className="text-base font-bold text-slate-900">
+                              References & Complete Bibliography ({result.bibliography?.length || 0})
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                              Every synthesis includes numbered citations linked to this bibliography.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {['apa', 'ieee', 'bibtex'].map((st) => (
+                              <button
+                                key={st}
+                                onClick={() => setBibStyle(st)}
+                                className={`px-2.5 py-1 rounded text-xs font-semibold uppercase border ${
+                                  bibStyle === st ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2.5">
+                          {(result.bibliography || []).map((bib) => (
+                            <div
+                              key={bib.index}
+                              id={`bib-entry-${bib.index}`}
+                              className={`p-3 rounded-lg border text-xs transition ${
+                                highlightedRef === bib.index
+                                  ? 'bg-indigo-50 border-indigo-400 text-slate-900 shadow-sm'
+                                  : 'bg-slate-50/70 border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {bibStyle === 'bibtex' ? (
+                                <pre className="font-mono text-[11px] overflow-x-auto whitespace-pre-wrap text-slate-700">{bib.bibtex}</pre>
+                              ) : (
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <span className="font-mono font-bold text-indigo-700 mr-1.5">[{bib.index}]</span>
+                                    <span>{bibStyle === 'apa' ? bib.apa_formatted.replace(/^\[\d+\]\s*/, '') : bib.ieee_formatted.replace(/^\[\d+\]\s*/, '')}</span>
+                                  </div>
+                                  {bib.url && (
+                                    <a href={bib.url} target="_blank" rel="noreferrer" className="shrink-0 px-2.5 py-1 rounded bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 font-medium">
+                                      Open ↗
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: STRUCTURED EVIDENCE TABLE */}
+                  {activeTab === 'evidence' && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                      <h2 className="text-base font-bold text-slate-900 mb-3">
+                        Structured Evidence Table ({result.papers?.length || 0} Papers)
+                      </h2>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                            <th className="p-3">Ref</th>
+                            <th className="p-3">Paper</th>
+                            <th className="p-3">Stance</th>
+                            <th className="p-3">Methodology</th>
+                            <th className="p-3">Dataset / System</th>
+                            <th className="p-3">Key Findings</th>
+                            <th className="p-3">Limitations</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {(result.papers || []).map((p) => (
+                            <tr key={p.id} className="align-top hover:bg-slate-50/80">
+                              <td className="p-3 font-mono font-bold text-indigo-700">[{p.citation_index}]</td>
+                              <td className="p-3 font-semibold text-slate-900">
+                                {p.title}
+                                <div className="text-slate-500 font-normal text-[11px] mt-0.5">
+                                  {p.authors?.[0] || p.source} ({p.year || 'n.d.'}) • {p.source}
+                                </div>
+                              </td>
+                              <td className="p-3 uppercase text-[10px] font-bold text-emerald-700">{p.stance}</td>
+                              <td className="p-3 text-slate-700">{p.elicit?.methodology}</td>
+                              <td className="p-3 text-slate-700">{p.elicit?.dataset_or_system}</td>
+                              <td className="p-3 text-slate-800">{p.elicit?.key_findings}</td>
+                              <td className="p-3 text-slate-500">{p.elicit?.limitations}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* TAB 3: KNOWLEDGE GAP MATRIX */}
+                  {activeTab === 'gap_matrix' && result.gap_matrix && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                      <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                        <h2 className="text-base font-bold text-slate-900 mb-1">Knowledge Gap Matrix (Methods × Evaluation Domains)</h2>
+                        <p className="text-xs text-slate-500 mb-4">Click any red (0 papers) or amber (1 paper) cell to inspect the white-space research hypothesis.</p>
+                        <table className="w-full border-collapse text-xs">
+                          <thead>
+                            <tr>
+                              <th className="p-3 bg-slate-50 border border-slate-200 text-left text-slate-600">Method ↓ \ Domain →</th>
+                              {(result.gap_matrix.cols || []).map((c, i) => (
+                                <th key={i} className="p-3 bg-slate-50 border border-slate-200 text-left text-slate-800">{c}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(result.gap_matrix.rows || []).map((rName, rIdx) => (
+                              <tr key={rIdx}>
+                                <td className="p-3 bg-slate-50 border border-slate-200 font-semibold text-slate-800">{rName}</td>
+                                {((result.gap_matrix.cells || [])[rIdx] || []).map((cell, cIdx) => (
+                                  <td
+                                    key={cIdx}
+                                    onClick={() => setSelectedGapCell(cell)}
+                                    className={`p-3 border cursor-pointer transition ${
+                                      cell.status === 'gap'
+                                        ? 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100/70'
+                                        : cell.status === 'sparse'
+                                        ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/70'
+                                        : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70'
+                                    }`}
+                                  >
+                                    <div className="font-bold text-[10px] uppercase">{cell.status} ({cell.paper_count})</div>
+                                    <div className="text-[11px] font-mono mt-1">
+                                      {cell.paper_indices?.length ? cell.paper_indices.map((i) => `[${i}]`).join(', ') : 'Unexplored Gap'}
+                                    </div>
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                        {selectedGapCell ? (
+                          <div className="space-y-3 text-xs">
+                            <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-bold uppercase text-[10px]">
+                              {selectedGapCell.status} ({selectedGapCell.paper_count} papers)
+                            </span>
+                            <h3 className="text-sm font-bold text-slate-900">
+                              {selectedGapCell.method_row} × {selectedGapCell.domain_col}
+                            </h3>
+                            <div>
+                              <strong className="text-slate-500 block mb-1">Why Gap Exists:</strong>
+                              <p className="text-slate-700 leading-relaxed">{selectedGapCell.why_gap_exists}</p>
+                            </div>
+                            <div>
+                              <strong className="text-indigo-700 block mb-1">Proposed Hypothesis:</strong>
+                              <p className="text-slate-800 leading-relaxed bg-indigo-50/60 p-3 rounded-lg border border-indigo-200">
+                                {selectedGapCell.proposed_hypothesis}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 4: LITERATURE NETWORK MAP */}
+                  {activeTab === 'network' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+                      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-200">
+                          <div>
+                            <h2 className="text-base font-bold text-slate-900">
+                              Interactive Literature Network Map ({result.graph?.nodes?.length || 0} Nodes • {result.graph?.edges?.length || 0} Edges)
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                              Click any node to inspect details and expand its citation neighborhood dynamically.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setLayoutMode('timeline')}
+                              className={`px-2.5 py-1 rounded text-xs font-semibold border ${layoutMode === 'timeline' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                            >
+                              Timeline × Impact
+                            </button>
+                            <button
+                              onClick={() => setLayoutMode('force')}
+                              className={`px-2.5 py-1 rounded text-xs font-semibold border ${layoutMode === 'force' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                            >
+                              Force Cluster
+                            </button>
+                            <select
+                              value={colorMode}
+                              onChange={(e) => setColorMode(e.target.value)}
+                              className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700"
+                            >
+                              <option value="cluster">Color: Cluster</option>
+                              <option value="stance">Color: Stance</option>
+                              <option value="source">Color: Source</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="w-full h-[520px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                          <svg viewBox="0 0 1000 540" className="w-full h-full select-none">
+                            {(result.graph?.edges || []).map((edge) => {
+                              const s = nodeMap[edge.source];
+                              const t = nodeMap[edge.target];
+                              if (!s || !t) return null;
+                              const x1 = (layoutMode === 'timeline' ? s.x_timeline : s.x_force) * 1000;
+                              const y1 = (layoutMode === 'timeline' ? s.y_timeline : s.y_force) * 500;
+                              const x2 = (layoutMode === 'timeline' ? t.x_timeline : t.x_force) * 1000;
+                              const y2 = (layoutMode === 'timeline' ? t.y_timeline : t.y_force) * 500;
+                              return (
+                                <line
+                                  key={edge.id}
+                                  x1={x1}
+                                  y1={y1}
+                                  x2={x2}
+                                  y2={y2}
+                                  stroke={edge.edge_type === 'citation' ? '#0284c7' : edge.edge_type === 'model_link' ? '#d97706' : '#94a3b8'}
+                                  strokeWidth={edge.edge_type === 'citation' ? 1.8 : 1.2}
+                                  strokeDasharray={edge.edge_type === 'semantic' ? '4 4' : undefined}
+                                  opacity={0.75}
+                                />
+                              );
+                            })}
+                            {(result.graph?.nodes || []).map((node) => {
+                              const cx = (layoutMode === 'timeline' ? node.x_timeline : node.x_force) * 1000;
+                              const cy = (layoutMode === 'timeline' ? node.y_timeline : node.y_force) * 500;
+                              const r = node.node_type !== 'paper' ? 11 : Math.min(22, Math.max(10, 9 + Math.log10((node.citations || 0) + 1) * 4.5));
+                              const isSel = selectedNode && selectedNode.id === node.id;
+                              return (
+                                <g key={node.id} onClick={() => setSelectedNode(node)} className="cursor-pointer">
+                                  <circle cx={cx} cy={cy} r={r} fill={getNodeColor(node)} stroke={isSel ? '#0f172a' : '#ffffff'} strokeWidth={isSel ? 2.5 : 1.5} />
+                                  <text x={cx} y={cy - r - 5} fill="#1e293b" fontSize="10.5" fontWeight="600" textAnchor="middle">
+                                    {node.label}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                        {selectedNode ? (
+                          <div className="space-y-3 text-xs">
+                            <span className="inline-block px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                              {selectedNode.source} • {selectedNode.year}
+                            </span>
+                            <h3 className="text-sm font-bold text-slate-900">{selectedNode.full_title}</h3>
+                            <p className="text-slate-500">Impact: {selectedNode.citations?.toLocaleString()} citations/downloads</p>
+                            {selectedNode.node_type === 'paper' && (
+                              <button
+                                onClick={handleExpandNode}
+                                disabled={expandingNode}
+                                className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-sm"
+                              >
+                                {expandingNode ? 'Expanding Citations...' : '+ Expand Node Citations'}
+                              </button>
+                            )}
+                            {selectedNode.url && (
+                              <a href={selectedNode.url} target="_blank" rel="noreferrer" className="block text-center py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-medium">
+                                Open Paper / Model ↗
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500">Click any node on the Literature Network Map to inspect and expand its citation network.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 5: HUGGING FACE HUB */}
+                  {activeTab === 'huggingface' && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                      <h2 className="text-base font-bold text-slate-900 mb-3">
+                        Discovered Hugging Face Hub Models & Datasets ({result.hf_resources?.length || 0})
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(result.hf_resources || []).map((res) => (
+                          <div key={res.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-[10px] text-amber-800 font-bold uppercase mb-1.5">
+                                <span>{res.resource_type} • {res.pipeline_tag}</span>
+                                <span>⬇ {res.downloads?.toLocaleString()}</span>
+                              </div>
+                              <div className="font-mono text-xs font-bold text-slate-900 mb-1">{res.id}</div>
+                              <p className="text-xs text-slate-600 mb-3">{res.description}</p>
+                            </div>
+                            <a href={res.url} target="_blank" rel="noreferrer" className="text-xs text-amber-700 font-semibold hover:underline">
+                              View on Hugging Face ↗
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </main>
+          </div>
+
+          <ApiConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} config={config} setConfig={setConfig} />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

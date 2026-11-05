@@ -1,0 +1,13 @@
+.claude
+.git
+.env
+.env.*
+**/._*
+**/.DS_Store
+**/__pycache__
+**/.pytest_cache
+backend/.cache
+backend/tests
+frontend/node_modules
+frontend/dist
+docs
