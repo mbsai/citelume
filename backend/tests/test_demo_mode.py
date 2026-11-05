@@ -55,6 +55,11 @@ class TestDemoMode(unittest.TestCase):
         with mock.patch.dict(os.environ, {"DEMO_PROXY_HOPS": "1"}):
             self.assertEqual(demo_mode.client_ip("9.9.9.9, 203.0.113.7", "10.0.0.1"), "203.0.113.7")
             self.assertEqual(demo_mode.client_ip(None, "10.0.0.1"), "10.0.0.1")
+            # Rotating IPv6 addresses in one network share one allowance
+            a = demo_mode.client_ip("2401:4900:97ae:3dce:c89b:cc8d:42dc:42e8", None)
+            b = demo_mode.client_ip("2401:4900:97ae:3dce:1111:2222:3333:4444", None)
+            self.assertEqual(a, b)
+            self.assertEqual(a, "2401:4900:97ae:3dce::/64")
 
 
 if __name__ == "__main__":

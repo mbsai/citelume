@@ -40,9 +40,10 @@ fuller answers. Without any LLM, it falls back to rule-based extraction.
 
 ## Try it
 
-- **Live demo:** this Hugging Face Space. You get 3 Standard and 1 Deep Research run per day for free, using NVIDIA's
-  free models via OpenRouter. Add your own LLM API key in **⚙ API Keys & Sources Setup** for unlimited use. Your key is
-  sent with each search and is not stored.
+- **Live demo:** https://citelume-976737283006.us-central1.run.app. You get 3 Standard and 1 Deep Research run per
+  day for free, using NVIDIA's free models via OpenRouter. Add your own LLM API key in **⚙ API Keys & Sources Setup**
+  for unlimited use. Your key is sent with each search and is not stored. The demo sleeps when idle, so the first
+  visit can take a few seconds.
 - **Run it yourself:** see below. No limits apply, and you can use any provider or a local model.
 
 ## Run locally
@@ -75,13 +76,23 @@ Then open http://127.0.0.1:7860.
 
 ## Hosting your own public demo
 
-Demo mode is controlled by environment variables. See [.env.example](.env.example). For a Hugging Face Space, set
-them under *Settings → Variables and secrets*, and set `DEMO_OPENROUTER_API_KEY` as a **secret**. Demo mode:
+Demo mode is controlled by environment variables. See [.env.example](.env.example). Demo mode:
 
-- limits each IP address per UTC day: 3 Standard and 1 Deep Research run by default;
+- limits each IP address per UTC day: 3 Standard and 1 Deep Research run by default. IPv6 visitors are counted per
+  /64 network, so rotating addresses don't reset the allowance;
 - restricts the shared key to NVIDIA's free models on OpenRouter;
 - does not count visitors who bring their own key against the limits;
 - blocks local model servers so the host's network cannot be reached.
+
+**Google Cloud Run** (scales to zero, so a small demo usually stays within the free allowance):
+
+1. Create a project with billing, and store the shared OpenRouter key as the secret `demo-openrouter-key`.
+2. Run `PROJECT=<your-project> ./deploy/cloudrun.sh`.
+
+The script runs one instance at most, keeps the daily counts in a Cloud Storage bucket so they survive restarts, and
+allows 30-minute requests for Deep Research.
+
+The same Docker image also runs on Hugging Face Spaces (a paid plan is now needed for Docker Spaces) or on any Docker host.
 
 ## Tests
 

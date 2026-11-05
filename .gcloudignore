@@ -1,0 +1,14 @@
+# Files never uploaded to Cloud Build (keys, caches, local builds)
+.gcloudignore
+.git
+.gitignore
+.claude/
+.env
+.env.*
+**/._*
+**/.DS_Store
+**/__pycache__/
+**/.pytest_cache/
+backend/.cache/
+frontend/node_modules/
+frontend/dist/

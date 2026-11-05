@@ -87,10 +87,20 @@ def client_ip(forwarded_for: Optional[str], peer: Optional[str]) -> str:
     if hops and parts:
         candidate = parts[-hops] if len(parts) >= hops else parts[0]
         try:
-            return str(ipaddress.ip_address(candidate))
+            return _quota_key(ipaddress.ip_address(candidate))
         except ValueError:
             pass
-    return peer or "unknown"
+    try:
+        return _quota_key(ipaddress.ip_address(peer or ""))
+    except ValueError:
+        return peer or "unknown"
+
+
+def _quota_key(ip: "ipaddress._BaseAddress") -> str:
+    # IPv6 devices rotate their addresses within one network, so count the /64 network (one household or phone)
+    if ip.version == 6 and not ip.ipv4_mapped:
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return str(ip.ipv4_mapped or ip) if ip.version == 6 else str(ip)
 
 
 # ---------------------------------------------------------------------------
@@ -258,4 +268,6 @@ def status_for(ip: str) -> Dict[str, object]:
         "allowed_models": allowed_models(),
         "default_model": default_model(),
         "resets": "00:00 UTC",
+        # Shown back to the visitor so the per-address limit can be checked behind the host's proxy
+        "address": ip,
     }
