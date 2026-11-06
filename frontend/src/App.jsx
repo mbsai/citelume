@@ -7,12 +7,19 @@ import KnowledgeGapMatrix from './components/KnowledgeGapMatrix';
 import HuggingFacePanel from './components/HuggingFacePanel';
 import { runLiteratureSearch, fetchSearchProgress, fetchModelScale, fetchDemoStatus } from './utils/api';
 
-const DEFAULT_CONFIG = {
-  llm_provider: 'gemini',
-  llm_api_key: '',
-  llm_model: 'gemini-2.5-flash',
+// Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
+// Bump CONFIG_VERSION when the default LLM changes, so saved settings that were never set by hand move to it.
+const CONFIG_VERSION = 2;
+const DEFAULT_LLM = {
+  llm_provider: 'openrouter',
+  llm_model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   llm_base_url: '',
-  llm_fallback_models: [],
+  llm_fallback_models: ['nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3.5-lightning:free'],
+};
+const DEFAULT_CONFIG = {
+  ...DEFAULT_LLM,
+  config_version: CONFIG_VERSION,
+  llm_api_key: '',
   provider_keys: {},
   provider_models: {},
   provider_base_urls: {},
@@ -198,9 +205,7 @@ function DemoBanner({ demo, hasOwnKey, onOpenConfig }) {
 export default function App() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [configOpen, setConfigOpen] = useState(false);
-  const [query, setQuery] = useState(
-    'Multi-modal foundation models and deep learning architectures for protein sequence structure prediction'
-  );
+  const [query, setQuery] = useState('');
   const [mode, setMode] = useState('standard'); // 'standard' | 'deep_research'
   const [domain, setDomain] = useState('');
   const [reviewFramework, setReviewFramework] = useState('narrative');
@@ -236,7 +241,15 @@ export default function App() {
       });
       const saved = localStorage.getItem('citelume_config');
       if (saved) {
-        setConfig((prev) => ({ ...prev, ...JSON.parse(saved) }));
+        let parsed = JSON.parse(saved);
+        // Settings saved before the default changed, with no LLM key entered, were never chosen by hand:
+        // move them to the current default model
+        if ((parsed.config_version || 1) < CONFIG_VERSION) {
+          if (!parsed.llm_api_key) parsed = { ...parsed, ...DEFAULT_LLM };
+          parsed.config_version = CONFIG_VERSION;
+          localStorage.setItem('citelume_config', JSON.stringify(parsed));
+        }
+        setConfig((prev) => ({ ...prev, ...parsed }));
       }
       const savedHist = localStorage.getItem('citelume_history');
       if (savedHist) {

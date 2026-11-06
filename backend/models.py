@@ -13,9 +13,9 @@ class ApiKeysConfig(BaseModel):
         "huggingface",
         "ollama",
         "custom",
-    ] = "gemini"
+    ] = "openrouter"
     llm_api_key: str = ""
-    llm_model: str = "gemini-2.5-flash"
+    llm_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     llm_base_url: str = ""
     # OpenRouter only: models tried in order when the primary model is rate-limited, down, or errors
     llm_fallback_models: List[str] = Field(default_factory=list)

@@ -40,6 +40,12 @@ class TestPubMedQueryTranslation(unittest.TestCase):
         self.assertTrue(q.endswith("AND SRC:MED"))
         self.assertNotIn("[Title/Abstract]", q)
 
+    def test_untagged_words_before_a_filter_are_not_swallowed(self):
+        q = translate_pubmed_query('branched chain amino acids[Title/Abstract] AND cardiovascular AND review[pt]')
+        self.assertIn('PUB_TYPE:"review"', q)
+        self.assertNotIn('PUB_TYPE:"branched', q)
+        self.assertNotIn("title:", q)  # field names must stay upper case
+
 
 class TestPubMedFallback(unittest.TestCase):
     def setUp(self):

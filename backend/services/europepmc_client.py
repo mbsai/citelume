@@ -20,8 +20,9 @@ EPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
 _TIAB = re.compile(r'("[^"]+"|[\w\-*]+)\[(?:Title/Abstract|tiab)\]', re.I)
 _TITLE = re.compile(r'("[^"]+"|[\w\-*]+)\[(?:Title|ti)\]', re.I)
-_PUBTYPE = re.compile(r'"?([^"\[\]]+?)"?\[(?:Publication Type|pt)\]', re.I)
-_MESH = re.compile(r'"?([^"\[\]]+?)"?\[(?:MeSH Terms|MeSH|mh)\]', re.I)
+# The tagged term is either quoted or a single word; never a run of preceding query text
+_PUBTYPE = re.compile(r'(?:"([^"]+)"|([\w\-]+))\[(?:Publication Type|pt)\]', re.I)
+_MESH = re.compile(r'(?:"([^"]+)"|([\w\-]+))\[(?:MeSH Terms|MeSH|mh)\]', re.I)
 _DATE = re.compile(r"(\d{4}):(\d{4})\[dp\]", re.I)
 
 
@@ -29,8 +30,8 @@ def translate_pubmed_query(query: str) -> str:
     """PubMed E-utilities query -> Europe PMC query restricted to PubMed records."""
     q = _TIAB.sub(lambda m: f"(TITLE:{m.group(1)} OR ABSTRACT:{m.group(1)})", query)
     q = _TITLE.sub(lambda m: f"TITLE:{m.group(1)}", q)
-    q = _PUBTYPE.sub(lambda m: f'PUB_TYPE:"{m.group(1).strip().lower()}"', q)
-    q = _MESH.sub(lambda m: f'MESH:"{m.group(1).strip()}"', q)
+    q = _PUBTYPE.sub(lambda m: f'PUB_TYPE:"{(m.group(1) or m.group(2)).strip().lower()}"', q)
+    q = _MESH.sub(lambda m: f'MESH:"{(m.group(1) or m.group(2)).strip()}"', q)
     q = _DATE.sub(lambda m: f"PUB_YEAR:[{m.group(1)} TO {m.group(2)}]", q)
     q = re.sub(r"\[[A-Za-z /]+\]", "", q)  # any remaining PubMed field tag (not the PUB_YEAR range above)
     return f"({q.strip()}) AND SRC:MED"
