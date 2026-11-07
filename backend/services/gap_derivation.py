@@ -93,11 +93,17 @@ _OPEN_QUESTION_RE = re.compile(
     r"|\bhas not (?:yet )?been (?:studied|investigated|explored|established|evaluated|determined)\b"
     r"|\b(?:were|was) not (?:evaluated|assessed|examined|investigated|measured)\b"
     r"|\bnot yet (?:known|established|clear|understood)\b|\bopen (?:problem|question|conjecture)s?\b"
-    r"|\bknowledge gap\b|\bwarrants? further\b",
+    r"|\bknowledge gap\b|\bwarrants? further\b"
+    # Formal results that break outside their assumptions leave the general case open
+    r"|\bcounterexamples?\b|\b(?:bounds?|estimates?|results?|theorems?)\s+(?:fails?|do not hold|does not hold)\b",
     re.I,
 )
 # Clauses that are about the study's own analysis plan rather than the field ("data were not available")
-_NOT_A_FIELD_GAP_RE = re.compile(r"\b(?:informed consent|ethic|funding|conflict of interest|this article|copyright)\b", re.I)
+_NOT_A_FIELD_GAP_RE = re.compile(
+    r"\b(?:informed consent|ethic|funding|conflict of interest|this article|copyright)\b"
+    # the study's own scope ("we did not include ...") is a limitation of that study, not an open question
+    r"|\bwe (?:did|could) not\b|\bour (?:study|analysis|review|sample|data)\b"
+    r"|\bthis (?:study|review|analysis|trial|work) (?:did|does|could|was) not\b", re.I)
 _FULLTEXT_GAP_SECTIONS = ("limitations", "discussion", "conclusion")
 
 _STOP = {
@@ -180,6 +186,19 @@ _REMAINS_RE = re.compile(
 def open_question_title(sentence: str, max_words: int = 14) -> str:
     """Short readable title for an author-stated open question."""
     s = re.sub(r"\[[\d,\s–-]+\]|\(\s*\d+\s*\)", "", sentence).strip().rstrip(".")
+    # Section labels and discourse markers are not part of the question
+    s = re.sub(r"^(?:[A-Z][A-Z ]{2,20}:\s*|(?:background|conclusions?|objectives?|aims?|results)\s*:\s*)", "", s, flags=re.I)
+    s = re.sub(r"^(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|finally|lastly|moreover|furthermore|in addition|"
+               r"additionally|importantly|notably|however|thus|therefore|overall|together|taken together)\s*,\s*",
+               "", s, flags=re.I)
+    m_need = re.match(r"^(?:further|more|additional|future|larger|well-designed|prospective|longitudinal)\s+"
+                      r"(?:[\w-]+\s+){0,2}?(?:research|studies|study|investigations?|work|trials?|data)\s+"
+                      r"(?:on|of|into|in|about|regarding|to clarify|to determine|to establish)\s+(.{8,}?)\s+"
+                      r"(?:is|are|will be)\s+(?:still\s+)?(?:needed|required|warranted|necessary)", s, re.I)
+    if m_need:
+        s = "Needed: further study of " + m_need.group(1)
+        words = s.split()
+        return " ".join(words[:max_words]).rstrip(",;:") + (" …" if len(words) > max_words else "")
     m = _REMAINS_RE.match(s)
     if m:
         title = f"{m.group(1).strip()} {m.group(2).strip()}"

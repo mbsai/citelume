@@ -33,7 +33,66 @@ QUESTION_FRAMING_WORDS = {
     "play", "plays", "playing", "contribute", "contributes", "contributing", "mediate", "mediates", "mediated",
     "regulate", "regulates", "regulated", "underlie", "underlies", "underlying", "result", "results", "induce",
     "induces", "induced", "promote", "promotes", "influence", "influences", "relate", "related", "relates",
+    # reporting and reasoning vocabulary in questions about someone's study ("Your study identified changes in X
+    # associated with Y. How would you distinguish whether these are causes or consequences?")
+    "your", "my", "our", "their", "study", "studies", "identified", "identify", "identifies", "identifying",
+    "observed", "observe", "found", "find", "finding", "findings", "showed", "shows", "show", "revealed", "reveal",
+    "reveals", "suggest", "suggests", "suggested", "change", "changes", "changed", "altered", "alteration",
+    "alterations", "associated", "association", "associations", "linked", "link", "links", "distinguish",
+    "distinguishing", "determine", "explain", "explains", "understand", "interpret", "might", "may", "would",
+    "could", "should", "these", "those", "this", "that", "consequence", "consequences", "mechanism", "mechanisms",
+    "contribution", "approach", "approaches", "address", "assess", "evaluate", "investigate", "examine",
+    # effect verbs and comparatives that join an exposure to an outcome ("does X prevent Y", "higher X in Y")
+    "prevent", "prevents", "preventing", "reduce", "reduces", "reducing", "lower", "lowers", "lowering", "improve",
+    "improves", "improving", "increase", "increases", "increasing", "decrease", "decreases", "affect", "affects",
+    "affecting", "work", "works", "working", "help", "helps", "higher", "high", "low", "elevated", "increased",
+    "decreased", "reduced", "better", "worse", "best", "versus", "compared", "against", "usual",
+    # research-request vocabulary ("I'm writing my thesis and need everything on X")
+    "writing", "write", "thesis", "dissertation", "paper", "papers", "article", "articles", "literature", "need",
+    "needs", "needed", "everything", "anything", "something", "information", "info", "please", "kindly", "help",
+    "sources", "references", "summary", "summarize", "summarise", "overview", "update", "insights", "insight",
+    "advances", "advance", "progress", "recent", "latest", "new", "novel", "current", "emerging", "future",
+    "since", "till", "until", "during", "last", "past", "decade", "decades", "year", "years", "day", "days",
+    "im", "i'm", "ive", "i've", "id", "i'd", "lets", "let's",
+    # pasted-abstract section labels and reporting verbs
+    "background", "introduction", "objective", "objectives", "methods", "method", "results", "conclusion",
+    "conclusions", "purpose", "design", "setting", "conducted", "performed", "common", "commonly", "main",
+    # generic people words (specific populations are constraints)
+    "adults", "adult", "people", "persons", "individuals", "participants", "subjects", "patients", "patient",
+    "population", "populations", "humans",
+    # common Spanish/Portuguese/French function words, so non-English questions still yield concepts
+    "de", "del", "la", "las", "el", "los", "en", "y", "e", "o", "para", "por", "con", "sobre", "que", "un", "una",
+    "da", "do", "das", "dos", "em", "no", "na", "le", "les", "des", "du", "et", "pour", "avec", "sur", "au", "aux",
 }
+# Multi-word framing removed before parsing
+_FRAMING_PHRASES = re.compile(
+    r"\b(?:state[- ]of[- ]the[- ]art|state of knowledge|current state|what is known|an overview of|"
+    r"the latest on|recent advances in|literature review on|systematic review of|review of)\b", re.I)
+_NEGATION_RE = re.compile(r"\b(?:NOT|not|without|excluding|exclude|except)\b\s+([^,;:()]+?)(?=\s+(?:AND|OR|and|or)\b|[,;:()]|$)")
+
+
+def strip_negated(question: str) -> str:
+    """The question without its excluded parts ("asthma NOT children" -> "asthma")."""
+    return _NEGATION_RE.sub(" ", question or "")
+
+# Methods and data types: kept as concepts, but ranked after what the question is about, so "metabolomics" in
+# "your metabolomics study identified changes in branched-chain amino acids" does not become the main topic
+METHOD_WORDS = {
+    "metabolomics", "metabolomic", "proteomics", "proteomic", "transcriptomics", "transcriptomic", "genomics",
+    "genomic", "lipidomics", "lipidomic", "multi-omics", "multiomics", "omics", "epigenomics", "metagenomics",
+    "machine", "learning", "deep", "neural", "network", "networks", "meta-analysis", "review", "systematic",
+    "mendelian", "randomization", "randomisation", "sequencing", "rna-seq", "single-cell", "mass", "spectrometry",
+    "lc-ms", "gc-ms", "nmr", "imaging", "cohort", "trial", "randomized", "randomised", "survey", "analysis",
+    "profiling", "screening", "modelling", "modeling", "simulation", "data", "dataset", "datasets",
+    "experiments", "experiment", "experimental", "prevalence", "incidence", "epidemiology", "epidemiological",
+    "burden", "rates", "rate", "trends", "trend", "statistics", "reception", "applications", "application",
+}
+_LINK_SUFFIX = re.compile(r"-(?:related|associated|based|dependent|mediated|induced|driven|derived|linked)$", re.I)
+
+
+def is_method_concept(phrase: str) -> bool:
+    words = phrase.lower().split()
+    return bool(words) and all(w in METHOD_WORDS for w in words)
 
 # Experimental systems a question asks to cover; used to target searches, never required in every query
 _MODEL_SYSTEMS: Dict[str, Tuple[str, ...]] = {
@@ -135,8 +194,8 @@ class QuestionConstraint:
 
 
 def detect_constraints(question: str) -> List[QuestionConstraint]:
-    """Places and populations the question is explicitly restricted to."""
-    low = f" {question.lower()} "
+    """Places and populations the question is explicitly restricted to (never ones it excludes)."""
+    low = f" {strip_negated(question).lower()} "
     found: List[QuestionConstraint] = []
     # Longest names first so "South Asia" wins over "Asia", "South Africa" over "Africa"
     for name, spellings in sorted(_PLACES.items(), key=lambda kv: -max(len(s) for s in kv[1])):
@@ -174,12 +233,13 @@ def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_wo
     Runs of consecutive content words, in question order. "What is the state of coronary artery disease in India"
     -> ["coronary artery disease"]; constraint words and framing words split runs and are not included.
     """
+    question = strip_negated(_FRAMING_PHRASES.sub(" , ", question or ""))
+    question = re.sub(r"(\d),(\d{3})\b", r"\1\2", question)  # 10,000 -> 10000
     constraints = detect_constraints(question)
     model_words = {w for c in detect_model_systems(question) for sp in c.spellings for w in sp.split()}
     model_words |= {"models", "model", "animal", "human", "clinical", "samples", "sample", "patients", "patient"} \
         if model_words else set()
     excluded = stop_words | QUESTION_FRAMING_WORDS | constraint_words(constraints) | model_words
-    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9+/-]*", question)
     phrases: List[str] = []
     run: List[str] = []
 
@@ -191,11 +251,110 @@ def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_wo
                 phrases.append(" ".join(run[max_words:max_words * 2]))
         run.clear()
 
-    for tok in tokens:
+    # A quoted phrase is one concept; punctuation, "vs" and boolean operators end a concept
+    token_re = re.compile(r'"([^"]+)"|\u201c([^\u201d]+)\u201d|(\s[-\u2013\u2014]\s|[,;:()?!.]|\bAND\b|\bOR\b|\bvs\.?)'
+                          r"|([^\W_][\w+/'\u2019-]*)", re.UNICODE)
+    for m in token_re.finditer(question):
+        quoted = m.group(1) or m.group(2)
+        if quoted:
+            flush()
+            words = [w for w in re.findall(r"[^\W_][\w+/-]*", quoted) if w.lower() not in excluded or len(quoted.split()) > 1]
+            if words:
+                phrases.append(" ".join(w if (w.isupper() and len(w) <= 6) else w.lower() for w in words))
+            continue
+        if m.group(3):
+            flush()
+            continue
+        tok = re.sub(r"['\u2019]s$", "", m.group(4) or "").strip("'\u2019-")  # Alzheimer's -> Alzheimer
         low = tok.lower()
-        if low in excluded or len(low) < 2:
+        if not tok:
+            continue
+        if re.fullmatch(r"(?:19|20)\d{2}s?", tok):  # years are a date filter, not a concept
+            flush()
+        elif len(low) == 1 and run and (tok.isupper() or tok.isdigit()):
+            run.append(tok)  # vitamin D, hepatitis B, type 2
+        elif low in excluded or len(low) < 2:
             flush()
         else:
-            run.append(tok if (tok.isupper() and len(tok) <= 6) else low)
+            # "arginine-related metabolism" -> "arginine metabolism"
+            tok = _LINK_SUFFIX.sub("", tok)
+            run.append(tok if (tok.isupper() and len(tok) <= 6) else tok.lower())
     flush()
-    return list(dict.fromkeys(p for p in phrases if p))[:max_phrases]
+    unique = list(dict.fromkeys(p for p in phrases if p))
+    # What the question is about first, methods after (stable within each group)
+    ordered = [p for p in unique if not is_method_concept(p)] + [p for p in unique if is_method_concept(p)]
+    return ordered[:max_phrases]
+
+
+def concept_blocks(question: str, phrases: Sequence[str], max_blocks: int = 2) -> List[List[str]]:
+    """
+    Groups the leading concepts into search blocks that are ANDed together. Concepts the question lists side by
+    side ("branched-chain amino acid and arginine metabolism") are alternatives within one block, so a study about
+    either one is found; the next distinct concept forms the next block.
+    """
+    # Upper-case AND is a Boolean operator (both required), not a list of alternatives
+    question = re.sub(r"\bAND\b", " ; ", question or "")
+    text = _LINK_SUFFIX.sub("", " ".join(_LINK_SUFFIX.sub("", w) for w in question.lower().split()))
+    text = re.sub(r"\s+", " ", text)
+
+    def span(ph: str):
+        m = re.search(re.escape(ph.lower()), text)
+        return (m.start(), m.end()) if m else None
+
+    blocks: List[List[str]] = []
+    i = 0
+    while i < len(phrases) and len(blocks) < max_blocks:
+        block = [phrases[i]]
+        while i + 1 < len(phrases):
+            a, b = span(block[-1]), span(phrases[i + 1])
+            if a and b and a[1] <= b[0] and re.fullmatch(r"[\s,]*(?:and|or|and/or|,)[\s,]*", text[a[1]:b[0]]):
+                block.append(phrases[i + 1])
+                i += 1
+            else:
+                break
+        blocks.append(block)
+        i += 1
+    return blocks
+
+
+# Words that qualify a concept rather than name it; a concept is matched by its other (specific) words
+GENERIC_CONCEPT_WORDS = {
+    "adverse", "outcome", "outcomes", "metabolism", "metabolic", "pathway", "pathways", "dysfunction",
+    "progression", "levels", "level", "activity", "function", "functions", "risk", "risks", "event", "events",
+    "effect", "effects", "impact", "response", "responses", "status", "burden", "disease", "diseases", "disorder",
+    "disorders", "health", "factor", "factors",
+}
+
+
+def specific_words(phrase: str) -> List[str]:
+    words = phrase.lower().split()
+    spec = [w for w in words if w not in GENERIC_CONCEPT_WORDS]
+    return spec or words
+
+
+def initialism(phrase: str) -> str:
+    """'branched-chain amino acid' -> 'BCAA', 'coronary artery disease' -> 'CAD' (only for 3+ letter results)."""
+    parts = [w for w in re.split(r"[\s-]+", phrase) if w]
+    abbr = "".join(w[0] for w in parts).upper()
+    return abbr if len(abbr) >= 3 and len(parts) >= 3 else ""
+
+
+def concept_mentions(phrase: str, text: str) -> int:
+    """
+    How often a concept appears in text: the phrase itself (plural, hyphen or space variants), its initialism
+    (BCAA), or - for multi-word concepts written differently - all of its specific words (counted once).
+    """
+    if not phrase or not text:
+        return 0
+    low = text.lower()
+    pattern = r"[\s-]?".join(re.escape(w) for w in re.split(r"[\s-]+", phrase.lower()) if w)
+    n = len(re.findall(rf"(?<![a-z0-9]){pattern}(?:s|es)?(?![a-z])", low))
+    abbr = initialism(phrase)
+    if abbr:
+        n += len(re.findall(rf"(?<![A-Za-z0-9]){abbr}s?(?![A-Za-z0-9])", text))
+    if n:
+        return n
+    spec = specific_words(phrase)
+    if len(phrase.split()) > 1 and all(re.search(rf"(?<![a-z0-9]){re.escape(w)}", low) for w in spec):
+        return 1
+    return 0

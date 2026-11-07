@@ -1,6 +1,7 @@
 import math
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
+from services.question_parsing import GENERIC_CONCEPT_WORDS, concept_blocks, concept_mentions, is_method_concept
 import numpy as np
 import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -48,15 +49,9 @@ def _topic_relevance(concept: str, title: str, abstract: str) -> str:
     """
     if not concept:
         return "addresses"
-    words = concept.lower().split()
 
     def mentions(text: str) -> int:
-        low = text.lower()
-        exact = len(re.findall(rf"(?<![a-z]){re.escape(concept.lower())}(?![a-z])", low))
-        if exact or len(words) == 1:
-            return exact
-        # Multi-word concept written differently (e.g. "coronary disease of the artery"): count only if every word occurs
-        return 1 if all(re.search(rf"(?<![a-z]){re.escape(w)}", low) for w in words) else 0
+        return concept_mentions(concept, text)
 
     if mentions(title):
         return "addresses"
@@ -64,6 +59,34 @@ def _topic_relevance(concept: str, title: str, abstract: str) -> str:
         return "partly"
     n = mentions(abstract)
     return "addresses" if n >= 2 else ("partly" if n == 1 else "off_topic")
+
+
+def core_topic_concepts(phrases: List[str], limit: int = 3) -> List[str]:
+    """The question's leading subject concepts (not methods, not purely generic words) used to screen studies."""
+    core = [p for p in phrases if not is_method_concept(p) and any(w not in GENERIC_CONCEPT_WORDS for w in p.split())]
+    return (core or list(phrases))[:limit]
+
+
+def _topic_relevance_multi(concepts: List[str], title: str, abstract: str,
+                           main_alternatives: Optional[List[str]] = None) -> Tuple[str, List[str]]:
+    """
+    Topic check against several concepts. With one concept it is the single-concept rule. With more, a study that
+    covers at least two of them addresses the question, one that covers only the first (main) concept partly does,
+    and anything else is off topic. Returns the level and the concepts found.
+    """
+    if len(concepts) <= 1:
+        c = concepts[0] if concepts else ""
+        level = _topic_relevance(c, title, abstract)
+        return level, ([c] if c and level != "off_topic" else [])
+    found = [c for c in concepts if concept_mentions(c, f"{title} {abstract}")]
+    mains = set(main_alternatives or concepts[:1])
+    # Fully on topic: one of the main concepts AND another part of the question (two side-by-side alternatives,
+    # e.g. BCAA and arginine in a cancer paper, are not enough)
+    if any(c in mains for c in found) and any(c not in mains for c in found):
+        return "addresses", found
+    if any(c in mains for c in found):
+        return "partly", found
+    return "off_topic", found
 
 
 def deduplicate_and_rank_papers(
@@ -255,20 +278,24 @@ def deduplicate_and_rank_papers(
     # Place/population constraints from the question: matching studies rank first; non-matching ones are dropped
     # when enough matching studies exist, otherwise kept and flagged so the synthesis can leave them out
     constraints = understanding.concepts.required_constraints if understanding else []
-    main_concept = (understanding.concepts.concept_phrases or [""])[0] if understanding else ""
+    topic_concepts = core_topic_concepts(understanding.concepts.concept_phrases or []) if understanding else []
+    main_concept = topic_concepts[0] if topic_concepts else ""
+    # Concepts the question lists side by side with the main one ("X and Y metabolism") count as main too
+    first_block = (concept_blocks(understanding.normalized_query, topic_concepts) or [[]])[0] if understanding else []
     if constraints or main_concept:
         for p in unique_papers:
             text = f"{p.title} {p.abstract or ''}".lower()
             missing = [c.name for c in constraints if not any(sp in text for sp in c.spellings)]
-            topic = _topic_relevance(main_concept, p.title, p.abstract or "")
+            topic, found = _topic_relevance_multi(topic_concepts, p.title, p.abstract or "", first_block)
             if missing or topic == "off_topic":
                 p.relevance = "off_topic"
                 p.relevance_note = (f"Title/abstract does not mention {', '.join(missing)}" if missing
-                                    else f"Not about {main_concept}")
+                                    else f"Not about {' / '.join(topic_concepts)}")
             else:
                 p.relevance = topic
                 p.relevance_note = (f"Matches {', '.join(c.name for c in constraints)}; " if constraints else "") + (
-                    f"{main_concept} is a main subject" if topic == "addresses" else f"mentions {main_concept} only in passing")
+                    f"covers {', '.join(found)}" if topic == "addresses" else
+                    f"mentions {main_concept} only" + (" in passing" if len(topic_concepts) == 1 else ""))
         matching = [p for p in unique_papers if p.relevance != "off_topic"]
         if stats is not None:
             stats["constraint_excluded"] = 0

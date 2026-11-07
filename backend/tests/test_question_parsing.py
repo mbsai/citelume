@@ -102,5 +102,33 @@ class TestRelevanceScreening(unittest.TestCase):
         self.assertEqual(item.addresses_question, "no")
 
 
+class TestConversationalQuestion(unittest.TestCase):
+    Q = ("Your metabolomics study identified changes in branched-chain amino acid and arginine-related metabolism "
+         "associated with adverse cardiovascular outcomes. How might these metabolic pathways contribute to "
+         "cardiovascular dysfunction, and how would you distinguish whether these changes are causes or "
+         "consequences of disease progression?")
+
+    def test_topic_first_methods_and_framing_out(self):
+        phrases = concept_phrases(self.Q, CONVERSATIONAL_STOP_WORDS, max_phrases=6)
+        self.assertEqual(phrases[:3], ["branched-chain amino acid", "arginine metabolism", "adverse cardiovascular outcomes"])
+        self.assertNotIn("identified changes", phrases)
+
+    def test_listed_concepts_are_alternatives_in_search(self):
+        q = compile_deterministic_decomposition_plan(self.Q).search_facets[0].queries.pubmed
+        first = q.split(") AND (")[0]
+        self.assertIn("branched-chain amino acid", first)
+        self.assertIn("arginine", first)  # same block, joined by OR
+
+    def test_screening_uses_several_concepts_and_abbreviations(self):
+        from services.graph_builder import _topic_relevance_multi, core_topic_concepts
+        c = core_topic_concepts(concept_phrases(self.Q, CONVERSATIONAL_STOP_WORDS, max_phrases=6))
+        mains = c[:2]
+        self.assertEqual(_topic_relevance_multi(c, "BCAAs in cardiovascular disease", "", mains)[0], "addresses")
+        self.assertEqual(_topic_relevance_multi(c, "Metabolomics of triple negative breast cancer", "TNBC", mains)[0], "off_topic")
+        self.assertEqual(_topic_relevance_multi(c, "Plasma arginine in heart failure", "arginine levels", mains)[0], "partly")
+        self.assertEqual(_topic_relevance_multi(
+            c, "Crosstalk between arginine and branched chain amino acid metabolism in tumours", "", mains)[0], "partly")
+
+
 if __name__ == "__main__":
     unittest.main()

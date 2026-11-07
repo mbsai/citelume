@@ -20,6 +20,8 @@ from services.domain_profiles import DOMAIN_PROFILES, compose_profiles
 from services.llm_service import call_llm, extract_json_block
 from services.question_parsing import (
     QUESTION_FRAMING_WORDS,
+    concept_blocks,
+    specific_words,
     concept_phrases,
     detect_constraints,
     detect_model_systems,
@@ -146,6 +148,12 @@ AMBIGUOUS_ACRONYM_REGISTRY: Dict[str, List[Tuple[str, DomainCategoryType, List[s
         ("intravenous", "biomedical_clinical", ["dose", "infusion", "patient", "pharmacokinetic", "injection", "clinical"]),
     ],
 }
+
+
+def correct_typos_keep_punctuation(query: str) -> str:
+    """Common typo fixes, keeping quotes, commas and apostrophes the concept parser relies on."""
+    return re.sub(r"[A-Za-z]+(?![A-Za-z'\u2019])", lambda m: COMMON_TYPO_CORRECTIONS.get(m.group(0).lower(), m.group(0)),
+                  query or "")
 
 
 def normalize_and_correct_query(query: str) -> str:
@@ -388,7 +396,7 @@ def understand_research_question(
         RequiredConstraint(kind=c.kind, name=c.name, spellings=list(c.spellings)) for c in detect_constraints(norm_q)
     ]
     constraints.extend(f"{c.kind.capitalize()} constraint: {c.name}" for c in required)
-    phrases = concept_phrases(norm_q, CONVERSATIONAL_STOP_WORDS, max_phrases=6)
+    phrases = concept_phrases(correct_typos_keep_punctuation(query), CONVERSATIONAL_STOP_WORDS, max_phrases=6)
     model_systems = [
         RequiredConstraint(kind="model_system", name=m.name, spellings=list(m.spellings))
         for m in detect_model_systems(norm_q)
@@ -565,33 +573,42 @@ def _tiab(term: str) -> str:
     return f'"{term}"[Title/Abstract]' if " " in term else f"{term}[Title/Abstract]"
 
 
-def build_required_pubmed_core(phrases: List[str], constraints: List[RequiredConstraint]) -> Optional[str]:
+def build_required_pubmed_core(phrases: List[str], constraints: List[RequiredConstraint],
+                               question: str = "") -> Optional[str]:
     """
-    Required part of every PubMed query: the main concept phrases (each as a phrase or all of its words) AND every
-    place/population constraint (any of its spellings). Returns None when the question has no phrases.
+    Required part of every PubMed query: the main concept blocks (each concept as a phrase or all of its words;
+    concepts listed side by side in the question are alternatives) AND every place/population constraint.
+    Returns None when the question has no phrases.
     """
     if not phrases:
         return None
     blocks = []
-    for ph in phrases[:2]:
-        words = ph.split()
-        alts = [_tiab(ph)] + ([f"({' AND '.join(_tiab(w) for w in words)})"] if len(words) > 1 else [])
+    for group in concept_blocks(question, phrases) if question else [[ph] for ph in phrases[:2]]:
+        alts = []
+        for ph in group:
+            words = specific_words(ph) if len(ph.split()) > 1 else ph.split()
+            alts += [_tiab(ph)] + ([f"({' AND '.join(_tiab(w) for w in words)})" if len(words) > 1 else _tiab(words[0])]
+                                   if len(ph.split()) > 1 else [])
         blocks.append("(" + " OR ".join(alts) + ")")
     for c in constraints:
         blocks.append("(" + " OR ".join(_tiab(sp) for sp in c.spellings[:4]) + ")")
     return " AND ".join(blocks)
 
 
-def build_required_arxiv_core(phrases: List[str], constraints: List[RequiredConstraint]) -> Optional[str]:
+def build_required_arxiv_core(phrases: List[str], constraints: List[RequiredConstraint],
+                              question: str = "") -> Optional[str]:
     if not phrases:
         return None
     blocks = []
-    for ph in phrases[:2]:
-        words = [re.sub(r"[^a-zA-Z0-9_-]", "", w) for w in ph.split()]
-        words = [w for w in words if w]
-        if not words:
-            continue
-        blocks.append(f'all:"{" ".join(words)}"' if len(words) > 1 else f"(ti:{words[0]} OR abs:{words[0]})")
+    for group in concept_blocks(question, phrases) if question else [[ph] for ph in phrases[:2]]:
+        alts = []
+        for ph in group:
+            words = [re.sub(r"[^a-zA-Z0-9_-]", "", w) for w in ph.split()]
+            words = [w for w in words if w]
+            if words:
+                alts.append(f'all:"{" ".join(words)}"' if len(words) > 1 else f"(ti:{words[0]} OR abs:{words[0]})")
+        if alts:
+            blocks.append(alts[0] if len(alts) == 1 else "(" + " OR ".join(alts) + ")")
     for c in constraints:
         sps = [re.sub(r"[^a-zA-Z0-9 _-]", "", sp) for sp in c.spellings[:3]]
         blocks.append("(" + " OR ".join(f'all:"{sp}"' if " " in sp else f"all:{sp}" for sp in sps if sp) + ")")
@@ -734,8 +751,8 @@ def plan_and_compile_universal_search(
     # Concept phrases and required constraints keep multi-word concepts intact and make places/populations mandatory
     phrases = understanding.concepts.concept_phrases
     constraints = understanding.concepts.required_constraints
-    pubmed_core = build_required_pubmed_core(phrases, constraints)
-    arxiv_core = build_required_arxiv_core(phrases, constraints)
+    pubmed_core = build_required_pubmed_core(phrases, constraints, understanding.normalized_query)
+    arxiv_core = build_required_arxiv_core(phrases, constraints, understanding.normalized_query)
     if phrases:
         constraint_names = [c.name for c in constraints]
         core_terms = phrases[:2] + constraint_names

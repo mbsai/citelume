@@ -1,3 +1,4 @@
+import re
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
@@ -37,7 +38,8 @@ from services import demo_mode
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
 from services.source_health import begin_source_health, set_openalex_api_key, source_failure_warnings
-from services.query_utils import generate_multi_api_decomposition_plan
+from services.query_utils import generate_multi_api_decomposition_plan, understand_research_question
+from services.identifier_query import identifier_in_query, resolve_identifier_title
 from services.graph_builder import deduplicate_and_rank_papers, build_literature_graph
 from services.synthesis_engine import (
     generate_bibliography,
@@ -267,11 +269,44 @@ async def get_search_progress(progress_id: str) -> Dict[str, Any]:
     return _SEARCH_PROGRESS.get(progress_id) or {"stage": 0, "total": len(SEARCH_STAGES), "label": "", "detail": ""}
 
 
+async def _prepare_query(req: SearchRequest) -> Tuple[SearchRequest, str]:
+    """
+    Make the query searchable before any work (or demo allowance) is spent: a bare DOI / PubMed / arXiv identifier
+    is replaced by its paper's title, and a query with no research topic is refused with advice.
+    Returns the request to run and a note for the results ("" if nothing changed).
+    """
+    q = re.sub(r"\s+", " ", req.query or "").strip()
+    if len(q) > 4000:
+        q = q[:4000]
+    note = ""
+    ident = identifier_in_query(q)
+    if ident:
+        title = await resolve_identifier_title(*ident)
+        if not title:
+            raise HTTPException(400, f"Could not look up the paper for {ident[0].upper()} {ident[1]}. "
+                                     "Please type the research topic or the paper's title instead.")
+        note = f"Query interpreted: searched for literature related to the paper \"{title}\" ({ident[0].upper()} {ident[1]})."
+        q = title
+    concepts = understand_research_question(q).concepts
+    if not re.search(r"[^\W\d_]{2,}", q) or not (concepts.concept_phrases or concepts.required_constraints):
+        raise HTTPException(400, "Please describe a research topic to search, for example \"statins after myocardial "
+                                 "infarction\" or \"How does sleep affect memory in older adults?\". General words "
+                                 "alone (such as \"state of the art\" or \"what is it about\") cannot be searched.")
+    return (req.model_copy(update={"query": q}) if q != req.query else req), note
+
+
+def _with_note(result: ResearchResponse, note: str) -> ResearchResponse:
+    if note:
+        result.warnings.insert(0, note)
+    return result
+
+
 @app.post("/api/search", response_model=ResearchResponse)
 async def execute_research_search(req: SearchRequest, request: Request) -> ResearchResponse:
+    req, note = await _prepare_query(req)
     if not demo_mode.demo_enabled():
         try:
-            return await _run_research_search(req)
+            return _with_note(await _run_research_search(req), note)
         finally:
             if req.progress_id:
                 _SEARCH_PROGRESS.pop(req.progress_id, None)
@@ -294,7 +329,7 @@ async def execute_research_search(req: SearchRequest, request: Request) -> Resea
             run_req = req.model_copy(update={"config": cfg})
             result = await _run_research_search(run_req)
             completed = True
-            return result
+            return _with_note(result, note)
     finally:
         if not completed:
             demo_mode.USAGE.give_back(ip, bucket)  # a crashed run does not use up the visitor's allowance

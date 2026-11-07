@@ -121,7 +121,7 @@ def generate_markdown_report(req: ExportRequest) -> str:
                 r_dir = (sg.recommended_study_or_approach or "").replace("|", "/")
                 lines.append(f"| {g_title} | {known} | {unres} | {ev_basis} | {v_stat} | {r_dir} |")
             lines.append("")
-        for opp in req.gap_matrix.top_opportunities[:6]:
+        for opp in ([] if req.gap_matrix.structured_gaps else req.gap_matrix.top_opportunities[:6]):
             badge = opp.coverage_classification
             lines.append(f"### [{badge}] {opp.method_row} × {opp.domain_col}")
             lines.append(f"- **Why Gap Exists:** {opp.why_gap_exists}")
@@ -235,12 +235,11 @@ def generate_txt_report(req: ExportRequest) -> str:
             lines.append(f"    • Limitations : {p.elicit.limitations}")
             lines.append("")
 
-    if req.include_gap_matrix and req.gap_matrix and req.gap_matrix.top_opportunities:
-        lines.extend(["KNOWLEDGE GAP MATRIX — RESEARCH OPPORTUNITIES", subsep, ""])
-        for opp in req.gap_matrix.top_opportunities[:8]:
-            lines.append(f"* {opp.method_row}  x  {opp.domain_col} ({opp.status.upper()}: {opp.paper_count} papers)")
-            lines.append(f"  Why Gap Exists      : {opp.why_gap_exists}")
-            lines.append(f"  Proposed Hypothesis : {opp.proposed_hypothesis}")
+    if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
+        lines.extend(["KNOWLEDGE GAPS", subsep, ""])
+        for item in _gap_text_items(req.gap_matrix):
+            lines.append(f"* {item[0]}")
+            lines.extend(f"  {label:<20}: {value}" for label, value in item[1])
             lines.append("")
 
     if req.include_network_summary and req.graph and req.graph.nodes:
@@ -367,17 +366,12 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
             add_paragraph(f"    Limitations: {p.elicit.limitations}", font="F1", size=9, width=96)
             styled_lines.append(("F1", 3, 5, ""))
 
-    if req.include_gap_matrix and req.gap_matrix and req.gap_matrix.top_opportunities:
-        add_heading("Knowledge Gap Matrix & White-Space Opportunities", 12)
-        for opp in req.gap_matrix.top_opportunities[:8]:
-            add_paragraph(
-                f"* [{opp.status.upper()}] {opp.method_row} x {opp.domain_col} ({opp.paper_count} papers)",
-                font="F2",
-                size=9,
-                width=95,
-            )
-            add_paragraph(f"  Why Gap Exists: {opp.why_gap_exists}", font="F1", size=9, width=95)
-            add_paragraph(f"  Proposed Hypothesis: {opp.proposed_hypothesis}", font="F1", size=9, width=95)
+    if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
+        add_heading("Knowledge Gaps", 12)
+        for title, fields in _gap_text_items(req.gap_matrix):
+            add_paragraph(f"* {title}", font="F2", size=9, width=95)
+            for label, value in fields:
+                add_paragraph(f"  {label}: {value}", font="F1", size=9, width=95)
             styled_lines.append(("F1", 3, 5, ""))
 
     if req.include_network_summary and req.graph and req.graph.nodes:
@@ -486,3 +480,25 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
     body.extend("".join(xref_lines).encode("latin-1"))
     body.extend(trailer.encode("latin-1"))
     return bytes(body)
+
+
+def _gap_text_items(gm) -> list:
+    """Knowledge gaps as (title, [(label, value), ...]) for the text and PDF reports: the evidence-derived gap
+    records, or - when there are none - the thin cells of the question-specific grid."""
+    items = []
+    for sg in gm.structured_gaps:
+        refs = ", ".join(f"[{i}]" for i in sg.supporting_study_indices) or "none in the selected studies"
+        items.append((
+            f"[{sg.gap_id}] {sg.gap_title} ({sg.taxonomy_code}: {sg.primary_gap_type})",
+            [("What is known", sg.current_knowledge), ("What is unresolved", sg.unresolved_issue),
+             ("Why it matters", sg.why_it_matters), ("Studies", refs),
+             ("Verification", f"{sg.verification_status}; {sg.priority_assessment}"),
+             ("Research direction", sg.recommended_study_or_approach)],
+        ))
+    if not items:
+        for opp in gm.top_opportunities[:8]:
+            items.append((
+                f"{opp.method_row} x {opp.domain_col} ({opp.paper_count} stud{'y' if opp.paper_count == 1 else 'ies'})",
+                [("Why it is a gap", opp.why_gap_exists), ("Research direction", opp.proposed_hypothesis)],
+            ))
+    return [(t, [(k, v) for k, v in f if v]) for t, f in items]

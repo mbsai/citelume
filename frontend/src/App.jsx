@@ -161,7 +161,8 @@ function DeepResearchModelNote({ model, hasLlm, scale, override, onOverride }) {
 // Relevance screening and full-text coverage, so users can see which studies informed the synthesis
 function ScreeningNotes({ warnings, papers }) {
   const relevance = warnings.filter(
-    (w) => w.startsWith('Relevance screening') || w.startsWith('Source unavailable') || w.startsWith('Model guidance')
+    (w) => w.startsWith('Query interpreted') || w.startsWith('Relevance screening') || w.startsWith('Source unavailable') ||
+      w.startsWith('Model guidance')
   );
   const fullText = papers.filter((p) => p.full_text_source).length;
   if (!relevance.length && !papers.length) return null;
@@ -314,6 +315,11 @@ export default function App() {
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
     if (!query.trim()) return;
+    // A topic needs at least two letters; the server gives fuller advice for vaguer queries
+    if (!/\p{L}{2,}/u.test(query) && !/\d{4,}/.test(query)) {
+      setError('Please type a research topic, for example "statins after myocardial infarction", or paste a DOI or PubMed link.');
+      return;
+    }
     const pid = `search_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     setProgressId(pid);
     setLoading(true);
@@ -559,7 +565,7 @@ export default function App() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask a research question or literature topic..."
+                placeholder="Ask a research question, list keywords, or paste a DOI / PubMed / arXiv link..."
                 className="flex-1 bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-3 text-sm text-slate-900 outline-none transition"
               />
               <button

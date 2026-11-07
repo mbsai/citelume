@@ -152,8 +152,15 @@ def _infer_finding_direction(p: PaperRecord, text: str) -> FindingDirectionType:
     t_low = (text or "").lower()
     if re.search(r"\b(no significant|not statistically significant|null effect|no mortality reduction|did not improve)\b", t_low):
         return "null_or_nonsignificant"
-    if p.stance == "contradicting" or re.search(r"\b(fail\w*|counterexample|degrad\w*|depletion|inversion errors|byproduct)\b", t_low):
+    if p.stance == "contradicting" or re.search(
+            r"\b(fail(?:ed|s)? to|failure to (?:replicate|reproduce|improve|reduce)|counterexample|"
+            r"performance (?:degrad\w*|drop\w*)|accuracy (?:degrad\w*|drop\w*)|inversion errors|byproduct)\b", t_low):
+        # Disease names ("heart failure") and biochemistry ("BCAA degradation") are not negative results
         return "negative"
+    # A review summarises others' findings; it has no direction of effect of its own
+    if re.search(r"\b(in this review|we review|this review|narrative review|we summari[sz]e|we outline)\b", t_low) or \
+            re.search(r"\breview\b", (p.title or "").lower()):
+        return "unclear"
     if p.stance == "mixed" or re.search(r"\b(however|trade-off|conditional|context-dependent|drifted)\b", t_low):
         return "mixed_or_conditional"
     if p.elicit.sample_reporting_status == "Not applicable":

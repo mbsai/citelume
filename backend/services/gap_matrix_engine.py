@@ -1510,12 +1510,14 @@ async def build_universal_knowledge_gap_matrix(
             active_gaps.append(gap)
 
     # Build backward-compatible `top_opportunities` list from active verified gaps + sparse cells
+    # Only thin cells of a question-specific (model-built) grid are opportunities; cells of the fixed per-domain
+    # overview grid, or well-covered cells, are not
     top_opps: List[GapOpportunity] = []
-    for row in cells:
+    for row in (cells if grid_from_model else []):
         for c in row:
             if c.verification_status == "Contradicted / Resolved by Retrieved Evidence":
                 continue
-            if c.status in ("gap", "sparse") or c.coverage_classification == "Conflicting evidence identified":
+            if c.status in ("gap", "sparse"):
                 top_opps.append(c)
 
     top_opps.sort(
