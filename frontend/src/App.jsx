@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ApiConfigModal from './components/ApiConfigModal';
 import SynthesisPanel from './components/SynthesisPanel';
 import EvidenceTable from './components/EvidenceTable';
 import LiteratureGraph from './components/LiteratureGraph';
 import KnowledgeGapMatrix from './components/KnowledgeGapMatrix';
 import HuggingFacePanel from './components/HuggingFacePanel';
+import { ResultsCards, ResultsTabStrip } from './components/ResultsNav';
 import { runLiteratureSearch, fetchSearchProgress, fetchModelScale, fetchDemoStatus } from './utils/api';
 
 // Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
@@ -215,6 +216,21 @@ export default function App() {
   const [modelScale, setModelScale] = useState({ tier: 'unknown', reason: '' });
   const [deepOverride, setDeepOverride] = useState(false);
   const [activeTab, setActiveTab] = useState('synthesis');
+  // Search options (field, review type, sources) fold away once results are on screen
+  const [optionsOpen, setOptionsOpen] = useState(true);
+  const resultsRef = useRef(null);
+  // Scroll the results to just below the sticky header (its height varies with screen width and the tab strip)
+  const scrollToResults = () =>
+    setTimeout(() => {
+      const el = resultsRef.current;
+      if (!el) return;
+      const headerH = document.querySelector('header')?.offsetHeight || 0;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - headerH - 12, behavior: 'smooth' });
+    }, 80);
+  const selectTab = (tabId) => {
+    setActiveTab(tabId);
+    scrollToResults();
+  };
   const [loading, setLoading] = useState(false);
   const [progressId, setProgressId] = useState(null);
   const [progress, setProgress] = useState(INITIAL_PROGRESS);
@@ -337,6 +353,9 @@ export default function App() {
         organization: mode === 'deep_research' ? organization : 'thematic',
       });
       setResult(data);
+      setActiveTab('synthesis');
+      setOptionsOpen(false);
+      scrollToResults();
 
       const entryId = `hist_${Date.now()}`;
       const newEntry = {
@@ -369,6 +388,9 @@ export default function App() {
     setResult(item.resultData);
     setActiveHistoryId(item.id);
     setError('');
+    setActiveTab('synthesis');
+    setOptionsOpen(false);
+    scrollToResults();
   };
 
   const handleDeleteHistoryItem = (id, e) => {
@@ -441,16 +463,16 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800">
       {/* Top Navbar */}
       <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-30 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-[1440px] mx-auto px-4 py-2.5 md:py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-sm">
               CL
             </div>
             <div>
               <h1 className="text-base font-bold text-slate-900 tracking-tight">
-                CiteLume — Synthesis, Evidence Matrix, Gap Discovery & Network Mapping
+                CiteLume<span className="hidden md:inline"> — Synthesis, Evidence Matrix, Gap Discovery & Network Mapping</span>
               </h1>
-              <p className="text-[11px] text-slate-500">
+              <p className="hidden md:block text-[11px] text-slate-500">
                 Multi-Repository Literature Synthesis • Structured Evidence Table • Knowledge Gap Matrix • Interactive Network Map • Hugging Face Hub
               </p>
             </div>
@@ -461,13 +483,15 @@ export default function App() {
               onClick={() => setConfigOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-semibold text-slate-800 flex items-center gap-2 transition"
             >
-              <span>⚙ API Keys & Sources Setup</span>
+              <span className="sm:hidden">⚙ Setup</span>
+              <span className="hidden sm:inline">⚙ API Keys & Sources Setup</span>
               <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
                 {config.llm_provider.toUpperCase()}
               </span>
             </button>
           </div>
         </div>
+        {result && !loading && <ResultsTabStrip result={result} activeTab={activeTab} onSelect={selectTab} />}
       </header>
 
       {/* Main Layout: Left Query History Side Box + Right Workspace */}
@@ -612,6 +636,33 @@ export default function App() {
                 </button>
               </div>
 
+              {result && (
+                <button
+                  type="button"
+                  onClick={() => setOptionsOpen((o) => !o)}
+                  aria-expanded={optionsOpen}
+                  className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 px-2 py-1 rounded-lg hover:bg-indigo-50"
+                >
+                  {optionsOpen ? 'Hide search options ▴' : 'Search options ▾'}
+                </button>
+              )}
+              {!optionsOpen && (
+                <p className="w-full text-[11px] text-slate-500">
+                  Field: {(DOMAIN_OPTIONS.find(([v]) => v === domain) || DOMAIN_OPTIONS[0])[1]} · Sources:{' '}
+                  {[
+                    ['enable_pubmed', 'PubMed'],
+                    ['enable_arxiv', 'arXiv'],
+                    ['enable_biorxiv', 'bioRxiv/medRxiv'],
+                    ['enable_s2', 'Semantic Scholar'],
+                    ['enable_hf', 'Hugging Face'],
+                  ]
+                    .filter(([k]) => config[k])
+                    .map(([, l]) => l)
+                    .join(', ') || 'none'}
+                  {config.enable_fulltext ? ' · open full text on' : ''}
+                </p>
+              )}
+              {optionsOpen && (<>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <label className="inline-flex items-center gap-1.5">
                   <span className="text-slate-500 font-medium">Field:</span>
@@ -704,6 +755,7 @@ export default function App() {
                   );
                 })}
               </div>
+              </>)}
             </div>
           </form>
 
@@ -747,42 +799,16 @@ export default function App() {
             </div>
           )}
 
-          {!loading && result && <LlmStatusBanner auditTrail={result.evidence_base?.task_audit_trail || []} />}
-          {!loading && result && <ScreeningNotes warnings={result.warnings || []} papers={result.papers || []} />}
+          {result && !loading && (
+            <div ref={resultsRef} className="space-y-3">
+              <ResultsCards result={result} activeTab={activeTab} onSelect={selectTab} />
+              <LlmStatusBanner auditTrail={result.evidence_base?.task_audit_trail || []} />
+              <ScreeningNotes warnings={result.warnings || []} papers={result.papers || []} />
+            </div>
+          )}
 
           {result && (
             <>
-              {/* Navigation Tabs in Exact User-Requested Order:
-                  1. Cited Synthesis & Bibliography
-                  2. Structured Evidence Table
-                  3. Knowledge Gap Matrix
-                  4. Literature Network Map
-                  5. Hugging Face Models & Datasets
-              */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    ['synthesis', `1. Cited Synthesis & Bibliography (${result.bibliography?.length || 0})`],
-                    ['evidence', `2. Structured Evidence Table (${result.papers?.length || 0})`],
-                    ['gap_matrix', '3. Knowledge Gap Matrix'],
-                    ['network', `4. Literature Network Map (${result.graph?.nodes?.length || 0})`],
-                    ['huggingface', `5. Hugging Face Models & Datasets (${result.hf_resources?.length || 0})`],
-                  ].map(([tabId, label]) => (
-                    <button
-                      key={tabId}
-                      onClick={() => setActiveTab(tabId)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition border ${
-                        activeTab === tabId
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Active Tab View */}
               {activeTab === 'synthesis' && <SynthesisPanel data={result} />}
               {activeTab === 'evidence' && (
