@@ -346,15 +346,49 @@ def concept_mentions(phrase: str, text: str) -> int:
     """
     if not phrase or not text:
         return 0
-    low = text.lower()
-    pattern = r"[\s-]?".join(re.escape(w) for w in re.split(r"[\s-]+", phrase.lower()) if w)
+    # Same spelling convention on both sides: "gentamycin" matches "gentamicin", "anaemia" matches "anemia"
+    low = normalize_spelling(text)
+    pattern = r"[\s-]?".join(re.escape(w) for w in re.split(r"[\s-]+", normalize_spelling(phrase)) if w)
     n = len(re.findall(rf"(?<![a-z0-9]){pattern}(?:s|es)?(?![a-z])", low))
     abbr = initialism(phrase)
     if abbr:
         n += len(re.findall(rf"(?<![A-Za-z0-9]){abbr}s?(?![A-Za-z0-9])", text))
     if n:
         return n
-    spec = specific_words(phrase)
+    spec = [normalize_spelling(w) for w in specific_words(phrase)]
     if len(phrase.split()) > 1 and all(re.search(rf"(?<![a-z0-9]){re.escape(w)}", low) for w in spec):
         return 1
     return 0
+
+
+_SPELLING_RULES = [
+    (re.compile(r"mycin"), "micin"),            # gentamycin -> gentamicin (applied to both sides, so tobramycin still matches)
+    (re.compile(r"(?<=[a-z])ae(?=[a-z])"), "e"),  # anaemia -> anemia, haemoglobin -> hemoglobin
+    (re.compile(r"(?<=[a-z])oe(?=[a-z])"), "e"),  # oesophagus -> esophagus, foetal -> fetal
+    (re.compile(r"our\b"), "or"),                 # tumour -> tumor, behaviour -> behavior
+    (re.compile(r"(?<=[a-z])is(e|es|ed|ing|ation|ations)\b"), r"iz\1"),  # randomise -> randomize
+    (re.compile(r"(?<=[a-z])ys(e|es|ed|ing)\b"), r"yz\1"),  # analyse -> analyze
+    (re.compile(r"(?<=[a-z])tre\b"), "ter"),      # centre -> center
+    (re.compile(r"ph(?=ae|e)mia"), "f"),          # rarely needed; harmless when symmetric
+]
+
+
+def normalize_spelling(text: str) -> str:
+    """Lower-case text in one spelling convention, applied to both question and papers before matching."""
+    low = (text or "").lower()
+    for pat, rep in _SPELLING_RULES[:-1]:
+        low = pat.sub(rep, low)
+    return low
+
+
+def spelling_variants(word: str) -> List[str]:
+    """Other common spellings of a search word (gentamycin -> gentamicin), for queries without an LLM."""
+    w = word.lower()
+    out = []
+    swaps = [("mycin", "micin"), ("micin", "mycin"), ("anaem", "anem"), ("haem", "hem"), ("oesoph", "esoph"),
+             ("paediatr", "pediatr"), ("tumour", "tumor"), ("foet", "fet"), ("oedema", "edema"),
+             ("isation", "ization"), ("leukaem", "leukem")]
+    for a, b in swaps:
+        if a in w:
+            out.append(w.replace(a, b))
+    return [v for v in dict.fromkeys(out) if v != w]

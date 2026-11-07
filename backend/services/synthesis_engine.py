@@ -80,6 +80,9 @@ TASK_C_MAX_CONCURRENT_BATCHES = 4
 PROMPT_RULES_TOKEN_BUDGET = 250
 # Below this many on-topic studies the synthesis keeps all retrieved studies (flagged) rather than too few
 MIN_SYNTHESIS_PAPERS = 3
+# Quality checks whose failure means the model's text cannot be trusted (wrong citations, numbers not in the
+# sources, causal overclaims); other checks only add notes to a kept answer
+HARD_QUALITY_CHECKS = {"citation_integrity", "quantitative_accuracy", "scientific_validity"}
 # Deep Research reviews: minimum length (a review, not a summary) and the answer budget that allows it.
 # ≈1.35 tokens per word plus JSON overhead; the budget is capped by each model's output and context limits.
 DEEP_REVIEW_MIN_WORDS = 2500
@@ -1312,7 +1315,19 @@ async def generate_synthesis_and_extractions(
         primary_domain=prim_domain,
         model_used=rec_j.model_used,
     )
-    if not s1_quality.all_passed:
+    failed = [c for c in s1_quality.checks if not c.passed]
+    hard_failed = [c for c in failed if c.name in HARD_QUALITY_CHECKS]
+    llm_narrative = exec_answer is not det_exec
+    if llm_narrative and failed and not hard_failed:
+        # Softer issues (wording, coverage, structure) do not justify discarding a verified model answer: keep it
+        # and say what the checks noticed
+        s1_quality.narrative_origin = "llm_partially_verified"
+        warnings.append("Quality notes on the synthesis: " + " ".join(r for c in failed for r in c.reasons[:1]))
+    elif not s1_quality.all_passed:
+        if llm_narrative:
+            warnings.append(
+                "The model-written synthesis was replaced by the rule-based synthesis because it failed an integrity "
+                "check: " + " ".join(r for c in hard_failed for r in c.reasons[:1]))
         # Bounded section-level regeneration from verified claims
         exec_answer, sections_out, verdict, c_summary = det_exec, det_sections, det_verdict, det_summary
         regenerated_secs.append("Full narrative regenerated from verified claim records after quality gate check")

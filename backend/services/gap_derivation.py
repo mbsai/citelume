@@ -103,7 +103,9 @@ _NOT_A_FIELD_GAP_RE = re.compile(
     r"\b(?:informed consent|ethic|funding|conflict of interest|this article|copyright)\b"
     # the study's own scope ("we did not include ...") is a limitation of that study, not an open question
     r"|\bwe (?:did|could) not\b|\bour (?:study|analysis|review|sample|data)\b"
-    r"|\bthis (?:study|review|analysis|trial|work) (?:did|does|could|was) not\b", re.I)
+    r"|\bthis (?:study|review|analysis|trial|work) (?:did|does|could|was) not\b"
+    r"|\bnot (?:examined|investigated|assessed|evaluated|tested|measured|addressed) (?:here|in this)\b"
+    r"|\b(?:here|in this (?:study|work|paper)),? we\b", re.I)
 _FULLTEXT_GAP_SECTIONS = ("limitations", "discussion", "conclusion")
 
 _STOP = {
@@ -201,7 +203,9 @@ def open_question_title(sentence: str, max_words: int = 14) -> str:
         return " ".join(words[:max_words]).rstrip(",;:") + (" …" if len(words) > max_words else "")
     m = _REMAINS_RE.match(s)
     if m:
-        title = f"{m.group(1).strip()} {m.group(2).strip()}"
+        subject = re.sub(r"^(?:and|but|or|yet|so|while|whereas|although)\s+", "", m.group(1).strip(), flags=re.I)
+        subject = re.sub(r"^(?:its|their|his|her)\s+", "", subject, flags=re.I)
+        title = f"{subject} {m.group(2).strip()}"
     else:
         lead = _LEAD_IN_RE.match(s)
         title = ("Needed: " + s[lead.end():]) if lead and len(s) - lead.end() > 15 else s

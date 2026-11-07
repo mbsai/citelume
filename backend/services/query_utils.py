@@ -21,6 +21,7 @@ from services.llm_service import call_llm, extract_json_block
 from services.question_parsing import (
     QUESTION_FRAMING_WORDS,
     concept_blocks,
+    spelling_variants,
     specific_words,
     concept_phrases,
     detect_constraints,
@@ -570,7 +571,9 @@ def compile_pubmed_query(
 
 
 def _tiab(term: str) -> str:
-    return f'"{term}"[Title/Abstract]' if " " in term else f"{term}[Title/Abstract]"
+    variants = [term] + [v for v in spelling_variants(term)] if " " not in term else [term]
+    tagged = [f"{v}[Title/Abstract]" for v in variants] if " " not in term else [f'"{term}"[Title/Abstract]']
+    return tagged[0] if len(tagged) == 1 else "(" + " OR ".join(tagged) + ")"
 
 
 def build_required_pubmed_core(phrases: List[str], constraints: List[RequiredConstraint],

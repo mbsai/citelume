@@ -83,5 +83,15 @@ class TestQueryStyles(unittest.TestCase):
                 self.assertTrue(plan.search_facets)
 
 
+class TestSpellingVariants(unittest.TestCase):
+    def test_variant_spellings_match_and_are_searched(self):
+        from services.question_parsing import concept_mentions
+        self.assertTrue(concept_mentions("gentamycin heteroresistance", "gentamicin heteroresistance in E. coli"))
+        self.assertTrue(concept_mentions("anaemia", "Anemia in pregnancy"))
+        self.assertTrue(concept_mentions("tumour", "tumor growth"))
+        pm = compile_deterministic_decomposition_plan("gentamycin heteroresistance").search_facets[0].queries.pubmed
+        self.assertIn("gentamicin[Title/Abstract]", pm)
+
+
 if __name__ == "__main__":
     unittest.main()

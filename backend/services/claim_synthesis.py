@@ -1,5 +1,7 @@
 import hashlib
 import re
+
+from services.question_parsing import normalize_spelling
 from contextvars import ContextVar
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -996,8 +998,8 @@ def evaluate_section1_quality_gate(
     source_corpus_text = " ".join(f"{study_source_text(p)} {p.elicit.quantitative_result}" for p in papers)
 
     # 1. Answer relevance
-    q_terms = [t.lower() for t in extract_core_scientific_terms(query, max_terms=6)]
-    exec_low = (executive_answer or "").lower()
+    q_terms = [normalize_spelling(t) for t in extract_core_scientific_terms(query, max_terms=6)]
+    exec_low = normalize_spelling(executive_answer or "")
     matched_q = [t for t in q_terms if t in exec_low]
     ans_ok = bool(executive_answer and len(executive_answer.split()) >= 35 and (matched_q or not q_terms))
     checks.append(
