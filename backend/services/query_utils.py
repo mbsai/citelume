@@ -20,6 +20,7 @@ from services.domain_profiles import DOMAIN_PROFILES, compose_profiles
 from services.llm_service import call_llm, extract_json_block
 from services.question_parsing import (
     QUESTION_FRAMING_WORDS,
+    GENERIC_CONCEPT_WORDS,
     concept_blocks,
     spelling_variants,
     specific_words,
@@ -583,6 +584,8 @@ def build_required_pubmed_core(phrases: List[str], constraints: List[RequiredCon
     concepts listed side by side in the question are alternatives) AND every place/population constraint.
     Returns None when the question has no phrases.
     """
+    # A purely generic concept ("diseases") must not be required: it would exclude papers naming a specific disease
+    phrases = [p for p in phrases if any(w not in GENERIC_CONCEPT_WORDS for w in p.lower().split())] or phrases
     if not phrases:
         return None
     blocks = []
@@ -600,6 +603,8 @@ def build_required_pubmed_core(phrases: List[str], constraints: List[RequiredCon
 
 def build_required_arxiv_core(phrases: List[str], constraints: List[RequiredConstraint],
                               question: str = "") -> Optional[str]:
+    # A purely generic concept ("diseases") must not be required: it would exclude papers naming a specific disease
+    phrases = [p for p in phrases if any(w not in GENERIC_CONCEPT_WORDS for w in p.lower().split())] or phrases
     if not phrases:
         return None
     blocks = []

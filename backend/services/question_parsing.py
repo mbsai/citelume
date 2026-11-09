@@ -48,6 +48,8 @@ QUESTION_FRAMING_WORDS = {
     "affecting", "work", "works", "working", "help", "helps", "higher", "high", "low", "elevated", "increased",
     "decreased", "reduced", "better", "worse", "best", "versus", "compared", "against", "usual",
     # research-request vocabulary ("I'm writing my thesis and need everything on X")
+    "provide", "provides", "providing", "give", "gives", "giving", "get", "list", "describe", "describes",
+    "discuss", "discusses", "research", "researches",
     "writing", "write", "thesis", "dissertation", "paper", "papers", "article", "articles", "literature", "need",
     "needs", "needed", "everything", "anything", "something", "information", "info", "please", "kindly", "help",
     "sources", "references", "summary", "summarize", "summarise", "overview", "update", "insights", "insight",
@@ -234,6 +236,9 @@ def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_wo
     -> ["coronary artery disease"]; constraint words and framing words split runs and are not included.
     """
     question = strip_negated(_FRAMING_PHRASES.sub(" , ", question or ""))
+    # Fields whose name contains the word "research" ("research" alone is request vocabulary)
+    question = re.sub(r"\b(operations|implementation|market|action|services|translational|qualitative)\s+research\b",
+                      r"\1-research", question, flags=re.I)
     question = re.sub(r"(\d),(\d{3})\b", r"\1\2", question)  # 10,000 -> 10000
     constraints = detect_constraints(question)
     model_words = {w for c in detect_model_systems(question) for sp in c.spellings for w in sp.split()}
@@ -321,6 +326,8 @@ def concept_blocks(question: str, phrases: Sequence[str], max_blocks: int = 2) -
 GENERIC_CONCEPT_WORDS = {
     "adverse", "outcome", "outcomes", "metabolism", "metabolic", "pathway", "pathways", "dysfunction",
     "progression", "levels", "level", "activity", "function", "functions", "risk", "risks", "event", "events",
+    "snp", "snps", "polymorphism", "polymorphisms", "variant", "variants", "mutation", "mutations", "allele",
+    "alleles", "genotype", "genotypes", "gene", "genes",
     "effect", "effects", "impact", "response", "responses", "status", "burden", "disease", "diseases", "disorder",
     "disorders", "health", "factor", "factors",
 }

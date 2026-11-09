@@ -97,6 +97,13 @@ function LlmStatusBanner({ auditTrail }) {
       llmTasks.flatMap((t) => (t.validation_errors || []).filter((e) => e.includes('answered by fallback model')))
     ),
   ];
+  // The model's own text was kept, only shorter than usual (not a fallback to rule-based writing)
+  const shortCount = llmTasks.filter((t) => (t.validation_errors || []).some((e) => e.startsWith('Text kept at shorter'))).length;
+  if (shortCount > 0) {
+    fallbackNotes.push(
+      `${shortCount} section${shortCount === 1 ? ' is' : 's are'} shorter than usual: the AI-written text was kept because little evidence was available or the model wrote less.`
+    );
+  }
   if (degraded.length === 0 && fallbackNotes.length === 0) return null;
   const reasons = [...new Set(degraded.map(failureReason))];
   return (

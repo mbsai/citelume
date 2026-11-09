@@ -34,6 +34,7 @@ class TestQueryStyles(unittest.TestCase):
         "Riemann hypothesis recent progress": ["riemann hypothesis"],
         '"deep brain stimulation" Parkinson': ["deep brain stimulation", "parkinson"],
         "IMMUNOTHERAPY FOR MELANOMA": ["immunotherapy", "melanoma"],
+        "can you provide information MTHFR snps in diseases": ["MTHFR snps"],
         "🧬 gene therapy for sickle cell 💉": ["gene therapy", "sickle cell"],
     }
 
@@ -91,6 +92,43 @@ class TestSpellingVariants(unittest.TestCase):
         self.assertTrue(concept_mentions("tumour", "tumor growth"))
         pm = compile_deterministic_decomposition_plan("gentamycin heteroresistance").search_facets[0].queries.pubmed
         self.assertIn("gentamicin[Title/Abstract]", pm)
+
+
+class TestGeneVariantWording(unittest.TestCase):
+    def test_gene_concept_matches_any_variant_term(self):
+        from services.question_parsing import concept_mentions
+        self.assertTrue(concept_mentions("MTHFR snps", "The MTHFR C677T polymorphism and homocysteine"))
+
+
+class TestShortTextIsNotAFallback(unittest.TestCase):
+    def _rec(self, last_error):
+        from models import TaskExecutionRecord
+        fields = TaskExecutionRecord.model_fields
+        base = {k: "" for k, f in fields.items() if f.is_required() and f.annotation is str}
+        rec = TaskExecutionRecord.model_construct(**base)
+        rec.validation_errors = [last_error]
+        rec.last_candidate = {"content": "text"}
+        rec.degraded_to_deterministic = True
+        return rec
+
+    def test_length_only_failure_keeps_the_model_text(self):
+        from services.synthesis_engine import _keep_if_only_short
+        for msg in ("Attempt 3 Source/Quality Gate Error: The executive answer is 211 words - write at least 250 words.",
+                    "Attempt 2 Source/Quality Gate Error: The section is 200 words - write at least 350 words."):
+            rec = self._rec(msg)
+            self.assertTrue(_keep_if_only_short(rec))
+            self.assertFalse(rec.degraded_to_deterministic)
+
+    def test_other_failures_still_fall_back(self):
+        from services.synthesis_engine import _keep_if_only_short
+        rec = self._rec("Attempt 2 Source/Quality Gate Error: The section is 200 words - more; Contains the number '9'.")
+        self.assertFalse(_keep_if_only_short(rec))
+        self.assertTrue(rec.degraded_to_deterministic)
+
+    def test_target_scales_with_evidence(self):
+        from services.synthesis_engine import DEEP_SECTION_MIN_WORDS, _deep_section_target_words as t
+        self.assertLess(t(1), t(2))
+        self.assertEqual(t(10), DEEP_SECTION_MIN_WORDS)
 
 
 if __name__ == "__main__":

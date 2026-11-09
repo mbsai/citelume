@@ -88,6 +88,27 @@ HARD_QUALITY_CHECKS = {"citation_integrity", "quantitative_accuracy", "scientifi
 DEEP_REVIEW_MIN_WORDS = 2500
 DEEP_SECTION_MIN_WORDS = 350
 DEEP_LENGTH_TOLERANCE = 0.85
+SHORT_TEXT_KEPT_NOTE = "Text kept at shorter than the target length: all other checks passed."
+
+
+def _deep_section_target_words(study_count: int) -> int:
+    """Target length for a Deep section: a section resting on one or two studies cannot honestly fill the full length."""
+    return min(DEEP_SECTION_MIN_WORDS, 150 + 75 * max(study_count, 1))
+
+
+def _keep_if_only_short(rec: TaskExecutionRecord) -> bool:
+    """
+    True (and marks the record as a success) when the model's last valid reply failed only the length check: its
+    own text is still better than the rule-based fallback, so this is not a fallback at all.
+    """
+    if not (rec.last_candidate and rec.validation_errors):
+        return False
+    problems = rec.validation_errors[-1].split(": ", 1)[-1].split("; ")
+    if not all(e.startswith(("The section is", "The executive answer is")) for e in problems):
+        return False
+    rec.degraded_to_deterministic = False
+    rec.validation_errors.append(SHORT_TEXT_KEPT_NOTE)
+    return True
 DEEP_REVIEW_MAX_TOKENS = 12000
 # Deep Research executive answer, written alongside the separately written sections
 DEEP_EXEC_MIN_WORDS = 250
@@ -877,10 +898,11 @@ async def _write_deep_review_sections(
     async def write(unit) -> Tuple[SynthesisSection, TaskExecutionRecord, bool]:
         heading, purpose, ps, fallback, must_cite = unit
         unit_idx = {p.citation_index for p in ps}
+        target_words = _deep_section_target_words(len(ps))
         sys_prompt = (
             "You are writing ONE section of a Deep Research academic literature review.\n"
             f"Section: {heading}\nPurpose: {purpose}\n"
-            f"Write {DEEP_SECTION_MIN_WORDS}-{DEEP_SECTION_MIN_WORDS + 250} words of continuous academic prose (no bullet "
+            f"Write {target_words}-{target_words + 250} words of continuous academic prose (no bullet "
             "lists, no heading), synthesising across studies rather than summarising them one by one.\n"
             "RULES:\n"
             f"1. Cite every factual statement with bracketed study numbers such as [3] or [2, 5], using only: {allowed_label}.\n"
@@ -899,9 +921,9 @@ async def _write_deep_review_sections(
             errs: List[str] = []
             text = out.content or ""
             words = len(text.split())
-            if words < DEEP_SECTION_MIN_WORDS * DEEP_LENGTH_TOLERANCE:
+            if words < target_words * DEEP_LENGTH_TOLERANCE:
                 # No semicolons: the audit record joins errors with "; " and the length-only check splits on it
-                errs.append(f"The section is {words} words - write at least {DEEP_SECTION_MIN_WORDS} words, keeping "
+                errs.append(f"The section is {words} words - write at least {target_words} words, keeping "
                             "what you wrote and adding study-by-study comparison.")
             cited = extract_citation_numbers(text)
             if not cited:
@@ -929,11 +951,8 @@ async def _write_deep_review_sections(
                 temperature=0.2,
                 max_tokens=int(DEEP_SECTION_MIN_WORDS * 1.8) + 500,
             )
-        if out is None and rec.last_candidate and rec.validation_errors and \
-                all(e.startswith("The section is") for e in rec.validation_errors[-1].split(": ", 1)[-1].split("; ")):
-            # Only too short: the model's own text is still better than the rule-based fallback
+        if out is None and _keep_if_only_short(rec):
             out = TaskJSectionOutput(**rec.last_candidate)
-            rec.validation_errors.append("Accepted below the target length: all other checks passed.")
         if out is not None and not rec.degraded_to_deterministic or (out is not None and rec.last_candidate):
             content = normalize_citations(out.content)
             used_fallback = False
@@ -1195,7 +1214,7 @@ async def generate_synthesis_and_extractions(
             # Contradicting studies are required in section C, which is written and checked separately
             words = len(out_obj.executive_answer.split())
             if words < DEEP_EXEC_MIN_WORDS * DEEP_LENGTH_TOLERANCE:
-                errs.append(f"The executive answer is {words} words; write at least {DEEP_EXEC_MIN_WORDS} words that "
+                errs.append(f"The executive answer is {words} words - write at least {DEEP_EXEC_MIN_WORDS} words that "
                             "answer every part of the research question with citations.")
         elif contradicting_idxs and not any(ci in cited for ci in contradicting_idxs):
             errs.append(f"Synthesis omitted contradicting study index(es) {contradicting_idxs}; opposing evidence must be cited.")
@@ -1235,6 +1254,9 @@ async def generate_synthesis_and_extractions(
     else:
         validated_j, rec_j = await j_call
         audit_trail.append(rec_j)
+
+    if validated_j is None and _keep_if_only_short(rec_j):
+        validated_j = TaskJNarrativeSynthesisOutput(**rec_j.last_candidate)
 
     if evidence_task is None:
         _scoped_audit_trail().clear()
