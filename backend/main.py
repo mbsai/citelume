@@ -1,3 +1,4 @@
+import time
 import re
 import asyncio
 from pathlib import Path
@@ -35,6 +36,8 @@ from services.llm_service import (
 )
 from frameworks.reporting import build_review_protocol_report
 from services import demo_mode
+from services.citation_enrichment import enrich_citation_counts
+from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
 from services.source_health import begin_source_health, set_openalex_api_key, source_failure_warnings
@@ -174,11 +177,15 @@ async def _harvest_facet_queries(
     max_per_source: int,
     req: SearchRequest,
     fallback_entities: str,
+    domain: str = "",
 ) -> Tuple[List[PaperRecord], Dict[str, int]]:
     cfg = req.config
     tasks = []
     task_names = []
     q_map = facet.queries
+    # Only the core search may loosen itself when it finds nothing; an aspect search that finds nothing stays empty
+    broaden = facet.kind == "core"
+    use_arxiv = cfg.enable_arxiv and searches_arxiv(domain, facet.kind)
 
     if cfg.enable_pubmed:
         tasks.append(
@@ -189,10 +196,11 @@ async def _harvest_facet_queries(
                 req.year_from,
                 req.year_to,
                 fallback_query=fallback_entities,
+                broaden=broaden,
             )
         )
         task_names.append("PubMed")
-    if cfg.enable_arxiv:
+    if use_arxiv:
         tasks.append(
             search_arxiv(
                 q_map.arxiv or fallback_entities,
@@ -200,6 +208,7 @@ async def _harvest_facet_queries(
                 req.year_from,
                 req.year_to,
                 fallback_query=fallback_entities,
+                broaden=broaden,
             )
         )
         task_names.append("arXiv")
@@ -211,6 +220,7 @@ async def _harvest_facet_queries(
                 req.year_from,
                 req.year_to,
                 fallback_query=fallback_entities,
+                broaden=broaden,
             )
         )
         task_names.append("bioRxiv")
@@ -234,6 +244,7 @@ async def _harvest_facet_queries(
         if isinstance(res, list):
             for p in res:
                 p.sub_query = facet.facet_name
+                p.retrieved_by = [facet.facet_name]
             papers.extend(res)
             counts[name] = len(res)
     return papers, counts
@@ -253,7 +264,16 @@ SEARCH_STAGES: List[str] = [
 _SEARCH_PROGRESS: Dict[str, Dict[str, Any]] = {}
 
 
+_STAGE_CLOCK: Dict[int, float] = {}
+
+
 def _report_stage(req: SearchRequest, stage: int, detail: str = "") -> None:
+    # Stage timings go to the server log (no query text), so slow runs can be diagnosed
+    now = time.monotonic()
+    started = _STAGE_CLOCK.setdefault(id(req), now)
+    print(f"[search-stage] {req.mode} stage {stage}/{len(SEARCH_STAGES)} at +{now - started:.0f}s {detail}".rstrip(), flush=True)
+    if stage >= len(SEARCH_STAGES) or len(_STAGE_CLOCK) > 200:
+        _STAGE_CLOCK.pop(id(req), None)
     if not req.progress_id:
         return
     _SEARCH_PROGRESS[req.progress_id] = {
@@ -350,22 +370,19 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     plan = await generate_multi_api_decomposition_plan(req.query, req.mode, cfg, domain_override=req.domain)
     fallback_entities_str = " ".join(plan.extracted_technical_entities[:3]) or req.query
 
-    if req.mode == "deep_research":
-        per_q_limit = max(14, req.max_per_source)
-        max_total_papers = 60
-    else:
-        per_q_limit = max(6, req.max_per_source)
-        max_total_papers = 20
+    max_total_papers = 60 if req.mode == "deep_research" else 20
+    per_q_limit = results_per_search(req.mode, "core")
+    domain = plan.question_understanding.primary_domain if plan.question_understanding else ""
 
     sub_queries = [
         f"[{f.facet_name}] {f.queries.semantic_scholar}"
         for f in plan.search_facets
     ]
 
-    # ROUND 1: Initial Discovery across planned facets
-    _report_stage(req, 2, f"{len(plan.search_facets)} search facets")
+    # ROUND 1: the core search, the reviews search and one search per aspect of the question, on every source
+    _report_stage(req, 2, f"{len(plan.search_facets)} searches (core, reviews and {max(0, len(plan.search_facets) - 2)} aspects)")
     wave_tasks = [
-        _harvest_facet_queries(facet, per_q_limit, req, fallback_entities_str)
+        _harvest_facet_queries(facet, results_per_search(req.mode, facet.kind), req, fallback_entities_str, domain)
         for facet in plan.search_facets
     ]
     wave_results = await asyncio.gather(*wave_tasks)
@@ -393,13 +410,17 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
                 hugging_face=fallback_entities_str,
             ),
         )
-        extra_papers, extra_counts = await _harvest_facet_queries(broad_facet, per_q_limit, req, fallback_entities_str)
+        broad_facet.kind = "core"
+        extra_papers, extra_counts = await _harvest_facet_queries(broad_facet, per_q_limit, req, fallback_entities_str, domain)
         all_raw_papers.extend(extra_papers)
         for k, v in extra_counts.items():
             source_stats[k] = source_stats.get(k, 0) + v
         if plan.search_plan:
             plan.search_plan.adaptive_expansion_triggered = True
             plan.search_plan.expansion_notes.append("Triggered Round 2 adaptive recall broadening due to sparse Round 1 results.")
+
+    # Real citation counts (NIH iCite for PubMed records) before anything is ranked by them
+    await enrich_citation_counts(all_raw_papers)
 
     # F6 Citation & Literature-Network Expansion in Deep Research mode
     if req.mode == "deep_research" and all_raw_papers:
@@ -424,6 +445,8 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         snowball_res = await asyncio.gather(*snowball_tasks, return_exceptions=True)
         for sb in snowball_res:
             if isinstance(sb, list):
+                for nb in sb:
+                    nb.retrieved_by = ["Citation links of highly cited studies"]
                 all_raw_papers.extend(sb)
                 source_stats["Semantic Scholar"] = source_stats.get("Semantic Scholar", 0) + len(sb)
 
@@ -431,13 +454,17 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     _report_stage(req, 3, f"{len(all_raw_papers)} candidate records harvested")
     ranking_query = f"{req.query} {' '.join(plan.extracted_technical_entities)}"
     dedup_stats: Dict[str, int] = {}
+    selection_reports: list = []
+    await enrich_citation_counts(all_raw_papers)  # records added by citation links
     ranked_papers = deduplicate_and_rank_papers(
         all_raw_papers,
         ranking_query,
         max_total=max_total_papers,
         understanding=plan.question_understanding,
         stats=dedup_stats,
+        report_out=selection_reports,
     )
+    selection_report = selection_reports[0] if selection_reports else None
 
     # Open-access full text for the included studies, fetched while Hugging Face Hub is scanned below
     fulltext_task = (
@@ -607,6 +634,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         gap_matrix=gap_matrix,
         warnings=warnings,
         review_protocol=review_protocol,
+        selection_report=selection_report,
     )
 
 

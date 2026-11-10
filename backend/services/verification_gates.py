@@ -1,6 +1,7 @@
 import re
 from typing import List, Optional
 from models import (
+    normalize_decimal_points,
     QueryDecompositionPlan,
     PaperRecord,
     SynthesisSection,
@@ -107,7 +108,7 @@ def normalize_citations(text: str) -> str:
 
 def study_source_text(p: PaperRecord) -> str:
     """Everything a figure may legitimately come from: title, abstract and any open-access full text."""
-    return " ".join([p.title or "", p.abstract or ""] + list(p.full_text_sections.values()))
+    return normalize_decimal_points(" ".join([p.title or "", p.abstract or ""] + list(p.full_text_sections.values())))
 
 
 def _index_label(indices: List[int]) -> str:

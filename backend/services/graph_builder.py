@@ -21,6 +21,7 @@ from models import (
     KnowledgeGapMatrix,
 )
 from services.network_engine import build_multilayer_literature_network
+from services.paper_selection import MIN_CONSTRAINT_MATCHES, select_studies
 
 
 def _normalize_title(title: str) -> str:
@@ -37,8 +38,6 @@ def _is_preprint_record(p: PaperRecord) -> bool:
     return False
 
 
-# Keep only studies matching the question's place/population constraints once at least this many match
-MIN_CONSTRAINT_MATCHES = 5
 
 
 def _topic_relevance(concept: str, title: str, abstract: str) -> str:
@@ -95,8 +94,13 @@ def deduplicate_and_rank_papers(
     max_total: int = 20,
     understanding: Optional[UniversalQuestionUnderstanding] = None,
     stats: Optional[Dict[str, int]] = None,
+    report_out: Optional[list] = None,
 ) -> List[PaperRecord]:
     """
+    Merges duplicate records, then applies the CiteLume selection protocol (eligibility, 100-point score and
+    balanced selection; see services/paper_selection.py and docs/RANKING.md). `report_out`, when given, receives
+    the SelectionReport describing what was excluded and why each study was included.
+
     Phase 6 Multi-Criteria Study Deduplication & Selection:
     1. Deduplicates across DOI, arXiv ID, PMID, S2 ID, and normalized title + first-author
        matching to link preprint and published versions of the same underlying study.
@@ -157,6 +161,9 @@ def deduplicate_and_rank_papers(
                 curr.abstract = p.abstract
             if p.citation_count > curr.citation_count:
                 curr.citation_count = p.citation_count
+                curr.citation_source = p.citation_source or curr.citation_source
+            curr.retrieved_by = list(dict.fromkeys(curr.retrieved_by + p.retrieved_by))
+            curr.publication_types = list(dict.fromkeys(curr.publication_types + p.publication_types))
             if not curr.pdf_url and p.pdf_url:
                 curr.pdf_url = p.pdf_url
             curr.references = list(dict.fromkeys(curr.references + p.references))
@@ -193,124 +200,12 @@ def deduplicate_and_rank_papers(
     if not unique_papers:
         return []
 
-    # 1. Direct Relevance via TF-IDF cosine similarity
-    corpus = [f"{p.title}. {p.abstract or ''}" for p in unique_papers]
-    try:
-        vec = TfidfVectorizer(stop_words="english", max_features=3500, ngram_range=(1, 2))
-        mat = vec.fit_transform(corpus + [query])
-        q_vec = mat[-1]
-        doc_mat = mat[:-1]
-        sims = cosine_similarity(doc_mat, q_vec).flatten()
-    except Exception:
-        sims = np.ones(len(unique_papers)) * 0.5
-
-    # Subquestion keyword map for subquestion coverage tracking
-    sq_keywords: Dict[str, List[str]] = {}
-    if understanding and understanding.subquestions:
-        for sq in understanding.subquestions:
-            toks = [w.lower() for w in re.findall(r"[a-zA-Z0-9-]{4,}", sq.question_text)]
-            sq_keywords[sq.id] = toks[:6]
-
-    author_year_counts: Dict[str, int] = {}
-
-    for idx, p in enumerate(unique_papers):
-        text_low = f"{p.title} {p.abstract or ''}".lower()
-        direct_rel = float(sims[idx])
-
-        # 2. Subquestion coverage
-        matched_sqs: List[str] = []
-        for sq_id, kw_list in sq_keywords.items():
-            if any(kw in text_low for kw in kw_list[:4]):
-                matched_sqs.append(sq_id)
-        if not matched_sqs:
-            matched_sqs = ["SQ1"]
-        p.matched_subquestion_ids = matched_sqs
-        sq_score = min(0.18, len(matched_sqs) * 0.06)
-
-        # 3. Methodological & Evidence Richness (abstract completeness, quantitative/methodological signals)
-        has_abstract = 0.10 if len(p.abstract or "") > 140 else 0.0
-        has_quant_or_proof = 0.06 if re.search(
-            r"(\b\d+(?:\.\d+)?%|\bp\s*[<=>]\s*0\.\d+|\bauroc\b|\bauc\b|\btheorem\b|\bproof\b|\bmic\b|\bic50\b)",
-            text_low,
-        ) else 0.0
-        method_score = has_abstract + has_quant_or_proof
-
-        # 4. Contradictory / Robustness Evidence Preservation (ensure negative/conflicting studies are kept)
-        contra_boost = 0.08 if re.search(
-            r"\b(contradict|negative|null|fail|limitation|out-of-distribution|challenge|bottleneck|counterexample)\b",
-            text_low,
-        ) else 0.0
-
-        # 5. Foundational Impact (bounded log scale so high citations don't drown out relevant new work)
-        cite_boost = min(math.log10(max(p.citation_count, 1) + 1) * 0.09, 0.32)
-
-        # 6. Recency & Peer-Review Balance
-        recency_boost = 0.05 if (p.year and p.year >= 2023) else (0.03 if (p.year and p.year <= 2018 and p.citation_count >= 50) else 0.0)
-        pub_boost = 0.04 if p.version_status in ("published", "preprint_with_published_link") else 0.0
-
-        # 7. Evidence Independence (diminishing return if multiple papers share identical first-author + year)
-        first_auth_key = f"{(p.authors[0].split()[-1].lower() if p.authors else 'anon')}_{p.year or 0}"
-        seen_cnt = author_year_counts.get(first_auth_key, 0)
-        author_year_counts[first_auth_key] = seen_cnt + 1
-        independence_penalty = -0.08 * seen_cnt if seen_cnt > 0 else 0.0
-
-        total_score = (
-            direct_rel
-            + sq_score
-            + method_score
-            + contra_boost
-            + cite_boost
-            + recency_boost
-            + pub_boost
-            + independence_penalty
-        )
-        p.relevance_score = round(max(total_score, 0.01), 4)
-        p.selection_breakdown = {
-            "direct_relevance": round(direct_rel, 3),
-            "subquestion_coverage": round(sq_score, 3),
-            "methodological_richness": round(method_score, 3),
-            "contradictory_preservation": round(contra_boost, 3),
-            "foundational_impact": round(cite_boost, 3),
-            "recency_and_publication": round(recency_boost + pub_boost, 3),
-            "independence_adjustment": round(independence_penalty, 3),
-        }
-
-    # Place/population constraints from the question: matching studies rank first; non-matching ones are dropped
-    # when enough matching studies exist, otherwise kept and flagged so the synthesis can leave them out
-    constraints = understanding.concepts.required_constraints if understanding else []
-    topic_concepts = core_topic_concepts(understanding.concepts.concept_phrases or []) if understanding else []
-    main_concept = topic_concepts[0] if topic_concepts else ""
-    # Concepts the question lists side by side with the main one ("X and Y metabolism") count as main too
-    first_block = (concept_blocks(understanding.normalized_query, topic_concepts) or [[]])[0] if understanding else []
-    if constraints or main_concept:
-        for p in unique_papers:
-            text = f"{p.title} {p.abstract or ''}".lower()
-            missing = [c.name for c in constraints if not any(sp in text for sp in c.spellings)]
-            topic, found = _topic_relevance_multi(topic_concepts, p.title, p.abstract or "", first_block)
-            if missing or topic == "off_topic":
-                p.relevance = "off_topic"
-                p.relevance_note = (f"Title/abstract does not mention {', '.join(missing)}" if missing
-                                    else f"Not about {' / '.join(topic_concepts)}")
-            else:
-                p.relevance = topic
-                p.relevance_note = (f"Matches {', '.join(c.name for c in constraints)}; " if constraints else "") + (
-                    f"covers {', '.join(found)}" if topic == "addresses" else
-                    f"mentions {main_concept} only" + (" in passing" if len(topic_concepts) == 1 else ""))
-        matching = [p for p in unique_papers if p.relevance != "off_topic"]
-        if stats is not None:
-            stats["constraint_excluded"] = 0
-        if len(matching) >= MIN_CONSTRAINT_MATCHES:
-            if stats is not None:
-                stats["constraint_excluded"] = len(unique_papers) - len(matching)
-            unique_papers = matching
-
-    unique_papers.sort(key=lambda x: (x.relevance != "off_topic", x.relevance_score), reverse=True)
-    top_papers = unique_papers[:max_total]
-
-    for i, p in enumerate(top_papers, start=1):
-        p.citation_index = i
-
-    return top_papers
+    # Eligibility, scoring and balanced selection follow the documented protocol (services/paper_selection.py)
+    chosen, report = select_studies(unique_papers, query, max_total, understanding, stats,
+                                    records_found=len(raw_papers))
+    if report_out is not None:
+        report_out.append(report)
+    return chosen
 
 
 def build_literature_graph(

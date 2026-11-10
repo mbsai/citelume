@@ -11,9 +11,9 @@ short_description: Evidence-grounded literature synthesis, evidence tables and g
 
 # CiteLume
 
-An open-source literature review assistant. Ask a research question and it searches PubMed, Europe PMC, arXiv,
-bioRxiv/medRxiv and Semantic Scholar/OpenAlex. It then screens the studies for relevance, reads open-access full
-text where it is available, and produces:
+An open-source literature review assistant. Ask a research question and it splits it into its main concepts and
+aspects, runs a search for each on PubMed, Europe PMC, arXiv, bioRxiv/medRxiv and Semantic Scholar/OpenAlex, and
+ranks what it finds. It then reads open-access full text where it is available, and produces:
 
 - **A cited synthesis.** Choose a **Standard** answer from up to 20 studies, or a **Deep Research** review from up to
   60 studies. Deep reviews can be narrative, PRISMA-informed systematic or scoping, organised thematically,
@@ -27,6 +27,10 @@ text where it is available, and produces:
   - disagreements between studies;
   - thin areas of a question-specific evidence grid.
 - **A literature network** with citation links and topic clusters.
+- **A transparent choice of studies.** The 20 or 60 included studies are picked by fixed, published rules: eligibility
+  checks, a 100-point score (relevance, study type, citations, recency, search agreement) and balanced selection
+  across the aspects of the question. Every result shows the counts at each step and each study's score. See
+  [docs/RANKING.md](docs/RANKING.md).
 - **Exports** to Markdown, plain text, PDF, CSV, JSON and GraphML.
 
 ![How CiteLume works](docs/how-it-works.svg)

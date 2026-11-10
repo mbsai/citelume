@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import httpx
 
-from models import PaperRecord
+from models import PaperRecord, normalize_decimal_points
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "fulltext"
 EPMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
@@ -67,7 +67,7 @@ def _add(sections: Dict[str, str], name: Optional[str], text: str) -> None:
     if not name or not text:
         return
     merged = f"{sections.get(name, '')} {text}".strip()
-    sections[name] = merged[:MAX_SECTION_CHARS]
+    sections[name] = normalize_decimal_points(merged[:MAX_SECTION_CHARS])
 
 
 # --------------------------------------------------------------------------------------------- parsers

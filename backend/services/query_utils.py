@@ -18,6 +18,13 @@ from models import (
 )
 from services.domain_profiles import DOMAIN_PROFILES, compose_profiles
 from services.llm_service import call_llm, extract_json_block
+from services.query_planning import (
+    ASPECTS_BY_MODE,
+    SEARCH_PLANNING_PROMPT,
+    aspects_from_model,
+    build_search_plan,
+    concepts_from_model,
+)
 from services.question_parsing import (
     QUESTION_FRAMING_WORDS,
     GENERIC_CONCEPT_WORDS,
@@ -740,6 +747,7 @@ def compile_huggingface_query(
 def plan_and_compile_universal_search(
     understanding: UniversalQuestionUnderstanding,
     mode: str = "standard",
+    model_plan: Optional[Dict[str, Any]] = None,
 ) -> Tuple[UniversalSearchPlan, List[SearchFacet], Dict[str, Any]]:
     """
     Stage B & C: Builds a source-independent UniversalSearchPlan across facets F1-F6
@@ -752,150 +760,17 @@ def plan_and_compile_universal_search(
         understanding.active_methodological_profiles,
     )
 
-    core_terms = understanding.concepts.normalized_terms or understanding.concepts.main_entities or ["research"]
-    # Keep single-word tokens for arXiv/Boolean safety alongside multi-word normalized phrases
+    # Concepts, aspects and the searches for every database (services/query_planning.py). The model's plan, when
+    # given, supplies concepts with synonyms and aspects; otherwise both come from the question and its field.
     atomic_terms = extract_core_scientific_terms(understanding.normalized_query, max_terms=6)
-    exclusions = understanding.concepts.exclusion_criteria
-    # Concept phrases and required constraints keep multi-word concepts intact and make places/populations mandatory
-    phrases = understanding.concepts.concept_phrases
-    constraints = understanding.concepts.required_constraints
-    pubmed_core = build_required_pubmed_core(phrases, constraints, understanding.normalized_query)
-    arxiv_core = build_required_arxiv_core(phrases, constraints, understanding.normalized_query)
-    if phrases:
-        constraint_names = [c.name for c in constraints]
-        core_terms = phrases[:2] + constraint_names
-        bio_terms = [" ".join(phrases[:1] + constraint_names)] + phrases[1:2]
-    else:
-        bio_terms = atomic_terms
-
-    sq_ids = [sq.id for sq in understanding.subquestions] or ["SQ1"]
-    all_facets: List[SearchFacet] = []
-
-    # F1: Direct Evidence (Always active — highest priority)
-    f1_mods = (phrases[2:5] if phrases else atomic_terms[2:5] if len(atomic_terms) > 2 else [])
-    all_facets.append(
-        SearchFacet(
-            facet_code="F1_direct_evidence",
-            facet_name="F1: Direct Evidence & Core Subquestions",
-            facet_intent="Retrieve primary empirical, theoretical, or computational studies directly answering the core question.",
-            linked_subquestion_ids=[sq_ids[0]],
-            expansion_reason="Primary direct evidence retrieval",
-            priority_rank=1,
-            queries=FacetApiQueries(
-                pubmed=compile_pubmed_query(atomic_terms, f1_mods, composed, exclusions, core_override=pubmed_core),
-                semantic_scholar=compile_semantic_scholar_query(core_terms[:3], f1_mods[:2]),
-                arxiv=compile_arxiv_query(atomic_terms, f1_mods, composed, exclusions, core_override=arxiv_core),
-                biorxiv_medrxiv=compile_biorxiv_queries(bio_terms, f1_mods[:2]),
-                hugging_face=compile_huggingface_query(atomic_terms, understanding.primary_domain, "F1_direct_evidence"),
-            ),
-        )
+    hf_query = compile_huggingface_query(atomic_terms, understanding.primary_domain, "F1_direct_evidence")
+    model_plan = model_plan or {}
+    active_facets = build_search_plan(
+        understanding, mode, hf_query,
+        concepts=model_plan.get("concepts"), aspects=model_plan.get("aspects"), breadth=model_plan.get("breadth"),
+        planned_by="model" if model_plan.get("concepts") or model_plan.get("aspects") else "rules",
     )
-
-    # F2: Foundational, Methodological & Benchmark Literature (Does NOT search for the word "seminal")
-    if understanding.primary_domain == "mathematics":
-        f2_mods = ["theorem", "proof", "convergence", "bound"]
-    elif understanding.primary_domain == "physics":
-        f2_mods = ["theory", "simulation", "scaling", "quantum"]
-    elif understanding.primary_domain == "chemistry":
-        f2_mods = ["mechanism", "catalysis", "density functional", "benchmark"]
-    else:
-        f2_mods = ["review", "benchmark", "comparative", "validation"]
-
-    all_facets.append(
-        SearchFacet(
-            facet_code="F2_foundational_contextual",
-            facet_name="F2: Foundational Frameworks, Reviews & Benchmarks",
-            facet_intent="Identify foundational methodologies, systematic reviews, reference benchmarks, and theoretical baselines.",
-            linked_subquestion_ids=sq_ids[:2],
-            expansion_reason="Contextual & benchmark baseline coverage",
-            priority_rank=2,
-            queries=FacetApiQueries(
-                pubmed=compile_pubmed_query(
-                    atomic_terms,
-                    ['"Review"[Publication Type]', "benchmark", "validation", "comparative"],
-                    composed,
-                    exclusions,
-                    core_override=pubmed_core,
-                ),
-                semantic_scholar=compile_semantic_scholar_query(core_terms[:2], f2_mods[:3]),
-                arxiv=compile_arxiv_query(atomic_terms, f2_mods, composed, exclusions, core_override=arxiv_core),
-                biorxiv_medrxiv=compile_biorxiv_queries(bio_terms, f2_mods[:2]),
-                hugging_face=compile_huggingface_query(atomic_terms, understanding.primary_domain, "F2_foundational_contextual"),
-            ),
-        )
-    )
-
-    # F3: Alternative, Contradictory & Robustness Evidence (Targeted at failure modes, OOD, limitations)
-    if understanding.primary_domain == "mathematics":
-        f3_mods = ["counterexample", "sharpness", "lower bound", "non-convex"]
-    elif understanding.primary_domain in ("computer_science_ai", "interdisciplinary_biomedical_ai"):
-        f3_mods = ["generalization", "out-of-distribution", "limitations", "failure", "robustness"]
-    else:
-        f3_mods = ["limitations", "adverse", "resistance", "challenges", "reproducibility"]
-
-    all_facets.append(
-        SearchFacet(
-            facet_code="F3_alternative_contradictory",
-            facet_name="F3: Contradictory Evidence, Robustness & Failure Modes",
-            facet_intent="Surface competing hypotheses, negative/null findings, generalizability limits, and methodological bottlenecks.",
-            linked_subquestion_ids=[sq_ids[-1]],
-            expansion_reason="Evaluate opposing evidence and robustness limits",
-            priority_rank=3,
-            queries=FacetApiQueries(
-                pubmed=compile_pubmed_query(atomic_terms, f3_mods, composed, exclusions, core_override=pubmed_core),
-                semantic_scholar=compile_semantic_scholar_query(core_terms[:2], f3_mods[:3]),
-                arxiv=compile_arxiv_query(atomic_terms, f3_mods, composed, exclusions, core_override=arxiv_core),
-                biorxiv_medrxiv=compile_biorxiv_queries(bio_terms, f3_mods[:2]),
-                hugging_face=compile_huggingface_query(atomic_terms, understanding.primary_domain, "F3_alternative_contradictory"),
-            ),
-        )
-    )
-
-    # F4: Recent Developments & Emerging Paradigms
-    if understanding.primary_domain == "mathematics":
-        f4_mods = ["optimal", "high-dimensional", "stochastic", "regularity"]
-    elif understanding.primary_domain == "chemistry":
-        f4_mods = ["generative", "machine learning", "interatomic", "autonomous"]
-    elif understanding.primary_domain in ("computer_science_ai", "interdisciplinary_biomedical_ai"):
-        f4_mods = ["foundation model", "generative", "diffusion", "de novo"]
-    elif understanding.primary_domain == "biomedical_clinical":
-        f4_mods = ["single-cell", "spatial transcriptomics", "multi-omics", "machine learning"]
-    else:
-        f4_mods = ["novel", "emerging", "recent advances", "new approach"]
-    # When the question names the experimental systems to cover, the fourth search targets those systems instead
-    model_systems = understanding.concepts.model_systems
-    if model_systems:
-        f4_mods = [sp for m in model_systems for sp in m.spellings[:2]][:6]
-
-    all_facets.append(
-        SearchFacet(
-            facet_code="F4_recent_developments",
-            facet_name="F4: Emerging Methods & Targeted Gap Verification",
-            facet_intent="Discover recent methodological advances and verify whether candidate gaps have emerging solutions.",
-            linked_subquestion_ids=sq_ids[-2:] if len(sq_ids) >= 2 else sq_ids,
-            expansion_reason="Recent developments and gap verification",
-            priority_rank=4,
-            queries=FacetApiQueries(
-                pubmed=compile_pubmed_query(atomic_terms, f4_mods, composed, exclusions, core_override=pubmed_core),
-                semantic_scholar=compile_semantic_scholar_query(core_terms[:2], f4_mods[:3]),
-                arxiv=compile_arxiv_query(atomic_terms, f4_mods, composed, exclusions, core_override=arxiv_core),
-                biorxiv_medrxiv=compile_biorxiv_queries(bio_terms, f4_mods[:2]),
-                hugging_face=compile_huggingface_query(atomic_terms, understanding.primary_domain, "F4_recent_developments"),
-            ),
-        )
-    )
-
-    # Select active facets based on mode and question complexity (do not force 6 queries on every narrow request)
-    if mode == "deep_research":
-        active_facets = all_facets[:4]
-        budget = 60
-    else:
-        # In standard mode, use 2 facets (F1 + F2, or F1 + F3 if gap_discovery is the primary intent)
-        if understanding.primary_intent == "gap_discovery" or "gap_discovery" in understanding.secondary_intents:
-            active_facets = [all_facets[0], all_facets[2]]
-        else:
-            active_facets = all_facets[:2]
-        budget = 20
+    budget = 60 if mode == "deep_research" else 20
 
     coverage_map: Dict[str, List[str]] = {sq.id: [] for sq in understanding.subquestions}
     for f in active_facets:
@@ -918,18 +793,20 @@ def plan_and_compile_universal_search(
 
 
 def compile_deterministic_decomposition_plan(
-    query: str, mode: str = "standard", domain_override: Optional[DomainCategoryType] = None
+    query: str, mode: str = "standard", domain_override: Optional[DomainCategoryType] = None,
+    model_plan: Optional[Dict[str, Any]] = None,
 ) -> QueryDecompositionPlan:
     """
-    Executes the full 3-stage deterministic Universal Question Understanding (Stage A),
-    Universal Search Strategy Planning (Stage B), and Source-Specific Query Compilation (Stage C).
+    Question understanding, search planning and query compilation. `model_plan` (validated concepts, aspects and
+    breadth from the model) refines the plan; the search strings are always compiled by rules.
     """
     understanding = understand_research_question(query, domain_override)
-    search_plan, active_facets, composed = plan_and_compile_universal_search(understanding, mode=mode)
+    search_plan, active_facets, composed = plan_and_compile_universal_search(understanding, mode=mode, model_plan=model_plan)
+    concept_names = [c.name for c in understanding.concepts.search_concepts]
 
     return QueryDecompositionPlan(
         detected_domain=composed["legacy_domain_label"],
-        extracted_technical_entities=understanding.concepts.normalized_terms or understanding.concepts.main_entities,
+        extracted_technical_entities=concept_names or understanding.concepts.normalized_terms or understanding.concepts.main_entities,
         search_facets=active_facets,
         question_understanding=understanding,
         search_plan=search_plan,
@@ -945,50 +822,6 @@ def compile_deterministic_decomposition_plan(
     )
 
 
-UNIVERSAL_DECOMPOSITION_SYSTEM_PROMPT = """# ROLE & MISSION
-You are the Universal Question Understanding and Multi-Source Search Planning Engine for a domain-adaptive scientific research platform.
-Separate scientific question understanding (Stage A) and research strategy planning (Stage B) from source-specific API query compilation (Stage C).
-
-# STAGE A — UNIVERSAL QUESTION UNDERSTANDING
-1. Identify primary_intent and secondary_intents from: descriptive, explanatory_mechanistic, causal_intervention, associational, predictive, comparative, methodological, theoretical, exploratory_mapping, gap_discovery.
-2. Identify primary_domain from: biomedical_clinical, computer_science_ai, interdisciplinary_biomedical_ai, chemistry, physics, mathematics, engineering_materials, social_sciences, humanities_interdisciplinary. Do NOT assume non-biomedical queries are biomedical.
-3. Extract normalized technical entities (fixing typos and resolving ambiguous acronyms in context).
-
-# STAGE B & C — SEARCH FACETS & VALIDATED API COMPILATION
-Generate search_facets covering:
-- F1_direct_evidence: Direct evidence for the principal question and subquestions.
-- F2_foundational_contextual: Foundational frameworks, benchmarks, and systematic reviews (do NOT simply search the literal word "seminal").
-- F3_alternative_contradictory: Competing hypotheses, negative results, OOD generalization limits, and methodological bottlenecks.
-- F4_recent_developments: Recent advances and targeted knowledge-gap verification.
-
-Source Compilation Rules:
-1. PUBMED: Formal Boolean (AND, OR) with [Title/Abstract] or valid MeSH tags. Never invent MeSH headings.
-2. SEMANTIC SCHOLAR: Dense natural-language keyword phrases (5-8 words). NO Boolean operators.
-3. ARXIV: Valid field prefixes (ti:, abs:, all:) with uppercase AND / OR / ANDNOT connectors.
-4. BIORXIV / MEDRXIV: List of 2 short multi-word phrases (3-4 words each).
-5. HUGGING FACE: Model, dataset, and architecture tokens only (strip out paper-only words like "review" or "limitations").
-
-Return strictly valid JSON:
-{
-  "detected_domain": "BIOMEDICAL/AI | CHEMISTRY | PHYSICS | MATHEMATICS | COMPUTATIONAL",
-  "extracted_technical_entities": ["string"],
-  "search_facets": [
-    {
-      "facet_code": "F1_direct_evidence",
-      "facet_name": "string",
-      "facet_intent": "string",
-      "queries": {
-        "pubmed": "string",
-        "semantic_scholar": "string",
-        "arxiv": "string",
-        "biorxiv_medrxiv": ["string"],
-        "hugging_face": "string"
-      }
-    }
-  ]
-}"""
-
-
 async def generate_multi_api_decomposition_plan(
     query: str,
     mode: str,
@@ -996,121 +829,45 @@ async def generate_multi_api_decomposition_plan(
     domain_override: Optional[DomainCategoryType] = None,
 ) -> QueryDecompositionPlan:
     """
-    Runs the 3-stage Universal Question Understanding, Strategy Planning, and Source-Specific
-    Query Compilation pipeline, augmented by the configured LLM when available and validated
-    against syntax rules. Uses bounded in-memory caching for cost/latency control.
+    Plans the searches for a request. With a model configured, the model names the concepts (with synonyms), the
+    breadth and the aspects; these are validated and the search strings are compiled by rules. If the model is
+    unavailable or its plan is unusable, the plan comes from the question's own words and a per-field template.
     """
     cache_key = f"{query.strip().lower()}::{mode}::{config.llm_provider}::{config.llm_model}::{domain_override or 'auto'}"
     if cache_key in _DECOMPOSITION_CACHE:
-        return _DECOMPOSITION_CACHE[cache_key]
+        return _DECOMPOSITION_CACHE[cache_key].model_copy(deep=True)
 
     base_plan = compile_deterministic_decomposition_plan(query, mode=mode, domain_override=domain_override)
-
-    # Only invoke LLM if an API key or local endpoint is configured
+    final_plan = base_plan
     has_llm = bool((config.llm_api_key or "").strip()) or config.llm_provider in ("ollama", "custom")
-    if not has_llm:
-        _DECOMPOSITION_CACHE[cache_key] = base_plan
-        return base_plan
-
-    raw = await call_llm(
-        system_prompt=UNIVERSAL_DECOMPOSITION_SYSTEM_PROMPT,
-        user_prompt=(
-            f"Research Request: {query}\n"
-            f"Detected Domain Profile: {base_plan.active_profile_summary.get('primary_domain_display')}\n"
-            f"Target Mode: {mode} ({len(base_plan.search_facets)} facets)"
-            + (
-                "\nRequired constraints (every query for every source must include them): "
-                + "; ".join(c.name for c in base_plan.question_understanding.concepts.required_constraints)
-                if base_plan.question_understanding and base_plan.question_understanding.concepts.required_constraints
-                else ""
-            )
-        ),
-        config=config,
-        temperature=0.15,
-        max_tokens=1500,
-    )
-    parsed = extract_json_block(raw) if raw else None
-    if not parsed or not isinstance(parsed.get("search_facets"), list) or len(parsed["search_facets"]) == 0:
-        _DECOMPOSITION_CACHE[cache_key] = base_plan
-        return base_plan
-
-    raw_entities = parsed.get("extracted_technical_entities") or base_plan.extracted_technical_entities
-    if isinstance(raw_entities, str):
-        raw_entities = [raw_entities]
-    elif not isinstance(raw_entities, list):
-        raw_entities = base_plan.extracted_technical_entities
-    entities = [
-        str(e).strip()
-        for e in raw_entities
-        if str(e).strip() and str(e).strip().lower() not in CONVERSATIONAL_STOP_WORDS
-    ]
-    if not entities:
-        entities = base_plan.extracted_technical_entities
-
-    facets_out: List[SearchFacet] = []
-    max_facets = len(base_plan.search_facets)
-
-    for idx, f_obj in enumerate(parsed["search_facets"][:max_facets]):
-        fb_facet = base_plan.search_facets[idx % len(base_plan.search_facets)]
-        # Models sometimes return facets/queries as bare strings or lists; fall back to the deterministic facet
-        if not isinstance(f_obj, dict):
-            facets_out.append(fb_facet)
-            continue
-        q_obj = f_obj.get("queries")
-        if not isinstance(q_obj, dict):
-            q_obj = {}
-        biorxiv_list = q_obj.get("biorxiv_medrxiv")
-        if isinstance(biorxiv_list, str):
-            biorxiv_list = [biorxiv_list]
-        elif not isinstance(biorxiv_list, list) or not biorxiv_list:
-            biorxiv_list = fb_facet.queries.biorxiv_medrxiv
-
-        # Validate arXiv & S2 syntax from LLM; fall back to deterministic compiler if invalid
-        raw_s2 = str(q_obj.get("semantic_scholar") or fb_facet.queries.semantic_scholar).strip()
-        clean_s2 = re.sub(r"\b(AND|OR|NOT)\b", " ", raw_s2)
-        clean_s2 = " ".join(clean_s2.split()) or fb_facet.queries.semantic_scholar
-
-        raw_arxiv = str(q_obj.get("arxiv") or fb_facet.queries.arxiv).strip()
-        if raw_arxiv.count("(") != raw_arxiv.count(")") or not any(p in raw_arxiv for p in ("ti:", "abs:", "all:")):
-            raw_arxiv = fb_facet.queries.arxiv
-
-        raw_pubmed = str(q_obj.get("pubmed") or fb_facet.queries.pubmed).strip()
-        if raw_pubmed.count("(") != raw_pubmed.count(")"):
-            raw_pubmed = fb_facet.queries.pubmed
-
-        facets_out.append(
-            SearchFacet(
-                facet_code=str(f_obj.get("facet_code") or fb_facet.facet_code),
-                facet_name=str(f_obj.get("facet_name") or fb_facet.facet_name),
-                facet_intent=str(f_obj.get("facet_intent") or fb_facet.facet_intent),
-                linked_subquestion_ids=fb_facet.linked_subquestion_ids,
-                expansion_reason=fb_facet.expansion_reason,
-                priority_rank=fb_facet.priority_rank,
-                queries=FacetApiQueries(
-                    pubmed=raw_pubmed,
-                    semantic_scholar=clean_s2,
-                    arxiv=raw_arxiv,
-                    biorxiv_medrxiv=[str(x).strip() for x in biorxiv_list if str(x).strip()][:3],
-                    hugging_face=str(q_obj.get("hugging_face") or fb_facet.queries.hugging_face).strip(),
-                ),
-            )
+    if has_llm:
+        understanding = base_plan.question_understanding
+        constraints = understanding.concepts.required_constraints if understanding else []
+        raw = await call_llm(
+            system_prompt=SEARCH_PLANNING_PROMPT,
+            user_prompt=(
+                f"Research request: {query}\n"
+                f"Field: {base_plan.active_profile_summary.get('primary_domain_display')}\n"
+                f"Number of aspects: {ASPECTS_BY_MODE.get(mode, 4)}"
+                + (f"\nPlaces / populations already handled (leave out): {'; '.join(c.name for c in constraints)}"
+                   if constraints else "")
+            ),
+            config=config,
+            temperature=0.1,
+            max_tokens=1100,
         )
+        parsed = extract_json_block(raw) if raw else None
+        if isinstance(parsed, dict) and understanding:
+            model_plan = {
+                "concepts": concepts_from_model(parsed.get("concepts"), understanding),
+                "aspects": aspects_from_model(parsed.get("aspects"), ASPECTS_BY_MODE.get(mode, 4)),
+                "breadth": parsed.get("breadth") if parsed.get("breadth") in ("broad", "focused") else None,
+            }
+            if model_plan["concepts"] or model_plan["aspects"]:
+                final_plan = compile_deterministic_decomposition_plan(
+                    query, mode=mode, domain_override=domain_override, model_plan=model_plan)
 
-    # The model may drop a place/population restriction; re-impose it on every LLM-written query
-    required = (
-        base_plan.question_understanding.concepts.required_constraints if base_plan.question_understanding else []
-    )
-    facets_out = [f.model_copy(update={"queries": apply_required_constraints(f.queries, required)}) for f in facets_out]
-
-    final_plan = QueryDecompositionPlan(
-        detected_domain=base_plan.detected_domain,
-        extracted_technical_entities=entities,
-        search_facets=facets_out,
-        question_understanding=base_plan.question_understanding,
-        search_plan=base_plan.search_plan,
-        active_profile_summary=base_plan.active_profile_summary,
-    )
     if len(_DECOMPOSITION_CACHE) > 64:
         _DECOMPOSITION_CACHE.clear()
     _DECOMPOSITION_CACHE[cache_key] = final_plan
-    return final_plan
+    return final_plan.model_copy(deep=True)

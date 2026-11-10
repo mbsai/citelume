@@ -25,6 +25,7 @@ async def search_arxiv(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     fallback_query: str = "",
+    broaden: bool = True,
 ) -> List[PaperRecord]:
     search_q = _build_arxiv_query(query, max_terms=4)
     params = {
@@ -36,16 +37,17 @@ async def search_arxiv(
     }
 
     papers: List[PaperRecord] = []
-    async with httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
+    # arXiv is often slow or rate-limited; one retry and a shorter timeout keep it from holding up other sources
+    async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=10.0, follow_redirects=True) as client:
         try:
             resp = await client.get(ARXIV_API_URL, params=params)
             resp.raise_for_status()
             root = ET.fromstring(resp.text)
             entries = root.findall("atom:entry", ATOM_NS)
-            if not entries:
+            if not entries and broaden:
                 fb_tokens = extract_core_scientific_terms(fallback_query or query, max_terms=2)
-                broader_q = " AND ".join(f"all:{t}" for t in fb_tokens) if fb_tokens else "all:protein"
-                if broader_q != search_q:
+                broader_q = " AND ".join(f"all:{t}" for t in fb_tokens)
+                if broader_q and broader_q != search_q:
                     params["search_query"] = broader_q
                     resp2 = await client.get(ARXIV_API_URL, params=params)
                     if resp2.status_code == 200:

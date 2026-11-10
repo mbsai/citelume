@@ -57,6 +57,8 @@ def _record(item: dict) -> Optional[PaperRecord]:
         pmid=str(pmid),
         abstract=re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", item.get("abstractText") or "")).strip(),
         citation_count=int(item.get("citedByCount") or 0),
+        citation_source="Europe PMC",
+        publication_types=[str(t) for t in ((item.get("pubTypeList") or {}).get("pubType") or []) if t],
         url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
     )
 

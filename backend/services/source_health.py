@@ -27,10 +27,12 @@ _SOURCE_HINTS: Dict[str, str] = {
 
 
 class RetryingTransport(httpx.AsyncBaseTransport):
-    def __init__(self, inner: Optional[httpx.AsyncBaseTransport] = None) -> None:
+    def __init__(self, inner: Optional[httpx.AsyncBaseTransport] = None, max_retries: Optional[int] = None) -> None:
         self._inner = inner or httpx.AsyncHTTPTransport()
+        self._max_retries = max_retries
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        MAX_RETRIES = globals()["MAX_RETRIES"] if self._max_retries is None else self._max_retries
         for attempt in range(MAX_RETRIES + 1):
             try:
                 response = await self._inner.handle_async_request(request)
@@ -53,8 +55,8 @@ class RetryingTransport(httpx.AsyncBaseTransport):
         await self._inner.aclose()
 
 
-def retrying_transport() -> RetryingTransport:
-    return RetryingTransport()
+def retrying_transport(max_retries: Optional[int] = None) -> RetryingTransport:
+    return RetryingTransport(max_retries=max_retries)
 
 
 # OpenAlex API key for the current request (OpenAlex requires a free key for regular use)

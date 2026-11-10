@@ -43,10 +43,12 @@ class TestConversationalQuestion(unittest.TestCase):
                          {"mouse models", "animal models", "organoids", "human clinical samples"})
         self.assertEqual(u.concepts.required_constraints, [])
         plan = compile_deterministic_decomposition_plan(SSC_QUESTION, "deep_research")
-        f1, f4 = plan.search_facets[0].queries.pubmed, plan.search_facets[3].queries.pubmed
-        self.assertNotIn("mouse", f1)
-        self.assertIn('"mouse"[Title/Abstract]', f4)
-        self.assertNotIn("diffusion", f4)  # AI-only modifiers are not used for biomedical questions
+        core = plan.search_facets[0].queries.pubmed
+        systems = next(f for f in plan.search_facets if f.facet_name == "Model systems").queries.pubmed
+        self.assertNotIn("mouse", core)
+        self.assertIn('"mouse"[Title/Abstract]', systems)
+        # AI-only terms are not used for biomedical questions
+        self.assertFalse(any("diffusion" in f.queries.pubmed for f in plan.search_facets))
 
 
 class TestModelScale(unittest.TestCase):

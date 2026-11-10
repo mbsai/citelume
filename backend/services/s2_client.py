@@ -11,7 +11,7 @@ S2_PAPER_URL = "https://api.semanticscholar.org/graph/v1/paper"
 OPENALEX_WORKS_URL = "https://api.openalex.org/works"
 
 S2_FIELDS = (
-    "paperId,externalIds,url,title,abstract,venue,year,citationCount,"
+    "paperId,externalIds,url,title,abstract,venue,year,citationCount,publicationTypes,"
     "influentialCitationCount,openAccessPdf,authors,references.paperId,"
     "references.externalIds,citations.paperId,citations.externalIds"
 )
@@ -112,6 +112,8 @@ async def _fallback_openalex_search(
                         pmid=pmid,
                         abstract=abstract,
                         citation_count=cite_count,
+                        citation_source="OpenAlex",
+                        publication_types=[str(item.get("type"))] if item.get("type") in ("review", "editorial", "letter", "erratum", "retraction") else [],
                         url=url,
                         pdf_url=pdf_url,
                         references=refs,
@@ -203,6 +205,8 @@ async def search_semantic_scholar(
                         pmid=pmid,
                         abstract=(item.get("abstract") or "").strip(),
                         citation_count=int(item.get("citationCount") or 0),
+                        citation_source="Semantic Scholar",
+                        publication_types=[str(t) for t in (item.get("publicationTypes") or []) if t],
                         influential_citation_count=int(item.get("influentialCitationCount") or 0),
                         url=url,
                         pdf_url=oa_pdf,
@@ -282,6 +286,7 @@ async def expand_paper_neighbors(
                                 pmid=npmid,
                                 abstract=(item.get("abstract") or "").strip(),
                                 citation_count=int(item.get("citationCount") or 0),
+                                citation_source="Semantic Scholar",
                                 url=item.get("url") or f"https://www.semanticscholar.org/paper/{pid}",
                             )
                         )
