@@ -1,3 +1,4 @@
+import time
 import re
 import asyncio
 from pathlib import Path
@@ -263,7 +264,16 @@ SEARCH_STAGES: List[str] = [
 _SEARCH_PROGRESS: Dict[str, Dict[str, Any]] = {}
 
 
+_STAGE_CLOCK: Dict[int, float] = {}
+
+
 def _report_stage(req: SearchRequest, stage: int, detail: str = "") -> None:
+    # Stage timings go to the server log (no query text), so slow runs can be diagnosed
+    now = time.monotonic()
+    started = _STAGE_CLOCK.setdefault(id(req), now)
+    print(f"[search-stage] {req.mode} stage {stage}/{len(SEARCH_STAGES)} at +{now - started:.0f}s {detail}".rstrip(), flush=True)
+    if stage >= len(SEARCH_STAGES) or len(_STAGE_CLOCK) > 200:
+        _STAGE_CLOCK.pop(id(req), None)
     if not req.progress_id:
         return
     _SEARCH_PROGRESS[req.progress_id] = {

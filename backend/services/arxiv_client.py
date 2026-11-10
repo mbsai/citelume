@@ -37,7 +37,8 @@ async def search_arxiv(
     }
 
     papers: List[PaperRecord] = []
-    async with httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
+    # arXiv is often slow or rate-limited; one retry and a shorter timeout keep it from holding up other sources
+    async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=10.0, follow_redirects=True) as client:
         try:
             resp = await client.get(ARXIV_API_URL, params=params)
             resp.raise_for_status()

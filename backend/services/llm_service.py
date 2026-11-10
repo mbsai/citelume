@@ -830,7 +830,7 @@ async def _call_provider(
     return None
 
 
-async def execute_validated_llm_task(
+async def _execute_validated_llm_task(
     task_id: str,
     task_name: str,
     system_prompt: str,
@@ -1016,6 +1016,14 @@ async def execute_validated_llm_task(
         last_candidate=last_candidate,
     )
 
+
+
+async def execute_validated_llm_task(*args, **kwargs):
+    """Runs a validated LLM step (see _execute_validated_llm_task) and records how long it took."""
+    started = time.monotonic()
+    result, record = await _execute_validated_llm_task(*args, **kwargs)
+    record.duration_s = round(time.monotonic() - started, 1)
+    return result, record
 
 def detect_provider_from_credentials(
     current_provider: str,

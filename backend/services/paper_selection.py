@@ -29,6 +29,7 @@ from services.question_parsing import (
     GENERIC_CONCEPT_WORDS,
     concept_blocks,
     concept_mentions,
+    initialism,
     is_method_concept,
     meets_constraint,
 )
@@ -118,6 +119,8 @@ MIN_CONSTRAINT_MATCHES = 5                            # apply place/population e
 MIN_CONCEPT_POINTS_FOR_COVERAGE_SLOT = 12.0           # a study taking an aspect's reserved place must be on topic
 
 SELECTION_RULES: List[str] = [
+    "Studies that match every part of the question are placed ahead of studies that match only part of it; within "
+    "each group the order is by score.",
     "Coverage: each aspect of the question first receives its highest-scoring study (two in Deep Research), "
     "provided that study is on topic.",
     "Null results: for questions about an effect or association, up to two studies (four in Deep Research) that "
@@ -140,9 +143,14 @@ _RE_CONF_ABSTRACT = re.compile(r"^\s*(?:[A-Z]{1,4}[- ]?\d{2,5}|(?!(?:19|20)\d{2}
 _RE_PROTOCOL = re.compile(r"\b(?:study protocol|trial protocol|protocol for (?:a|an|the)|: (?:a )?protocol\b|"
                           r"protocol of (?:a|an|the))", _T)
 _RE_SYNTHESIS = re.compile(r"\b(?:systematic review|meta-?analys[ie]s|umbrella review|scoping review|pooled analysis|"
-                           r"network meta|cochrane review|clinical practice guideline|practice guideline|"
+                           r"network meta|cochrane review|clinical practice guideline|practice guideline|evidence synthesis|"
                            r"consensus statement|position statement|guidelines? (?:for|on)\b)", _T)
-_RE_RCT = re.compile(r"\b(?:randomi[sz]ed|randomly assigned|randomly allocated|double-blind|placebo-controlled)\b", _T)
+_RE_RCT_TITLE = re.compile(r"\b(?:randomi[sz]ed|double-blind|placebo-controlled|controlled trial|"
+                           r"cluster[- ]randomi[sz]ed)\b", _T)
+_RE_RCT_OWN = re.compile(r"\b(?:we randomi[sz]ed|we randomly (?:assigned|allocated)|(?:were|was) randomi[sz]ed|"
+                         r"(?:were|was) randomly (?:assigned|allocated)|randomly assigned to|"
+                         r"(?:this|a|our) (?:multicent(?:er|re) |double-blind |single-blind |open-label |pilot )*"
+                         r"randomi[sz]ed|participants were random)", _T)
 _RE_REVIEW_TITLE = re.compile(r"\b(?:review|overview|perspectives?|state of the art|a survey\b|survey (?:of|on)|"
                               r"recent advances|current (?:status|concepts|understanding)|update on|primer|"
                               r"progress in|insights? into|landscape)\b", _T)
@@ -196,14 +204,17 @@ def classify_study_type(p: PaperRecord) -> str:
         return "protocol"
     if types & _TYPE_FROM_SOURCE[2][1] or _RE_SYNTHESIS.search(title):
         return "evidence_synthesis"
-    if types & _TYPE_FROM_SOURCE[3][1] or (_RE_RCT.search(text) and re.search(r"\btrial|controlled\b", text, _T)
-                                           and not _RE_REVIEW_TITLE.search(title)):
+    if types & _TYPE_FROM_SOURCE[3][1]:
         return "rct"
     if types & _TYPE_FROM_SOURCE[4][1] or _RE_CASE.search(title):
         return "case_report"
     if types & _TYPE_FROM_SOURCE[5][1] and len(p.abstract or "") < 600:
         return "commentary"
-    if types & _TYPE_FROM_SOURCE[6][1] or _RE_REVIEW_TITLE.search(title) or _RE_REVIEW_TEXT.search(text):
+    is_review = bool(types & _TYPE_FROM_SOURCE[6][1] or _RE_REVIEW_TITLE.search(title) or _RE_REVIEW_TEXT.search(text))
+    # A trial says so in its title or describes its own randomisation; a review that discusses trials does not
+    if not is_review and (_RE_RCT_TITLE.search(title) or _RE_RCT_OWN.search(text)):
+        return "rct"
+    if is_review:
         return "review"
     if _RE_THEORY.search(text):
         return "theoretical"
@@ -218,6 +229,18 @@ def classify_study_type(p: PaperRecord) -> str:
     if _RE_COMPUT.search(text):
         return "computational"
     return "primary_other"
+
+
+def first_author_surname(p: PaperRecord) -> str:
+    """Surname of the first author, whether the source writes "Jane Q. Smith" or "Smith JQ"."""
+    if not p.authors:
+        return "?"
+    parts = [t.strip(".,") for t in p.authors[0].split() if t.strip(".,")]
+    if not parts:
+        return "?"
+    last = parts[-1]
+    initials_last = len(last) <= 3 and last.isupper()
+    return (parts[0] if initials_last and len(parts) > 1 else last).lower()
 
 
 def is_preprint(p: PaperRecord) -> bool:
@@ -280,12 +303,24 @@ def percentile_ranks(values: Sequence[Optional[float]]) -> List[Optional[float]]
     return [None if v is None else ((first[v] + last[v]) / 2 + 1) / n for v in values]
 
 
+def _is_abbreviation(term: str) -> bool:
+    return len(term) <= 5 and " " not in term and term.upper() == term and any(ch.isalpha() for ch in term)
+
+
 def _concept_level(concept: SearchConcept, title: str, abstract: str) -> float:
+    """1.0 in the title, 0.7 for two or more abstract mentions, 0.4 for one. An abbreviation offered as a synonym
+    (CHD for coronary heart disease) can mean other things, so on its own it counts as the weakest match."""
     names = [concept.name] + list(concept.synonyms)
-    if any(concept_mentions(n, title) for n in names):
+    full = [n for n in names if n == concept.name or not _is_abbreviation(n)]
+    # Abbreviations given as synonyms, and the initials of the full names (BCAA, CHD)
+    abbreviations = [n for n in names if n not in full] + [a for a in (initialism(n) for n in full) if a]
+    if any(concept_mentions(n, title, allow_initialism=False) for n in full):
         return 1.0
-    hits = max((concept_mentions(n, abstract) for n in names), default=0)
-    return 0.7 if hits >= 2 else (0.4 if hits == 1 else 0.0)
+    hits = max((concept_mentions(n, abstract, allow_initialism=False) for n in full), default=0)
+    level = 0.7 if hits >= 2 else (0.4 if hits == 1 else 0.0)
+    if level < 0.4 and any(concept_mentions(a, f"{title} {abstract}", allow_initialism=False) for a in abbreviations):
+        level = 0.4
+    return level
 
 
 def question_concepts(understanding: Optional[UniversalQuestionUnderstanding]) -> Tuple[List[SearchConcept], int]:
@@ -315,6 +350,12 @@ _NULL_RESULT = re.compile(
     r"were not (?:significantly )?(?:associated|different)|failed to (?:show|demonstrate|replicate|confirm)|"
     r"null (?:results?|findings?|effect)|non-?significant|contrary to|conflicting (?:results|evidence|findings)|"
     r"inconsistent (?:results|evidence|findings))\b", _T)
+
+
+# A question about an effect or association ("Does X prevent Y?", "effect of X on Y", "X vs Y")
+_EFFECT_QUESTION = re.compile(
+    r"\b(?:effects?|efficacy|effectiveness|impact|affects?|prevents?|reduces?|improves?|increases?|decreases?|"
+    r"causes?|associated|association|relationship|risk of|versus|vs\.?|compared|better than|predicts?|works?)\b", _T)
 
 
 def reports_null_result(p: PaperRecord) -> bool:
@@ -496,7 +537,9 @@ def select_studies(
         }
 
     def sort_key(p: PaperRecord):
-        return (p.relevance != "off_topic", round(scores[p.id], 3), p.year or 0, cites_per_year(p) or 0.0,
+        # Studies matching every part of the question come before those matching only part of it
+        return ({"addresses": 2, "partly": 1}.get(p.relevance, 0), round(scores[p.id], 3), p.year or 0,
+                cites_per_year(p) or 0.0,
                 [-ord(ch) for ch in (p.title or "")[:40].lower()])
 
     ranked = sorted(pool, key=sort_key, reverse=True)
@@ -511,7 +554,7 @@ def select_studies(
     review_cap = max(1, int(round(REVIEW_SHARE_CAP[breadth] * max_total)))
 
     def key_author_year(p: PaperRecord) -> str:
-        return f"{(p.authors[0].split()[-1].lower() if p.authors else '?')}_{p.year or 0}"
+        return f"{first_author_surname(p)}_{p.year or 0}"
 
     def take(p: PaperRecord, reason: str) -> None:
         chosen.append(p)
@@ -541,7 +584,8 @@ def select_studies(
                         and p.selection_breakdown["concept_match"] >= MIN_CONCEPT_POINTS_FOR_COVERAGE_SLOT):
                     take(p, f"Best match for the aspect: {a.label}")
                     got += 1
-        if breadth == "focused" and intent in ("causal_intervention", "associational", "comparative", "predictive"):
+        if breadth == "focused" and (intent in ("causal_intervention", "associational", "comparative", "predictive")
+                                     or _EFFECT_QUESTION.search(query or "")):
             want = 2 if max_total <= 20 else 4
             have = sum(1 for p in chosen if reports_null_result(p))
             for p in ranked:

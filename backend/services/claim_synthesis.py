@@ -964,6 +964,16 @@ def compose_section1_narrative_from_verified_claims(
 # PHASE 11: Explicit 10-Dimension Synthesis Quality Gate
 # ============================================================================
 
+_OWN_POOLING_CLAIM_RE = re.compile(
+    r"\b(?:we|this (?:synthesis|review|analysis|report)|the present (?:synthesis|review|analysis))\s+"
+    r"(?:performed|conducted|carried out|ran|undertook)\s+an?\s+(?:formal\s+|quantitative\s+)?meta-analysis"
+    r"|\bour (?:meta-analysis|pooled (?:analysis|estimate)|meta-analytic)"
+    r"|\bwe pooled\b"
+    r"|\bpool(?:ed|ing) (?:the )?(?:effect )?(?:estimates?|results|data) (?:across|from|of) (?:the |all )?"
+    r"(?:included|selected|retrieved|reviewed|\d+) studies (?:yield|give|show|produc)",
+    re.IGNORECASE)
+
+
 def evaluate_section1_quality_gate(
     query: str,
     papers: List[PaperRecord],
@@ -1051,9 +1061,10 @@ def evaluate_section1_quality_gate(
     if all_obs and _OVERCLAIM_CAUSAL_RE.search(full_narrative):
         sci_ok = False
         sci_reasons.append("Narrative states unqualified causal proof from purely observational/predictive studies.")
-    if re.search(r"\b(meta-analysis|pooled\s+effect\s+estimate)\b", full_narrative, re.IGNORECASE) and "without" not in full_narrative.lower() and "absence of" not in full_narrative.lower():
+    # Citing an included meta-analysis is fine; claiming that this synthesis itself pooled the studies is not
+    if _OWN_POOLING_CLAIM_RE.search(full_narrative):
         sci_ok = False
-        sci_reasons.append("Narrative claims a formal meta-analysis or pooled estimate without quantitative pooling.")
+        sci_reasons.append("Narrative claims that this synthesis performed a meta-analysis or pooled the studies, which it did not.")
     checks.append(SynthesisQualityCheck(name="scientific_validity", passed=sci_ok, reasons=sci_reasons))
 
     # 6. Contradiction handling

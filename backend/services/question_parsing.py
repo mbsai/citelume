@@ -239,6 +239,9 @@ def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_wo
     # Fields whose name contains the word "research" ("research" alone is request vocabulary)
     question = re.sub(r"\b(operations|implementation|market|action|services|translational|qualitative)\s+research\b",
                       r"\1-research", question, flags=re.I)
+    # Compounds whose second word is otherwise framing ("identified changes in X" vs "climate change")
+    question = re.sub(r"\b(climate|behaviou?r|lifestyle|regime|land[- ]use|social|structural|conformational|phase)\s+change\b",
+                      r"\1-change", question, flags=re.I)
     question = re.sub(r"(\d),(\d{3})\b", r"\1\2", question)  # 10,000 -> 10000
     constraints = detect_constraints(question)
     model_words = {w for c in detect_model_systems(question) for sp in c.spellings for w in sp.split()}
@@ -346,7 +349,7 @@ def initialism(phrase: str) -> str:
     return abbr if len(abbr) >= 3 and len(parts) >= 3 else ""
 
 
-def concept_mentions(phrase: str, text: str) -> int:
+def concept_mentions(phrase: str, text: str, allow_initialism: bool = True) -> int:
     """
     How often a concept appears in text: the phrase itself (plural, hyphen or space variants), its initialism
     (BCAA), or - for multi-word concepts written differently - all of its specific words (counted once).
@@ -357,7 +360,7 @@ def concept_mentions(phrase: str, text: str) -> int:
     low = normalize_spelling(text)
     pattern = r"[\s-]?".join(re.escape(w) for w in re.split(r"[\s-]+", normalize_spelling(phrase)) if w)
     n = len(re.findall(rf"(?<![a-z0-9]){pattern}(?:s|es)?(?![a-z])", low))
-    abbr = initialism(phrase)
+    abbr = initialism(phrase) if allow_initialism else ""
     if abbr:
         n += len(re.findall(rf"(?<![A-Za-z0-9]){abbr}s?(?![A-Za-z0-9])", text))
     if n:

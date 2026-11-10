@@ -51,6 +51,12 @@ _RELATION = re.compile(
     r"efficacy|effectiveness|influence)\b", re.I)
 
 
+_INTERVENTION_Q = re.compile(r"\b(?:prevents?|prevention|treats?|treatment|therap(?:y|ies)|efficacy|effectiveness|"
+                             r"reduces?|improves?|supplement\w*|versus|vs\.?|compared|better than|intervention)\b", re.I)
+_ASSOCIATION_Q = re.compile(r"\b(?:associated|association|relationship|risk of|risk factors?|predicts?|linked|"
+                            r"correlat\w+|affects?|impact|influences?|effects? of)\b", re.I)
+
+
 def subject_concepts(phrases: Sequence[str]) -> List[str]:
     """Concept phrases that name what the question is about (not methods, not purely generic words)."""
     return [p for p in phrases if not is_method_concept(p) and any(w not in GENERIC_CONCEPT_WORDS for w in p.split())]
@@ -235,10 +241,14 @@ def default_aspects(understanding: UniversalQuestionUnderstanding, topic: str, n
     """Aspects for the question's field and type, used when no model plans the search."""
     domain, intent = understanding.primary_domain, understanding.primary_intent
     key = _DOMAIN_TEMPLATE.get(domain)
+    if key is None and re.search(r"\b(?:machine learning|deep learning|neural networks?|artificial intelligence|"
+                                 r"language models?|algorithms?)\b", understanding.raw_query, re.I):
+        key = "computing"  # a computational method applied to another field
+    focused = detect_breadth(understanding.raw_query, understanding.concepts.concept_phrases) == "focused"
     if key is None:
-        if intent in ("causal_intervention", "comparative"):
+        if intent in ("causal_intervention", "comparative") or (focused and _INTERVENTION_Q.search(understanding.raw_query)):
             key = "biomedical_effect"
-        elif intent in ("associational", "predictive"):
+        elif intent in ("associational", "predictive") or (focused and _ASSOCIATION_Q.search(understanding.raw_query)):
             key = "biomedical_association"
         elif intent == "explanatory_mechanistic":
             key = "biomedical_mechanism"
@@ -264,9 +274,17 @@ def default_aspects(understanding: UniversalQuestionUnderstanding, topic: str, n
 # ---------------------------------------------------------------------------------------------------------------
 def concepts_from_question(understanding: UniversalQuestionUnderstanding) -> List[SearchConcept]:
     """Required concepts from the question's own words; concepts listed side by side become alternatives."""
-    phrases = subject_concepts(understanding.concepts.concept_phrases) or list(understanding.concepts.concept_phrases)
+    all_phrases = list(understanding.concepts.concept_phrases)
+    phrases = subject_concepts(all_phrases) or all_phrases
     blocks = concept_blocks(understanding.raw_query, phrases, max_blocks=3)
-    return [SearchConcept(name=b[0], synonyms=list(b[1:])) for b in blocks if b]
+    concepts = [SearchConcept(name=b[0].replace("-change", " change").replace("-research", " research"),
+                              synonyms=list(b[1:])) for b in blocks if b]
+    # A method named in the question ("machine learning in drug discovery") is part of what is asked about
+    methods = [p for p in all_phrases if is_method_concept(p) and p not in phrases
+               and p.lower() not in ("review", "analysis", "data", "survey", "study")]
+    if methods and len(concepts) < 3:
+        concepts.append(SearchConcept(name=methods[0]))
+    return concepts
 
 
 def _clean_term(text: Any, max_words: int = 6) -> str:

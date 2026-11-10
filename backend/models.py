@@ -332,6 +332,8 @@ class TaskExecutionRecord(BaseModel):
     degraded_to_deterministic: bool = False
     # True when the model hit its output token limit; callers split the work instead of resending the same prompt
     output_truncated: bool = False
+    # Wall-clock seconds the step took, including retries
+    duration_s: float = 0.0
     # Last schema-valid candidate that failed quality gates (enables section-level partial reuse; never serialized)
     last_candidate: Optional[Dict[str, Any]] = Field(default=None, exclude=True)
 

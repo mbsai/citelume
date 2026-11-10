@@ -1,7 +1,36 @@
 import datetime
 import textwrap
 from typing import List, Optional, Tuple
-from models import ExportRequest, ReviewProtocolReport
+from models import ExportRequest, ReviewProtocolReport, SelectionReport
+
+
+def selection_report_lines(report: Optional[SelectionReport], papers=None) -> List[str]:
+    """Plain-text lines on how the included studies were chosen (shared by all export formats)."""
+    if not report or not report.included:
+        return []
+    lines = [
+        f"Selection protocol {report.protocol_version} (full description: docs/RANKING.md).",
+        f"Records found by the searches: {report.records_found}; after merging duplicates: {report.unique_records}; "
+        f"eligible and scored: {report.eligible}; included: {report.included} (limit {report.target_count}).",
+    ]
+    lines += [f"- Removed ({n}): {reason}" for reason, n in report.excluded.items()]
+    lines.append("Score out of 100 for each eligible study:")
+    lines += [f"- {c.label} (up to {c.max_points:g}): {c.rule}" for c in report.criteria]
+    lines.append("Rules for filling the places:")
+    lines += [f"- {r}" for r in report.selection_rules]
+    if report.citation_data:
+        lines.append(report.citation_data)
+    lines += list(report.notes)
+    scored = [p for p in (papers or []) if p.selection_breakdown.get("total") is not None]
+    if scored:
+        lines.append("Scores of the included studies (relevance / study type / citations / recency / searches = total):")
+        for p in scored:
+            b = p.selection_breakdown
+            lines.append(
+                f"- [{p.citation_index}] {b.get('relevance', 0):g} / {b.get('evidence', 0):g} / {b.get('impact', 0):g} / "
+                f"{b.get('recency', 0):g} / {b.get('agreement', 0):g} = {b.get('total', 0):g}; "
+                f"{report.study_type_labels.get(p.study_type, p.study_type)}; {p.selection_reason}")
+    return lines
 
 
 def review_protocol_lines(protocol: Optional[ReviewProtocolReport]) -> List[str]:
@@ -177,6 +206,12 @@ def generate_markdown_report(req: ExportRequest) -> str:
             )
         lines.append("")
 
+    if req.selection_report and req.selection_report.included:
+        lines.append("## How the Studies Were Chosen")
+        lines.append("")
+        lines.extend(f"{ln}  " for ln in selection_report_lines(req.selection_report, req.papers))
+        lines.append("")
+
     if req.review_protocol:
         lines.append("## Review Method & Frameworks Applied")
         lines.append("")
@@ -263,6 +298,11 @@ def generate_txt_report(req: ExportRequest) -> str:
         lines.extend(["HUGGING FACE MODELS & DATASETS", subsep, ""])
         for hf in req.hf_resources[:12]:
             lines.append(f"* {hf.id} ({hf.resource_type.upper()} | {hf.pipeline_tag} | {hf.downloads:,} downloads): {hf.url}")
+        lines.append("")
+
+    if req.selection_report and req.selection_report.included:
+        lines.extend(["HOW THE STUDIES WERE CHOSEN", subsep, ""])
+        lines.extend(selection_report_lines(req.selection_report, req.papers))
         lines.append("")
 
     if req.review_protocol:
@@ -401,6 +441,12 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
                 size=9,
                 width=95,
             )
+
+    if req.selection_report and req.selection_report.included:
+        add_heading("How the Studies Were Chosen", 12)
+        for ln in selection_report_lines(req.selection_report, req.papers):
+            add_paragraph(ln, font="F1", size=9, width=96)
+        styled_lines.append(("F1", 3, 5, ""))
 
     if req.review_protocol:
         add_heading("Review Method & Frameworks Applied", 12)
