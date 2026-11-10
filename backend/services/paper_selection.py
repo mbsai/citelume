@@ -114,6 +114,7 @@ TECHNICAL_DOMAINS = {"computer_science_ai", "mathematics", "physics", "chemistry
 
 # Step 4 limits
 REVIEW_SHARE_CAP = {"focused": 0.30, "broad": 0.50}   # narrative reviews as a share of the included studies
+SECONDARY_SHARE_CAP = {"focused": 0.60, "broad": 0.75}  # all reviews: narrative plus systematic / meta-analysis
 MAX_PER_AUTHOR_YEAR = 2                               # same first author and year
 MIN_CONSTRAINT_MATCHES = 5                            # apply place/population exclusion only if this many match
 MIN_CONCEPT_POINTS_FOR_COVERAGE_SLOT = 12.0           # a study taking an aspect's reserved place must be on topic
@@ -126,8 +127,9 @@ SELECTION_RULES: List[str] = [
     "Null results: for questions about an effect or association, up to two studies (four in Deep Research) that "
     "report null or contrary findings are kept in if any are eligible.",
     "Remaining places are filled in order of score.",
-    "Narrative reviews are limited to 30% of the included studies (50% for broad topics), so primary evidence is "
-    "not crowded out.",
+    "Narrative reviews are limited to 30% of the included studies (50% for broad topics), and reviews of all kinds "
+    "together (narrative, systematic and meta-analyses) to 60% (75% for broad topics), so primary studies are "
+    "always represented.",
     "No more than two studies with the same first author and year, to favour independent evidence.",
     "Ties are broken by newer publication year, then citations per year, then title.",
 ]
@@ -552,6 +554,8 @@ def select_studies(
     chosen_ids: set = set()
     author_year: Counter = Counter()
     review_cap = max(1, int(round(REVIEW_SHARE_CAP[breadth] * max_total)))
+    secondary_cap = max(1, int(round(SECONDARY_SHARE_CAP[breadth] * max_total)))
+    secondary_types = ("review", "evidence_synthesis")
 
     def key_author_year(p: PaperRecord) -> str:
         return f"{first_author_surname(p)}_{p.year or 0}"
@@ -570,6 +574,8 @@ def select_studies(
         if p.authors and author_year[key_author_year(p)] >= MAX_PER_AUTHOR_YEAR:
             return False
         if p.study_type == "review" and sum(1 for c in chosen if c.study_type == "review") >= review_cap:
+            return False
+        if p.study_type in secondary_types and sum(1 for c in chosen if c.study_type in secondary_types) >= secondary_cap:
             return False
         return True
 

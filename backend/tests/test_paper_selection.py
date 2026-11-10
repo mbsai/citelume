@@ -143,6 +143,13 @@ class TestBalancedSelection(unittest.TestCase):
         self.assertEqual(sum(1 for p in chosen if p.authors == ["Smith J"]), 2)
         self.assertEqual(rep.included_by_study_type["Narrative review"], 6)
 
+    def test_reviews_of_all_kinds_leave_room_for_primary_studies(self):
+        metas = [paper(i, f"Vitamin D and COVID-19: a meta-analysis {i}", "Vitamin D and COVID-19 pooled.", cites=900) for i in range(1, 26)]
+        primary = [paper(100 + i, f"Vitamin D and COVID-19 cohort {i}", "A prospective cohort of vitamin D and COVID-19.", cites=1) for i in range(1, 16)]
+        chosen, _, _ = select(metas + primary, "Does vitamin D prevent COVID-19?")
+        self.assertEqual(sum(1 for p in chosen if p.study_type == "evidence_synthesis"), 12)   # 60% of 20
+        self.assertEqual(sum(1 for p in chosen if p.study_type == "controlled_observational"), 8)
+
     def test_each_aspect_gets_its_best_study(self):
         ps = [paper(i, f"Gut microbiome composition {i}", "Gut microbiome diversity.", cites=400) for i in range(1, 26)]
         ps.append(paper(99, "Gut microbiome transplant therapy", "Gut microbiome. Faecal transplant therapy trial.", cites=0, year=YEAR - 9))
@@ -168,6 +175,16 @@ class TestBalancedSelection(unittest.TestCase):
         self.assertEqual([p.citation_index for p in chosen], list(range(1, 12)))
         totals = [p.selection_breakdown["total"] for p in chosen]
         self.assertEqual(totals, sorted(totals, reverse=True))
+
+
+class TestRaisedDotDecimals(unittest.TestCase):
+    def test_lancet_style_decimals_are_read_as_decimals(self):
+        from services.verification_gates import extract_nontrivial_numbers, study_source_text
+        p = PaperRecord(id="x", title="Vitamin D", abstract="Odds ratio 0·70 [0·55-0·89] at ages 1·00-15·99 years.")
+        self.assertIn("0.70 [0.55-0.89]", p.abstract)
+        p.full_text_sections = {"results": "Hazard ratio 4·82."}
+        self.assertIn("4.82", study_source_text(p))
+        self.assertEqual([n for n in extract_nontrivial_numbers("OR 0.70 and 15.99") if n not in study_source_text(p)], [])
 
 
 class TestPublishedProtocol(unittest.TestCase):

@@ -436,6 +436,14 @@ _LATEX_WRAPPERS = re.compile(r"\\(?:ensuremath|mathrm|mathit|mathbf|mathcal|text
 _LATEX_COMMAND = re.compile(r"\\([a-zA-Z]+)")
 
 
+_RAISED_DECIMAL = re.compile(r"(?<=\d)[\u00b7\u2219\u2027\u22c5\u30fb](?=\d)")
+
+
+def normalize_decimal_points(text: str) -> str:
+    """Some journals (the Lancet family) print decimals with a raised dot: "0·70 [0·55-0·89]" -> "0.70 [0.55-0.89]"."""
+    return _RAISED_DECIMAL.sub(".", text) if text else text
+
+
 def strip_latex_markup(text: str) -> str:
     """
     Turns LaTeX markup common in arXiv / Semantic Scholar titles and abstracts into plain text
@@ -469,7 +477,7 @@ class PaperRecord(BaseModel):
     @field_validator("title", "abstract", mode="before")
     @classmethod
     def _plain_text(cls, v):
-        return strip_latex_markup(v) if isinstance(v, str) else v
+        return normalize_decimal_points(strip_latex_markup(v)) if isinstance(v, str) else v
 
     citation_count: int = 0
     influential_citation_count: int = 0

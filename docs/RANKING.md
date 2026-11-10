@@ -70,7 +70,7 @@ A narrative review scores 16 when the question is a broad topic, because reviews
 2. Coverage: each aspect of the question first receives its highest-scoring study (two in Deep Research), provided that study is on topic.
 3. Null results: for questions about an effect or association, up to two studies (four in Deep Research) that report null or contrary findings are kept in if any are eligible.
 4. Remaining places are filled in order of score.
-5. Narrative reviews are limited to 30% of the included studies (50% for broad topics), so primary evidence is not crowded out.
+5. Narrative reviews are limited to 30% of the included studies (50% for broad topics), and reviews of all kinds together (narrative, systematic and meta-analyses) to 60% (75% for broad topics), so primary studies are always represented.
 6. No more than two studies with the same first author and year, to favour independent evidence.
 7. Ties are broken by newer publication year, then citations per year, then title.
 
