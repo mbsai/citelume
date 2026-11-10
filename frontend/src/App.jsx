@@ -6,6 +6,7 @@ import LiteratureGraph from './components/LiteratureGraph';
 import KnowledgeGapMatrix from './components/KnowledgeGapMatrix';
 import HuggingFacePanel from './components/HuggingFacePanel';
 import { ResultsCards, ResultsTabStrip } from './components/ResultsNav';
+import SelectionPanel from './components/SelectionPanel';
 import { runLiteratureSearch, fetchSearchProgress, fetchModelScale, fetchDemoStatus } from './utils/api';
 
 // Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
@@ -811,6 +812,11 @@ export default function App() {
               <ResultsCards result={result} activeTab={activeTab} onSelect={selectTab} />
               <LlmStatusBanner auditTrail={result.evidence_base?.task_audit_trail || []} />
               <ScreeningNotes warnings={result.warnings || []} papers={result.papers || []} />
+              <SelectionPanel
+                report={result.selection_report}
+                papers={result.papers || []}
+                understanding={result.decomposition_plan?.question_understanding}
+              />
             </div>
           )}
 

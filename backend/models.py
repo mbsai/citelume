@@ -150,8 +150,24 @@ class RequiredConstraint(BaseModel):
     spellings: List[str] = Field(default_factory=list)
 
 
+class SearchConcept(BaseModel):
+    """A concept every search requires, with the other names it goes by."""
+    name: str
+    synonyms: List[str] = Field(default_factory=list)
+
+
+class SearchAspect(BaseModel):
+    """One angle of the question that gets its own search (e.g. "Mechanisms", "Treatment")."""
+    label: str
+    terms: List[str] = Field(default_factory=list)
+    question: str = ""
+    kind: Literal["core", "reviews", "aspect"] = "aspect"
+
+
 class TechnicalConceptExtraction(BaseModel):
     main_entities: List[str] = Field(default_factory=list)
+    # Required concepts with synonyms (from the model when available, otherwise from the question's own words)
+    search_concepts: List[SearchConcept] = Field(default_factory=list)
     # Multi-word concepts kept intact for searching (e.g. "coronary artery disease")
     concept_phrases: List[str] = Field(default_factory=list)
     # Places / populations every search must include and every included study should match
@@ -188,6 +204,12 @@ class UniversalQuestionUnderstanding(BaseModel):
     raw_query: str
     normalized_query: str
     question_complexity: Literal["narrow", "moderate", "broad_interdisciplinary"] = "moderate"
+    # "broad": a topic to survey ("gut microbiome"); "focused": a specific question relating concepts
+    breadth: Literal["broad", "focused"] = "focused"
+    # Angles of the question searched separately; also the basis of balanced study selection
+    aspects: List[SearchAspect] = Field(default_factory=list)
+    # Who planned the searches: "model" or "rules"
+    planned_by: str = "rules"
     primary_intent: ResearchIntentType = "descriptive"
     secondary_intents: List[ResearchIntentType] = Field(default_factory=list)
     primary_domain: DomainCategoryType = "biomedical_clinical"
@@ -228,6 +250,8 @@ class SearchFacet(BaseModel):
     linked_subquestion_ids: List[str] = Field(default_factory=list)
     expansion_reason: str = "Primary retrieval"
     priority_rank: int = 1
+    # "core" (topic only), "reviews" (reviews and pooled analyses) or "aspect" (one aspect of the question)
+    kind: str = "aspect"
     queries: FacetApiQueries = Field(default_factory=FacetApiQueries)
 
 
@@ -447,6 +471,17 @@ class PaperRecord(BaseModel):
 
     citation_count: int = 0
     influential_citation_count: int = 0
+    # Where the citation count came from ("iCite", "Semantic Scholar", "Europe PMC", "OpenAlex"); "" = unknown
+    citation_source: str = ""
+    # Publication types reported by the source (e.g. "Randomized Controlled Trial", "Review", "Meta-Analysis")
+    publication_types: List[str] = Field(default_factory=list)
+    # Study type used for ranking (see services/paper_selection.py) and how it was recognised
+    study_type: str = ""
+    # Searches (aspects of the question) that returned this record
+    retrieved_by: List[str] = Field(default_factory=list)
+    # Position in the ranked pool, and the rule that put the study in the included set
+    selection_rank: int = 0
+    selection_reason: str = ""
     url: str = ""
     pdf_url: Optional[str] = None
     references: List[str] = Field(default_factory=list)
@@ -1641,6 +1676,7 @@ class ExportRequest(BaseModel):
     graph: Optional[LiteratureGraph] = None
     hf_resources: List[HFResourceRecord] = Field(default_factory=list)
     review_protocol: Optional["ReviewProtocolReport"] = None
+    selection_report: Optional["SelectionReport"] = None
     include_evidence_table: bool = True
     include_gap_matrix: bool = True
     include_network_summary: bool = True
@@ -1656,6 +1692,36 @@ class AppliedRule(BaseModel):
     sources: List[str] = Field(default_factory=list)
     citations: List[str] = Field(default_factory=list)
     enforcement: str = "prompt"
+
+
+class SelectionCriterion(BaseModel):
+    key: str
+    label: str
+    max_points: float
+    rule: str
+
+
+class SelectionReport(BaseModel):
+    """How the included studies were chosen from everything the searches returned (services/paper_selection.py)."""
+    protocol_version: str = ""
+    target_count: int = 0
+    records_found: int = 0
+    duplicates_merged: int = 0
+    unique_records: int = 0
+    # Reason -> number of records removed before scoring
+    excluded: Dict[str, int] = Field(default_factory=dict)
+    eligible: int = 0
+    included: int = 0
+    criteria: List[SelectionCriterion] = Field(default_factory=list)
+    selection_rules: List[str] = Field(default_factory=list)
+    # Included studies per study type and per aspect of the question
+    included_by_study_type: Dict[str, int] = Field(default_factory=dict)
+    included_by_aspect: Dict[str, int] = Field(default_factory=dict)
+    included_by_reason: Dict[str, int] = Field(default_factory=dict)
+    # Study type key -> readable label, for the per-study list
+    study_type_labels: Dict[str, str] = Field(default_factory=dict)
+    citation_data: str = ""
+    notes: List[str] = Field(default_factory=list)
 
 
 class PrismaFlowCounts(BaseModel):
@@ -1700,6 +1766,7 @@ class ResearchResponse(BaseModel):
     gap_matrix: KnowledgeGapMatrix = Field(default_factory=KnowledgeGapMatrix)
     warnings: List[str] = Field(default_factory=list)
     review_protocol: Optional[ReviewProtocolReport] = None
+    selection_report: Optional["SelectionReport"] = None
 
 
 # SearchRequest refers to DomainCategoryType, which is defined further down this module

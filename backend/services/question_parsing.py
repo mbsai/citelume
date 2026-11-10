@@ -399,3 +399,18 @@ def spelling_variants(word: str) -> List[str]:
         if a in w:
             out.append(w.replace(a, b))
     return [v for v in dict.fromkeys(out) if v != w]
+
+
+# Phrases that contain a place name but mean something else
+_FALSE_PLACE_PHRASES = re.compile(
+    r"\b(?:american indians?|native americans?|indian ocean|west indi(?:an|es)|indian health service|"
+    r"new (?:england|mexico|south wales)|guinea pigs?|turkey (?:meat|poults?)|china (?:clay|ware))\b", re.I)
+
+
+def meets_constraint(spellings: Sequence[str], text: str) -> int:
+    """
+    How many times a place/population constraint is mentioned in text, matching whole words only ("india" does
+    not match "Indiana") and ignoring look-alike phrases ("American Indian" is not India).
+    """
+    low = _FALSE_PLACE_PHRASES.sub(" ", (text or "").lower())
+    return sum(len(re.findall(rf"(?<![a-z]){re.escape(sp.lower())}(?![a-z])", low)) for sp in spellings if sp)

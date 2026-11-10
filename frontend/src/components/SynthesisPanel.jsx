@@ -264,7 +264,7 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
-                Multi-API Query Decomposition
+                How the question was searched
               </span>
               <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-semibold">
                 Domain: {decomposition_plan.detected_domain}
@@ -284,8 +284,8 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
               className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded bg-white border border-slate-200 shadow-sm"
             >
               {showDecomposition
-                ? 'Hide 5-API Facet Payloads ▲'
-                : `Inspect ${decomposition_plan.search_facets?.length || 0} Search Facets & 5-API Queries ▼`}
+                ? 'Hide the searches ▲'
+                : `Show the ${decomposition_plan.search_facets?.length || 0} searches run on each database ▼`}
             </button>
           </div>
 

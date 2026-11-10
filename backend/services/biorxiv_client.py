@@ -15,6 +15,7 @@ async def search_biorxiv(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     fallback_query: str = "",
+    broaden: bool = True,
 ) -> List[PaperRecord]:
     """
     Searches bioRxiv and medRxiv preprints via EuropePMC's preprint index (SRC:PPR)
@@ -26,7 +27,7 @@ async def search_biorxiv(
         phrase_list = [build_concise_search_phrase(query, max_terms=4)]
 
     if not phrase_list:
-        phrase_list = [build_concise_search_phrase(fallback_query or "antimicrobial peptide", max_terms=3)]
+        phrase_list = [build_concise_search_phrase(fallback_query or "", max_terms=3)]
 
     papers: List[PaperRecord] = []
     seen_ids = set()
@@ -52,7 +53,7 @@ async def search_biorxiv(
                     batch = resp.json().get("resultList", {}).get("result", [])
                     all_raw_items.extend(batch)
 
-            if not all_raw_items:
+            if not all_raw_items and broaden:
                 broader = build_concise_search_phrase(fallback_query or phrase_list[0], max_terms=2)
                 if broader:
                     resp2 = await client.get(
@@ -118,6 +119,7 @@ async def search_biorxiv(
                         doi=doi or None,
                         abstract=abstract,
                         citation_count=cited_by_count,
+                        citation_source="Europe PMC",
                         url=url,
                         pdf_url=pdf_url,
                     )

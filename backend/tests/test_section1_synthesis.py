@@ -296,9 +296,17 @@ class TestSection1ClaimCenteredSynthesis(unittest.IsolatedAsyncioTestCase):
         ]
 
         # Verify Scenario 4: Preprint + Published version merged into 5 unique records
-        deduped = deduplicate_and_rank_papers(raw_papers, q, max_total=20, understanding=plan.question_understanding)
-        self.assertEqual(len(deduped), 5)
+        reports = []
+        deduped = deduplicate_and_rank_papers(raw_papers, q, max_total=20, understanding=plan.question_understanding,
+                                              report_out=reports)
+        # The selection protocol removes the retracted record before scoring and says so
+        self.assertEqual(len(deduped), 4)
+        self.assertTrue(any("retraction" in reason for reason in reports[0].excluded))
         self.assertTrue(any(p.version_status == "preprint_with_published_link" for p in deduped))
+        # Second safety net: a retraction the selection step did not recognise is still flagged downstream
+        retracted = raw_papers[-1].model_copy(deep=True)
+        retracted.citation_index = 5
+        deduped = deduped + [retracted]
 
         bib = generate_bibliography(deduped)
         exec_ans, sections, consensus, _ = await generate_synthesis_and_extractions(

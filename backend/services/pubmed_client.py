@@ -1,3 +1,4 @@
+import asyncio
 import re
 import xml.etree.ElementTree as ET
 from typing import List, Optional
@@ -17,6 +18,19 @@ def _clean_search_query(query: str, max_terms: int = 5) -> str:
     return build_concise_search_phrase(query, max_terms=max_terms)
 
 
+_SLOTS: dict = {}
+
+
+def _pubmed_slot(keyed: bool) -> asyncio.Semaphore:
+    """NCBI allows 3 requests a second without an API key and 10 with one; searches share these slots."""
+    loop = asyncio.get_running_loop()
+    key = (id(loop), keyed)
+    if key not in _SLOTS:
+        _SLOTS.clear()
+        _SLOTS[key] = asyncio.Semaphore(4 if keyed else 2)
+    return _SLOTS[key]
+
+
 async def search_pubmed(
     query: str,
     max_results: int = 8,
@@ -24,7 +38,10 @@ async def search_pubmed(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     fallback_query: str = "",
+    broaden: bool = True,
 ) -> List[PaperRecord]:
+    """`broaden=False` keeps an empty result empty (used for aspect searches, where a looser retry would
+    return papers that are not about that aspect)."""
     cleaned_q = _clean_search_query(query, max_terms=5)
     if year_from or year_to:
         y_start = year_from or 1900
@@ -42,7 +59,8 @@ async def search_pubmed(
         params["api_key"] = api_key.strip()
 
     papers: List[PaperRecord] = []
-    async with httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
+    async with _pubmed_slot(bool(api_key and api_key.strip())), \
+            httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
         try:
             resp = await client.get(f"{EUTILS_BASE}/esearch.fcgi", params=params)
             resp.raise_for_status()
@@ -52,7 +70,7 @@ async def search_pubmed(
             if backend_error and not id_list:
                 # NCBI reports backend outages inside an HTTP 200 body; treat as a failure, not as "no results"
                 raise RuntimeError(f"search backend error ({str(backend_error)[:80]})")
-            if not id_list:
+            if not id_list and broaden:
                 # Retry with broader 3-term core query if compiled Boolean query was too restrictive
                 broader_q = build_concise_search_phrase(fallback_query or query, max_terms=3)
                 if broader_q and broader_q != cleaned_q:
@@ -147,7 +165,12 @@ async def search_pubmed(
                         doi=doi,
                         pmid=pmid,
                         abstract=abstract,
-                        citation_count=max(len(refs) // 2, 1),
+                        # PubMed carries no citation count; it is filled from NIH iCite before ranking
+                        citation_count=0,
+                        publication_types=[
+                            (el.text or "").strip()
+                            for el in article.findall(".//PublicationTypeList/PublicationType") if (el.text or "").strip()
+                        ],
                         url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
                         references=refs[:30],
                     )
