@@ -32,6 +32,7 @@ from services.llm_service import (
     test_source_api_key,
     resolve_model_capabilities,
     begin_llm_request_health,
+    llm_request_stats,
     classify_model_scale,
 )
 from frameworks.reporting import build_review_protocol_report
@@ -40,7 +41,7 @@ from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
-from services.source_health import begin_source_health, set_openalex_api_key, source_failure_warnings
+from services.source_health import begin_source_health, report_source_failure, set_openalex_api_key, source_failure_warnings
 from services.query_utils import generate_multi_api_decomposition_plan, understand_research_question
 from services.identifier_query import identifier_in_query, resolve_identifier_title
 from services.graph_builder import deduplicate_and_rank_papers, build_literature_graph
@@ -236,7 +237,15 @@ async def _harvest_facet_queries(
         )
         task_names.append("Semantic Scholar")
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    async def within_budget(name: str, coro):
+        # One slow database must not hold up the others: past the limit its results for this search are skipped
+        try:
+            return await asyncio.wait_for(coro, timeout=SOURCE_SEARCH_BUDGET_S)
+        except asyncio.TimeoutError:
+            report_source_failure(name, RuntimeError(f"no reply within {SOURCE_SEARCH_BUDGET_S:.0f}s for one search"))
+            return []
+
+    results = await asyncio.gather(*[within_budget(n, t) for n, t in zip(task_names, tasks)], return_exceptions=True)
     papers: List[PaperRecord] = []
     counts: Dict[str, int] = {name: 0 for name in task_names}
 
@@ -249,6 +258,9 @@ async def _harvest_facet_queries(
             counts[name] = len(res)
     return papers, counts
 
+
+# Longest any one database may take for one search before it is skipped for that search
+SOURCE_SEARCH_BUDGET_S = 20.0
 
 # Pipeline stages reported to the frontend progress indicator, in execution order
 SEARCH_STAGES: List[str] = [
@@ -552,6 +564,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
 
     # Rebuild Section 4 Multilayer Scientific Literature Network Map with full Layer C (Claim, Dataset & Gap) links
     _report_stage(req, 6)
+    print(f"[search-llm] {req.mode} {llm_request_stats()}", flush=True)
     graph =build_literature_graph(
         papers=ranked_papers,
         hf_resources=hf_resources,

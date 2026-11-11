@@ -48,6 +48,9 @@ from services.verification_gates import (
     extract_citation_numbers,
     normalize_citations,
     study_source_text,
+    drop_unsupported_numbers,
+    repair_study_extraction,
+    strip_citations_not_in,
     verify_study_extraction_against_source,
     verify_claims_against_sources,
     extract_nontrivial_numbers,
@@ -75,7 +78,18 @@ from services.claim_synthesis import (
 # Keyed by study, question, domain and model: stance and relevance depend on the question asked
 _STUDY_EXTRACTION_CACHE: Dict[str, Tuple[ElicitExtraction, str, str, str]] = {}
 # Upper bound on concurrent Task C extraction calls per search
-TASK_C_MAX_CONCURRENT_BATCHES = 4
+# Study extraction runs as many small calls side by side: a call that returns 4 studies takes a third of the time
+# of one that returns 12, and a failed call costs 4 studies' worth of work, not 12. A local model runs one call at
+# a time on one GPU, so it gets slightly larger batches (fewer repeated instructions to read).
+TASK_C_MAX_CONCURRENT_BATCHES = 5
+TASK_C_STUDIES_PER_CALL = {"hosted": 4, "local": 6}
+# Wall-clock budgets (seconds) for one step on a hosted model, retries included. When a budget runs out only that
+# piece falls back to rule-based output. Local models are not time-limited: they are slow but keep writing.
+STEP_BUDGET_S = {"extraction": 90.0, "claims": 100.0, "gaps": 110.0, "answer": 100.0, "section": 80.0}
+
+
+def step_budget(config: ApiKeysConfig, step: str) -> Optional[float]:
+    return None if config.llm_provider in ("ollama", "custom") else STEP_BUDGET_S[step]
 # Token budget for the methodology rules block in synthesis prompts (keeps small-model prompts small)
 PROMPT_RULES_TOKEN_BUDGET = 250
 # Below this many on-topic studies the synthesis keeps all retrieved studies (flagged) rather than too few
@@ -113,6 +127,11 @@ DEEP_REVIEW_MAX_TOKENS = 12000
 # Deep Research executive answer, written alongside the separately written sections
 DEEP_EXEC_MIN_WORDS = 250
 DEEP_EXEC_MAX_TOKENS = 1600
+# Standard synthesis, written as separate short calls: target words per piece
+STANDARD_EXEC_WORDS = 150
+STANDARD_BODY_WORDS = 230
+STANDARD_SECTION_WORDS = 140
+STANDARD_EXEC_MAX_TOKENS = 900
 # Answer tokens budgeted per study (9 short fields) plus fixed JSON overhead; measured ≈150-200 per study
 TASK_C_TOKENS_PER_STUDY = 220
 TASK_C_OUTPUT_OVERHEAD = 200
@@ -542,9 +561,11 @@ async def _run_task_c_batched_study_extraction(
     """
     cap = resolve_model_capabilities(config)
     # Batch size is bounded by the context window (recommended size) and by how many study answers fit the output limit
+    per_call = TASK_C_STUDIES_PER_CALL["local" if config.llm_provider in ("ollama", "custom") else "hosted"]
     batch_size = max(
         1,
-        min(cap.recommended_study_batch_size, 20, (cap.max_output_tokens - TASK_C_OUTPUT_OVERHEAD) // TASK_C_TOKENS_PER_STUDY),
+        min(per_call, cap.recommended_study_batch_size,
+            (cap.max_output_tokens - TASK_C_OUTPUT_OVERHEAD) // TASK_C_TOKENS_PER_STUDY),
     )
 
     uncached_papers: List[PaperRecord] = []
@@ -620,6 +641,14 @@ async def _run_task_c_batched_study_extraction(
                 errs.extend(verify_study_extraction_against_source(item, batch_map[item.citation_index], prim_domain))
             return errs
 
+        def _repair_batch(out_obj: TaskCStudyBatchOutput, _errors: List[str]) -> Optional[TaskCStudyBatchOutput]:
+            # Remove the unsupported figure (or reset the unsupported status) for the affected study only
+            fixed = out_obj.model_copy(deep=True)
+            fixed.study_extractions = [it for it in fixed.study_extractions if it.citation_index in batch_map]
+            for it in fixed.study_extractions:
+                repair_study_extraction(it, batch_map[it.citation_index], prim_domain)
+            return fixed if fixed.study_extractions else None
+
         validated_batch, rec = await execute_validated_llm_task(
             task_id="Task_C",
             task_name=f"Task C: Study Extraction Batch [{batch[0].citation_index}..{batch[-1].citation_index}]",
@@ -628,10 +657,12 @@ async def _run_task_c_batched_study_extraction(
             response_model=TaskCStudyBatchOutput,
             config=config,
             custom_validator=_validate_batch,
-            max_retries=2,
+            max_retries=1,
             temperature=0.1,
             max_tokens=TASK_C_TOKENS_PER_STUDY * len(batch) + TASK_C_OUTPUT_OVERHEAD,
             grow_on_truncation=False,  # a cut-off batch is split in half below instead
+            deadline_s=step_budget(config, "extraction"),
+            repair=_repair_batch,
         )
         if rec.output_truncated and len(batch) > 1:
             # The answer did not fit the model's output limit: split the batch rather than resend the same request
@@ -736,6 +767,7 @@ async def _run_tasks_defg_claim_formulation(
         max_retries=2,
         temperature=0.1,
         max_tokens=2200,
+        deadline_s=step_budget(config, "claims"),
     )
     audit_trail.append(rec)
 
@@ -827,7 +859,7 @@ _DEEP_CONCLUSION_PURPOSE = (
     "suggested or uncertain, and set out implications for future research and study design."
 )
 # Concurrent section-writing calls per review (local models are serialised separately by the LLM router)
-DEEP_SECTION_CONCURRENCY = 3
+DEEP_SECTION_CONCURRENCY = 4
 
 
 def _deep_digest_line(p: PaperRecord) -> str:
@@ -851,8 +883,13 @@ async def _write_deep_review_sections(
     corpus_full_text: str,
     contradicting_idxs: List[int],
     config: ApiKeysConfig,
+    standard: bool = False,
 ) -> Tuple[List[SynthesisSection], List[TaskExecutionRecord], List[str]]:
     """
+    `standard=True` writes the four sections of a Standard synthesis (one body section, then C, D and E) at Standard
+    length. Writing them as separate short calls side by side takes about a third of the time of one long call,
+    and a section that fails falls back alone.
+
     Writes a Deep Research review one section at a time: body subsections B.1..B.n (per theme, period, method or
     theory), then C, D and E for the review framework. Small, focused calls reliably reach the review's length on
     large and small models alike; a section that fails keeps its rule-based text while the others stay AI-written.
@@ -874,7 +911,14 @@ async def _write_deep_review_sections(
     # Units: (heading, purpose, studies, rule-based fallback text, must cite contradicting studies)
     units: List[Tuple[str, str, List[PaperRecord], str, bool]] = []
     body_fallback = (det_sections[0].content.split("\n\n") if det_sections else [])
-    for i, (label, ps) in enumerate(organized_groups(organization, synth_papers, synth_claims), 1):
+    if standard:
+        units.append((
+            det_sections[0].heading if det_sections else organization_def.body_heading,
+            f"{organization_def.prompt_instruction} Synthesise what the studies found across the main themes, compare "
+            "their designs and results, and relate them to the research question.",
+            synth_papers[:30], det_sections[0].content if det_sections else "", False,
+        ))
+    for i, (label, ps) in enumerate([] if standard else organized_groups(organization, synth_papers, synth_claims), 1):
         fallback = body_fallback[i - 1] if i - 1 < len(body_fallback) else (det_sections[0].content if det_sections else "")
         units.append((
             f"B.{i} {label}",
@@ -899,10 +943,15 @@ async def _write_deep_review_sections(
         heading, purpose, ps, fallback, must_cite = unit
         unit_idx = {p.citation_index for p in ps}
         target_words = _deep_section_target_words(len(ps))
+        if standard:
+            target_words = min(target_words, STANDARD_BODY_WORDS if heading == units[0][0] else STANDARD_SECTION_WORDS)
+        # A Standard section is short by design: a firm upper length keeps each call quick
+        upper_words = target_words + (90 if standard else 250)
+        proposes_heading = heading.startswith("B.") and not standard
         sys_prompt = (
-            "You are writing ONE section of a Deep Research academic literature review.\n"
+            f"You are writing ONE section of a {'literature synthesis' if standard else 'Deep Research academic literature review'}.\n"
             f"Section: {heading}\nPurpose: {purpose}\n"
-            f"Write {target_words}-{target_words + 250} words of continuous academic prose (no bullet "
+            f"Write {target_words}-{upper_words} words of continuous academic prose (no bullet "
             "lists, no heading), synthesising across studies rather than summarising them one by one.\n"
             "RULES:\n"
             f"1. Cite every factual statement with bracketed study numbers such as [3] or [2, 5], using only: {allowed_label}.\n"
@@ -910,7 +959,7 @@ async def _write_deep_review_sections(
             "3. Do not claim causation from observational or correlational evidence.\n"
             f"Methodology rules:\n{rules_block}\n"
             + ('Return ONLY valid JSON: {"heading": "short descriptive subsection title (max 10 words)", "content": "..."}'
-               if heading.startswith("B.") else 'Return ONLY valid JSON: {"content": "..."}')
+               if proposes_heading else 'Return ONLY valid JSON: {"content": "..."}')
         )
         user_prompt = (
             f"Research question: {query}\n\nVerified claims:\n{claim_lines(None if len(ps) >= len(synth_papers) else unit_idx)}"
@@ -938,6 +987,12 @@ async def _write_deep_review_sections(
                 errs.append(f"Must cite and weigh the contradicting studies {contradicting_idxs}.")
             return errs
 
+        def repair(out: TaskJSectionOutput, _errors: List[str]) -> Optional[TaskJSectionOutput]:
+            # Drop the sentence with an unsupported figure, or the citation of a study that was not provided
+            text = strip_citations_not_in(out.content or "", allowed)
+            text = drop_unsupported_numbers(text, corpus_full_text, by_clause=False)
+            return out.model_copy(update={"content": text}) if text and text != out.content else None
+
         async with semaphore:
             out, rec = await execute_validated_llm_task(
                 task_id="Task_J",
@@ -949,7 +1004,9 @@ async def _write_deep_review_sections(
                 custom_validator=validate,
                 max_retries=1,
                 temperature=0.2,
-                max_tokens=int(DEEP_SECTION_MIN_WORDS * 1.8) + 500,
+                max_tokens=int(upper_words * 1.6) + 220 if standard else int(max(target_words, 150) * 1.8) + 500,
+                deadline_s=step_budget(config, "section"),
+                repair=repair,
             )
         if out is None and _keep_if_only_short(rec):
             out = TaskJSectionOutput(**rec.last_candidate)
@@ -957,7 +1014,7 @@ async def _write_deep_review_sections(
             content = normalize_citations(out.content)
             used_fallback = False
             proposed = re.sub(r"[\[\]\d,;]+$", "", (out.heading or "").strip()).strip(" .:-")
-            if heading.startswith("B.") and proposed and len(proposed.split()) <= 14:
+            if proposes_heading and proposed and len(proposed.split()) <= 14:
                 heading = f"{heading.split()[0]} {proposed}"
         else:
             content, used_fallback = fallback, True
@@ -1162,6 +1219,16 @@ async def generate_synthesis_and_extractions(
         f"{organization_def.body_heading}, " + ", ".join(framework_def.section_plan) + ". "
         f"{organization_def.prompt_instruction}"
     )
+    # With a model available, the sections are written as separate calls alongside this one (both modes), so this
+    # call writes only the executive answer and the agreement verdict
+    llm_available = any(r.model_used != "deterministic_offline_engine" for r in audit_trail)
+    sectioned = llm_available
+    if sectioned and mode != "deep_research":
+        section_spec = (
+            "The sections of this synthesis are written separately. Write ONLY the executive answer "
+            f"({STANDARD_EXEC_WORDS}-{STANDARD_EXEC_WORDS + 100} words: a direct, cited answer to the research question), "
+            "consensus_verdict and consensus_summary, and return 'sections' as an empty list."
+        )
     if mode == "deep_research":
         # Deep Research sections are written one at a time by _write_deep_review_sections; this call writes only the
         # executive answer and the agreement verdict
@@ -1196,7 +1263,7 @@ async def generate_synthesis_and_extractions(
 
     def _validate_task_j(out_obj: TaskJNarrativeSynthesisOutput) -> List[str]:
         errs: List[str] = []
-        if not out_obj.sections and mode != "deep_research":
+        if not out_obj.sections and not sectioned:
             errs.append("sections list cannot be empty.")
         combined_text = out_obj.executive_answer + "\n" + "\n".join(s.content for s in out_obj.sections)
         cited = extract_citation_numbers(combined_text)
@@ -1216,9 +1283,19 @@ async def generate_synthesis_and_extractions(
             if words < DEEP_EXEC_MIN_WORDS * DEEP_LENGTH_TOLERANCE:
                 errs.append(f"The executive answer is {words} words - write at least {DEEP_EXEC_MIN_WORDS} words that "
                             "answer every part of the research question with citations.")
-        elif contradicting_idxs and not any(ci in cited for ci in contradicting_idxs):
+        elif not sectioned and contradicting_idxs and not any(ci in cited for ci in contradicting_idxs):
             errs.append(f"Synthesis omitted contradicting study index(es) {contradicting_idxs}; opposing evidence must be cited.")
         return errs
+
+    def _repair_task_j(out_obj: TaskJNarrativeSynthesisOutput, _errors: List[str]) -> Optional[TaskJNarrativeSynthesisOutput]:
+        # Drop the sentence with an unsupported figure, or the citation of a study that was not provided
+        allowed = {p.citation_index for p in synth_papers}
+        clean = lambda t: drop_unsupported_numbers(strip_citations_not_in(t or "", allowed), corpus_full_text, by_clause=False)
+        fixed = out_obj.model_copy(deep=True)
+        fixed.executive_answer = clean(fixed.executive_answer)
+        for sec in fixed.sections:
+            sec.content = clean(sec.content)
+        return fixed if fixed.executive_answer else None
 
     j_call = execute_validated_llm_task(
         task_id="Task_J",
@@ -1229,26 +1306,28 @@ async def generate_synthesis_and_extractions(
         response_model=TaskJNarrativeSynthesisOutput,
         config=config,
         custom_validator=_validate_task_j,
-        max_retries=2,
+        max_retries=1 if sectioned else 2,
         temperature=0.15,
-        max_tokens=DEEP_EXEC_MAX_TOKENS if mode == "deep_research" else 2800,
+        max_tokens=DEEP_EXEC_MAX_TOKENS if mode == "deep_research" else (STANDARD_EXEC_MAX_TOKENS if sectioned else 2800),
+        deadline_s=step_budget(config, "answer"),
+        repair=_repair_task_j,
     )
     deep_sections: Optional[List[SynthesisSection]] = None
     deep_fallbacks: List[str] = []
-    llm_available = any(r.model_used != "deterministic_offline_engine" for r in audit_trail)
-    if mode == "deep_research" and llm_available:
+    if sectioned:
         (validated_j, rec_j), (deep_sections, deep_records, deep_fallbacks) = await asyncio.gather(
             j_call,
             _write_deep_review_sections(
                 query, synth_papers, validated_claims, verified_synth_claims, det_sections, organization,
                 review_framework, rules_block, corpus_full_text, contradicting_idxs, config,
+                standard=mode != "deep_research",
             ),
         )
         audit_trail.append(rec_j)
         audit_trail.extend(deep_records)
         if deep_fallbacks:
             warnings.append(
-                f"Deep Research: {len(deep_fallbacks)} of {len(deep_sections)} sections fell back to rule-based text "
+                f"{len(deep_fallbacks)} of {len(deep_sections)} sections fell back to rule-based text "
                 f"({'; '.join(deep_fallbacks)})."
             )
     else:
@@ -1264,7 +1343,8 @@ async def generate_synthesis_and_extractions(
     else:
         _scoped_audit_trail().extend(audit_trail[handed_off_records:])
 
-    regenerated_secs: List[str] = []
+    # Sections whose separate call failed were written from the verified claim records instead
+    regenerated_secs: List[str] = list(deep_fallbacks)
 
     if validated_j and not rec_j.degraded_to_deterministic:
         exec_answer = _ensure_inline_citations(normalize_citations(validated_j.executive_answer), len(papers))
@@ -1643,7 +1723,8 @@ async def build_knowledge_gap_matrix(
         "outcomes; rural vs urban; women; children).\n"
         "Map which study numbers (as given in the list) fall into each (row, col) cell. For cells with 0 or 1 studies, "
         "why_gap_exists must say concretely what is not known, naming the topic (never generic text such as "
-        "'lack of validation').\n"
+        "'lack of validation'). Keep why_gap_exists and proposed_hypothesis under 25 words each. For cells with 2 "
+        "or more studies give only row_idx, col_idx and paper_indices.\n"
         "CRITICAL SCIENTIFIC RULE: A cell with 0 papers in the retrieved subset is a 'retrieved-corpus gap' that must be "
         "classified into one of: 'Evidence absence', 'Methodological limitations', 'Inconsistent findings', "
         "'Population or contextual limitations', 'Validation deficiencies', 'Mechanistic uncertainty', "
@@ -1682,6 +1763,7 @@ async def build_knowledge_gap_matrix(
         max_retries=2,
         temperature=0.15,
         max_tokens=2200,
+        deadline_s=step_budget(config, "gaps"),
     )
     _scoped_audit_trail().append(rec_hi)
 

@@ -32,9 +32,9 @@ BIORXIV_DETAILS = "https://api.biorxiv.org/details/{server}/{doi}"
 HEADERS = {"User-Agent": "CiteLume/1.0 (open-access literature synthesis)"}
 
 # Concurrent downloads per search, per-request timeout, and the overall time allowed for the whole batch
-MAX_CONCURRENT_FETCHES = 6
-REQUEST_TIMEOUT_S = 20.0
-BATCH_TIMEOUT_S = 75.0
+MAX_CONCURRENT_FETCHES = 10
+REQUEST_TIMEOUT_S = 12.0
+BATCH_TIMEOUT_S = 25.0
 # Characters kept per canonical section (enough for extraction; keeps cache files and memory small)
 MAX_SECTION_CHARS = 20000
 MAX_PDF_PAGES = 30

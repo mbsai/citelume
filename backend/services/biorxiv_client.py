@@ -1,3 +1,4 @@
+import asyncio
 import re
 from typing import List, Optional, Union
 import httpx
@@ -33,10 +34,9 @@ async def search_biorxiv(
     seen_ids = set()
     per_phrase_limit = max(3, max_results // max(len(phrase_list), 1))
 
-    async with httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(transport=retrying_transport(), timeout=12.0, follow_redirects=True) as client:
         try:
-            all_raw_items = []
-            for phrase in phrase_list[:3]:
+            async def one_phrase(phrase: str) -> list:
                 epmc_query = f"({phrase}) AND (SRC:PPR)"
                 if year_from or year_to:
                     y1 = year_from or 2013
@@ -49,9 +49,16 @@ async def search_biorxiv(
                     "format": "json",
                 }
                 resp = await client.get(EPMC_SEARCH_URL, params=params)
-                if resp.status_code == 200:
-                    batch = resp.json().get("resultList", {}).get("result", [])
-                    all_raw_items.extend(batch)
+                return resp.json().get("resultList", {}).get("result", []) if resp.status_code == 200 else []
+
+            # The phrases are independent, so they are searched at the same time
+            all_raw_items = []
+            for batch in await asyncio.gather(*[one_phrase(ph) for ph in phrase_list[:3]], return_exceptions=True):
+                if isinstance(batch, BaseException):
+                    if len(phrase_list[:3]) == 1:
+                        raise batch
+                    continue
+                all_raw_items.extend(batch)
 
             if not all_raw_items and broaden:
                 broader = build_concise_search_phrase(fallback_query or phrase_list[0], max_terms=2)

@@ -426,6 +426,10 @@ class TestCrossModelQualityGatedBenchmark(unittest.IsolatedAsyncioTestCase):
 
         # --- Subtest A: Self-Correcting Model on Retry ---
         def self_correcting_responder(sys_p: str, usr_p: str, cfg: ApiKeysConfig, attempt: int) -> str:
+            if "ONE section" in sys_p:
+                # Sections are written as separate calls; a grounded section needs no correction
+                return json.dumps({"content": "While AUROC 0.89 is reported retrospectively [1], dataset shift limits "
+                                              "external generalizability and no mortality reduction was shown [2]."})
             if attempt == 1:
                 # Deliberately fail quality gates on Attempt 1:
                 if "Task C" in sys_p:

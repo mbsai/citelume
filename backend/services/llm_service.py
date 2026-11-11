@@ -5,6 +5,13 @@ import re
 import time
 from typing import Optional, Dict, Any, List, Type, Callable, Tuple
 import httpx
+from services.llm_streaming import (
+    ChatStreamResult,
+    StreamLimits,
+    salvage_partial_json,
+    stream_ollama_chat,
+    stream_openai_chat,
+)
 from pydantic import BaseModel, ValidationError
 from models import (
     ApiKeysConfig,
@@ -45,8 +52,28 @@ def estimate_tokens(text: str) -> int:
 
 # Per-search provider health used by the circuit breaker. None outside a search (tests, connection checks).
 _REQUEST_LLM_HEALTH: ContextVar[Optional[Dict[str, Any]]] = ContextVar("request_llm_health", default=None)
-# Consecutive transient failures (rate limits, timeouts, 5xx) after which a search stops calling the provider
-TRANSIENT_FAILURES_BEFORE_SKIP = 2
+# Consecutive transient failures (rate limits, timeouts, 5xx) after which a search stops calling the provider.
+# Steps run as several small calls side by side, so two simultaneous hiccups must not switch the model off.
+TRANSIENT_FAILURES_BEFORE_SKIP = 4
+
+# Streaming limits for hosted models: how long to wait for the answer to start, how long a pause is tolerated once
+# it has started, and the longest any single call may run. Local models load and read the prompt before the
+# first token, so they get far longer and no overall limit: a slow model that is still writing is never cut off.
+CLOUD_FIRST_TOKEN_S = 45.0
+CLOUD_IDLE_S = 25.0
+CLOUD_CALL_DEADLINE_S = 150.0
+LOCAL_FIRST_TOKEN_S = 300.0
+LOCAL_IDLE_S = 120.0
+# If the answer has not started after this long, the same request is also sent to the first backup model and
+# whichever finishes first is used. Limited per search so backups do not eat the provider's request allowance.
+HEDGE_AFTER_S = 15.0
+MAX_HEDGES_PER_SEARCH = 6
+# A retry is only worth starting with at least this much of a step's time budget left
+MIN_SECONDS_FOR_RETRY = 20.0
+PARTIAL_REPLY_NOTE = "The model's reply stopped early; its complete part was kept."
+REPAIRED_NOTE = "Corrected without a rewrite:"
+# True when the last reply stopped part-way and only its complete part was kept
+_LAST_LLM_PARTIAL: ContextVar[bool] = ContextVar("last_llm_partial", default=False)
 
 # Extra output tokens granted to reasoning models for hidden reasoning, on top of the answer budget
 REASONING_TOKEN_HEADROOM = 8192
@@ -448,9 +475,128 @@ def _local_llm_lock(config: ApiKeysConfig) -> asyncio.Lock:
     return _LOCAL_LLM_LOCKS[base]
 
 
+def _text_from_stream(res: ChatStreamResult, provider: str, model: str, expect_json: bool) -> Optional[str]:
+    """
+    Answer text from a streamed reply, or None with the reason recorded (same contract as _chat_completion_text).
+    A reply that stopped part-way keeps its complete part when that part is usable JSON.
+    """
+    def fail(msg: str, status: Optional[int]) -> None:
+        _LAST_LLM_ERROR.set(msg)
+        _record_provider_failure(status, msg)
+        print(f"[LLM Router Warning ({provider} / {model})]: {msg}", flush=True)
+
+    if res.status != 200:
+        fail(f"HTTP {res.status}: {res.error}" if res.error else f"HTTP {res.status}", res.status)
+        return None
+    if res.error:
+        fail(res.error, None)
+        return None
+    text = res.text.strip()
+    cut_short = bool(res.stalled) or res.finish_reason == "length"
+    if cut_short and text and expect_json:
+        kept = salvage_partial_json(text)
+        if kept and not res.stalled:
+            # At the token limit, prose that ends on a complete sentence is usable as it is; a cut-off list is
+            # not (the caller splits that job into smaller ones instead)
+            try:
+                prose_only = all(isinstance(v, str) for v in json.loads(kept).values())
+            except ValueError:
+                prose_only = False
+            if prose_only:
+                _LAST_LLM_PARTIAL.set(True)
+                _bump("partials")
+                return kept
+        if kept and res.stalled:
+            # The model stopped responding part-way: use what it finished rather than waiting or starting over
+            _LAST_LLM_PARTIAL.set(True)
+            _bump("partials")
+            print(f"[LLM Router Notice ({provider} / {model})]: reply stopped early ({res.stalled}); kept the complete part", flush=True)
+            return kept
+    if res.stalled:
+        _bump("stalls")
+        fail(f"No reply: {res.stalled}", None)
+        return None
+    if res.finish_reason == "length":
+        # A cut-off answer is broken JSON; report it so callers can shrink the job instead of resending it
+        _LAST_LLM_TRUNCATED.set(True)
+        _LAST_LLM_ERROR.set("Output was cut off at the token limit (finish_reason=length).")
+        return None
+    if not text:
+        if res.saw_reasoning:
+            _LAST_LLM_ERROR.set(
+                f"Model returned reasoning but no answer text (finish_reason={res.finish_reason or 'unknown'}); "
+                "it likely exhausted its output token budget while reasoning."
+            )
+        else:
+            _LAST_LLM_ERROR.set(f"Model returned an empty answer (finish_reason={res.finish_reason or 'unknown'}).")
+        return None
+    return text
+
+
 def begin_llm_request_health() -> None:
     """Starts per-search provider health tracking so the circuit breaker can skip a dead provider."""
-    _REQUEST_LLM_HEALTH.set({"transient_failures": 0, "skip_reason": None})
+    _REQUEST_LLM_HEALTH.set({"transient_failures": 0, "skip_reason": None, "hedges": 0, "stalls": 0, "partials": 0})
+
+
+def llm_request_stats() -> Dict[str, int]:
+    """Backup races, stalled calls and partial replies in the current search (for the server log)."""
+    h = _REQUEST_LLM_HEALTH.get() or {}
+    return {k: int(h.get(k, 0)) for k in ("hedges", "stalls", "partials")}
+
+
+def _take_hedge() -> bool:
+    h = _REQUEST_LLM_HEALTH.get()
+    if h is None:
+        return True
+    if h.get("hedges", 0) >= MAX_HEDGES_PER_SEARCH:
+        return False
+    h["hedges"] = h.get("hedges", 0) + 1
+    return True
+
+
+def _bump(stat: str) -> None:
+    h = _REQUEST_LLM_HEALTH.get()
+    if h is not None:
+        h[stat] = h.get(stat, 0) + 1
+
+
+async def _stream_with_backup(
+    client: httpx.AsyncClient, url: str, headers: Dict[str, str], payload: Dict[str, Any],
+    backup_payload: Optional[Dict[str, Any]], limits: StreamLimits,
+) -> ChatStreamResult:
+    """
+    Streams the request. If no answer has started after HEDGE_AFTER_S and a backup model is available, the same
+    request is also sent to the backup and the first usable reply wins; the other call is cancelled.
+    """
+    started = asyncio.Event()
+    primary = asyncio.create_task(stream_openai_chat(client, url, headers, payload, limits, first_token=started))
+    if backup_payload is None:
+        return await primary
+    waiter = asyncio.create_task(started.wait())
+    try:
+        done, _ = await asyncio.wait({primary, waiter}, timeout=HEDGE_AFTER_S, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        waiter.cancel()
+    if primary in done or started.is_set():
+        return await primary
+    if not _take_hedge():
+        return await primary
+    backup = asyncio.create_task(stream_openai_chat(client, url, headers, backup_payload, limits))
+    pending = {primary, backup}
+    results: Dict[Any, ChatStreamResult] = {}
+    try:
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for t in done:
+                results[t] = t.result()
+                if results[t].ok:
+                    return results[t]
+    finally:
+        for t in (primary, backup):
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(primary, backup, return_exceptions=True)
+    return results.get(primary) or results[backup]
 
 
 def _record_provider_failure(status_code: Optional[int], err_msg: str) -> None:
@@ -478,8 +624,11 @@ async def call_llm(
     expect_json: bool = False,
     attempt_idx: int = 1,
     json_schema: Optional[Dict[str, Any]] = None,
+    budget_s: Optional[float] = None,
 ) -> Optional[str]:
     """
+    `budget_s` caps how long this one call may run (hosted models; see CLOUD_CALL_DEADLINE_S).
+
     Circuit-breaker wrapper around `_call_provider`: once the provider has failed hard (401/402/403) or
     repeatedly (rate limits, timeouts, 5xx) within the current search, later calls return immediately
     instead of each waiting on the same failure.
@@ -487,6 +636,7 @@ async def call_llm(
     _LAST_LLM_MODEL_USED.set(None)
     await _ensure_openrouter_catalog(config)
     _LAST_LLM_TRUNCATED.set(False)
+    _LAST_LLM_PARTIAL.set(False)
     health = _REQUEST_LLM_HEALTH.get()
     if health is not None and health.get("skip_reason") and _TEST_LLM_RESPONDER is None:
         _LAST_LLM_ERROR.set(health["skip_reason"])
@@ -495,11 +645,13 @@ async def call_llm(
         # One local GPU serves calls one at a time; queueing here keeps each call's timeout for its own generation
         async with _local_llm_lock(config):
             result = await _call_provider(
-                system_prompt, user_prompt, config, temperature, max_tokens, expect_json, attempt_idx, json_schema
+                system_prompt, user_prompt, config, temperature, max_tokens, expect_json, attempt_idx, json_schema,
+                budget_s,
             )
     else:
         result = await _call_provider(
-            system_prompt, user_prompt, config, temperature, max_tokens, expect_json, attempt_idx, json_schema
+            system_prompt, user_prompt, config, temperature, max_tokens, expect_json, attempt_idx, json_schema,
+            budget_s,
         )
     if result and health is not None:
         health["transient_failures"] = 0
@@ -515,6 +667,7 @@ async def _call_provider(
     expect_json: bool = False,
     attempt_idx: int = 1,
     json_schema: Optional[Dict[str, Any]] = None,
+    budget_s: Optional[float] = None,
 ) -> Optional[str]:
     """
     Calls the configured LLM provider with capability-aware structured output flags:
@@ -542,6 +695,9 @@ async def _call_provider(
     model = (config.llm_model or "").strip()
 
     timeout_s = LOCAL_LLM_TIMEOUT_S if provider in ("ollama", "custom") else 55.0
+    if provider == "openrouter":
+        # Streamed: stalls are detected by _stream_with_backup; this is only a backstop for a silent connection
+        timeout_s = httpx.Timeout(connect=10.0, read=CLOUD_FIRST_TOKEN_S + 15.0, write=20.0, pool=20.0)
     async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
         try:
             if provider == "gemini":
@@ -657,40 +813,32 @@ async def _call_provider(
                     # so turn reasoning off (≈3x faster), and keep headroom for models that reason regardless.
                     payload["reasoning"] = {"enabled": False}
                     payload["max_tokens"] = min(effective_max_tokens + REASONING_TOKEN_HEADROOM, cap.max_output_tokens)
-                # Try the primary model alone first: backups can be much slower, so only use them on a real failure
-                resp = await client.post(url, headers=headers, json=payload)
-                if resp.status_code == 429 or resp.status_code in (404, 408) or resp.status_code >= 500:
-                    if resp.status_code == 429:
+                limits = StreamLimits(CLOUD_FIRST_TOKEN_S, CLOUD_IDLE_S, min(budget_s or CLOUD_CALL_DEADLINE_S, CLOUD_CALL_DEADLINE_S))
+                backup_payload = {**payload, "model": fallbacks[0]} if fallbacks else None
+                # The primary model answers alone unless it has not started after HEDGE_AFTER_S; then a backup races it
+                res = await _stream_with_backup(client, url, headers, payload, backup_payload, limits)
+                if res.status == 429 or res.status in (404, 408) or res.status >= 500:
+                    if res.status == 429:
                         # Free models are often rate-limited in short bursts upstream; a short wait usually clears it
-                        try:
-                            wait_s = min(float(resp.headers.get("retry-after") or 6), 15.0)
-                        except ValueError:
-                            wait_s = 6.0
-                        await asyncio.sleep(wait_s)
+                        await asyncio.sleep(min(res.retry_after or 6.0, 15.0))
                     if fallbacks:
                         # OpenRouter routing: retries the primary, then each backup in order if it is still failing
                         payload["models"] = [model_name] + fallbacks
-                    resp = await client.post(url, headers=headers, json=payload)
-                if resp.status_code in (400, 422) and ("response_format" in payload or "reasoning" in payload):
+                    res = await stream_openai_chat(client, url, headers, payload, limits)
+                if res.status in (400, 422) and ("response_format" in payload or "reasoning" in payload):
                     payload.pop("response_format", None)
                     payload.pop("reasoning", None)
-                    resp = await client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-                text = _chat_completion_text(data)
-                if text is None and _LAST_LLM_TRUNCATED.get() and "reasoning" not in payload:
+                    res = await stream_openai_chat(client, url, headers, payload, limits)
+                if (res.status == 200 and not res.text.strip() and res.finish_reason == "length"
+                        and "reasoning" not in payload):
                     # A reasoning model the catalog did not describe used the whole budget thinking: retry once with
                     # reasoning off and room for the answer
                     payload["reasoning"] = {"enabled": False}
                     payload["max_tokens"] = min(effective_max_tokens + REASONING_TOKEN_HEADROOM, cap.max_output_tokens)
-                    _LAST_LLM_TRUNCATED.set(False)
-                    resp = await client.post(url, headers=headers, json=payload)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    text = _chat_completion_text(data)
-                if isinstance(data, dict) and data.get("model"):
-                    _LAST_LLM_MODEL_USED.set(data["model"])
-                return text
+                    res = await stream_openai_chat(client, url, headers, payload, limits)
+                if res.model:
+                    _LAST_LLM_MODEL_USED.set(res.model)
+                return _text_from_stream(res, provider, model, expect_json)
 
             elif provider == "huggingface":
                 model_name = model or "Qwen/Qwen2.5-72B-Instruct"
@@ -741,20 +889,16 @@ async def _call_provider(
                 if expect_json:
                     # A JSON schema constrains decoding so even small models can only emit valid, schema-shaped JSON
                     ollama_payload["format"] = json_schema or "json"
-                resp = await client.post(ollama_chat_url, headers=headers, json=ollama_payload)
-                if resp.status_code == 400 and "think" in ollama_payload:
+                # Streamed, so a slow local model is never cut off while it is still writing: the only limits are
+                # on silence (before the first token, while the model loads and reads the prompt, and between tokens)
+                local_limits = StreamLimits(LOCAL_FIRST_TOKEN_S, LOCAL_IDLE_S, None)
+                res = await stream_ollama_chat(client, ollama_chat_url, headers, ollama_payload, local_limits)
+                if res.status == 400 and "think" in ollama_payload:
                     # Older Ollama versions or models without a thinking switch reject the flag
                     ollama_payload.pop("think", None)
-                    resp = await client.post(ollama_chat_url, headers=headers, json=ollama_payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if data.get("done_reason") == "length":
-                        _LAST_LLM_TRUNCATED.set(True)
-                        _LAST_LLM_ERROR.set("Output was cut off at the token limit (done_reason=length).")
-                        return None
-                    msg = (data.get("message") or {}).get("content")
-                    if msg:
-                        return msg.strip()
+                    res = await stream_ollama_chat(client, ollama_chat_url, headers, ollama_payload, local_limits)
+                if res.status == 200:
+                    return _text_from_stream(res, provider, model, expect_json)
 
                 v1_url = f"{base}/v1/chat/completions" if not base.endswith("/v1") else f"{base}/chat/completions"
                 v1_payload = {
@@ -842,8 +986,15 @@ async def _execute_validated_llm_task(
     temperature: float = 0.15,
     max_tokens: int = 3000,
     grow_on_truncation: bool = True,
+    deadline_s: Optional[float] = None,
+    repair: Optional[Callable[[Any, List[str]], Optional[Any]]] = None,
 ) -> Tuple[Optional[Any], TaskExecutionRecord]:
     """
+    `deadline_s` is the wall-clock budget for the whole step, retries included: once it is spent no further attempt
+    starts and the caller falls back for this piece only. `repair(output, errors)` may return a corrected copy of
+    an output that failed the quality checks (for example with one unsupported figure removed); if the copy then
+    passes, it is accepted without asking the model to write everything again.
+
     Section 3, 6 & 7 — Model-Independent Structured Task Runner with Controlled Error Correction:
     1. Invokes the user-selected LLM with capability-appropriate JSON instructions.
     2. Parses the JSON block and validates against `response_model` (Pydantic schema).
@@ -913,7 +1064,12 @@ async def _execute_validated_llm_task(
     truncated = False
     total_attempts = 1 + max(0, min(max_retries, 2))
 
+    step_started = time.monotonic()
     for attempt in range(1, total_attempts + 1):
+        remaining = None if deadline_s is None else deadline_s - (time.monotonic() - step_started)
+        if remaining is not None and attempt > 1 and remaining < MIN_SECONDS_FOR_RETRY:
+            all_errors.append(f"Stopped after {attempt - 1} attempt(s): the step's {deadline_s:.0f}s time budget was used up.")
+            break
         raw_text = await call_llm(
             system_prompt=system_prompt,
             user_prompt=current_user_prompt,
@@ -923,7 +1079,10 @@ async def _execute_validated_llm_task(
             expect_json=True,
             attempt_idx=attempt,
             json_schema=json_schema,
+            budget_s=None if remaining is None else max(remaining, MIN_SECONDS_FOR_RETRY),
         )
+        if raw_text and _LAST_LLM_PARTIAL.get():
+            all_errors.append(PARTIAL_REPLY_NOTE)
         if not raw_text:
             truncated = _LAST_LLM_TRUNCATED.get()
             reason = f" Reason: {_LAST_LLM_ERROR.get()}" if _LAST_LLM_ERROR.get() else ""
@@ -967,6 +1126,15 @@ async def _execute_validated_llm_task(
 
         if custom_validator is not None:
             semantic_errors = custom_validator(validated_obj)
+            if semantic_errors and repair is not None:
+                # Fix the specific fault in place where that is possible, instead of a full rewrite
+                try:
+                    repaired = repair(validated_obj, semantic_errors)
+                except Exception:
+                    repaired = None
+                if repaired is not None and not custom_validator(repaired):
+                    all_errors.append(f"{REPAIRED_NOTE} {'; '.join(semantic_errors[:2])[:300]}")
+                    validated_obj, semantic_errors = repaired, []
             if semantic_errors:
                 last_candidate = validated_obj.model_dump()
                 err_joined = "; ".join(semantic_errors[:4])

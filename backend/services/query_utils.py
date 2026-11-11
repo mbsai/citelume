@@ -822,6 +822,9 @@ def compile_deterministic_decomposition_plan(
     )
 
 
+PLANNING_BUDGET_S = 35.0
+
+
 async def generate_multi_api_decomposition_plan(
     query: str,
     mode: str,
@@ -855,6 +858,8 @@ async def generate_multi_api_decomposition_plan(
             config=config,
             temperature=0.1,
             max_tokens=1100,
+            # Planning must not hold up the search: past this budget the rule-based plan is used
+            budget_s=PLANNING_BUDGET_S,
         )
         parsed = extract_json_block(raw) if raw else None
         if isinstance(parsed, dict) and understanding:

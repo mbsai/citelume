@@ -390,6 +390,24 @@ class TaskHIGapAssignmentItem(BaseModel):
     verification_query: str = ""
     impact_level: Literal["High", "Medium", "Exploratory"] = "High"
 
+    @field_validator("impact_level", mode="before")
+    @classmethod
+    def _known_impact_level(cls, v):
+        # Models often leave this blank, or write "Low" or "N/A", for cells that are not gaps; that must not fail
+        # the whole grid
+        text = str(v or "").strip().capitalize()
+        return text if text in ("High", "Medium", "Exploratory") else "Medium"
+
+    @field_validator("gap_category", "why_gap_exists", "proposed_hypothesis", "verification_query", mode="before")
+    @classmethod
+    def _text_or_empty(cls, v):
+        return "" if v is None else str(v)
+
+    @field_validator("paper_indices", mode="before")
+    @classmethod
+    def _indices_or_empty(cls, v):
+        return [] if v is None else v
+
 
 class TaskHIGapOutput(BaseModel):
     rows: List[str] = Field(default_factory=list)

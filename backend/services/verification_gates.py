@@ -28,6 +28,47 @@ def extract_nontrivial_numbers(text: str) -> List[str]:
     return [m.rstrip("%") for m in matches]
 
 
+_CLAUSE_SPLIT = re.compile(r"(?<=[.!?;])\s+")
+
+
+def drop_unsupported_numbers(text: str, source_text: str, by_clause: bool = True) -> str:
+    """
+    Removes the sentences (or semicolon-separated clauses) of `text` that contain a decimal or percentage not
+    found in `source_text`, keeping everything else. Used to correct one unsupported figure without a rewrite.
+    """
+    if not text:
+        return text
+    parts = _CLAUSE_SPLIT.split(text) if by_clause else re.split(r"(?<=[.!?])\s+", text)
+    kept = [p for p in parts if all(n in source_text for n in extract_nontrivial_numbers(p))]
+    return " ".join(kept).strip()
+
+
+def strip_citations_not_in(text: str, allowed: set) -> str:
+    """Removes study numbers that are not in `allowed` from bracketed citations ("[2, 99]" -> "[2]"; "[99]" -> "")."""
+    def fix(m: "re.Match") -> str:
+        nums = _expand_citation_group(m.group(1))
+        good = [n for n in nums if n in allowed]
+        if len(good) == len(nums):
+            return m.group(0)
+        return f"[{', '.join(str(n) for n in dict.fromkeys(good))}]" if good else ""
+    return re.sub(r"\s+([.,;])", r"\1", _CITATION_GROUP.sub(fix, text or "")).strip()
+
+
+def repair_study_extraction(item: TaskCStudyExtractionItem, source_paper: PaperRecord, primary_domain: str) -> None:
+    """Corrects an extracted study record in place so it passes verify_study_extraction_against_source:
+    unsupported figures are removed (the rule-based value for that field is then kept), and a reporting status
+    the source cannot support is reset."""
+    source_text = study_source_text(source_paper)
+    item.quantitative_result = drop_unsupported_numbers(item.quantitative_result, source_text)
+    item.key_findings = drop_unsupported_numbers(item.key_findings, source_text)
+    has_abstract = len((source_paper.abstract or "").strip()) >= 30
+    if not has_abstract and item.sample_reporting_status == "Reported" and not re.search(r"\d+", source_paper.title):
+        item.sample_reporting_status = "Unavailable"
+    if primary_domain == "mathematics" and "patients" in (item.sample_or_scale or "").lower() \
+            and "patients" not in source_text.lower():
+        item.sample_or_scale = ""
+
+
 def verify_study_extraction_against_source(
     item: TaskCStudyExtractionItem,
     source_paper: PaperRecord,
