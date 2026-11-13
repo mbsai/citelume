@@ -112,6 +112,7 @@ export async function downloadReportFromServer(format, researchData, exportOptio
     hf_resources: researchData.hf_resources || [],
     review_protocol: researchData.review_protocol || null,
     selection_report: researchData.selection_report || null,
+    evidence_matrix: researchData.evidence_matrix || null,
     include_evidence_table: exportOptions.include_evidence_table !== false,
     include_gap_matrix: exportOptions.include_gap_matrix !== false,
     include_network_summary: exportOptions.include_network_summary !== false,

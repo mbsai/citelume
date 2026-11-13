@@ -9,6 +9,8 @@ RUN npm run build
 
 # Stage 2: Python API that also serves the built UI
 FROM python:3.12-slim
+# DejaVu fonts let the PDF export print Greek letters, symbols and accented names
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 # Hugging Face Spaces run containers as user 1000
 RUN useradd -m -u 1000 user
 WORKDIR /app

@@ -59,8 +59,51 @@ def canonical_section(title: str) -> Optional[str]:
     return None
 
 
+# PDF text extraction often loses ligatures (ffi, fi, ff, fl, ffl): either the ligature character itself comes
+# through, or a NUL character stands in its place ("e\x00cacy"). The ligature characters are expanded; for a NUL the
+# candidate that turns the word into a known word start is chosen ("efficacy", "significant", "different"),
+# and "fi" (the most common ligature) otherwise.
+_LIGATURE_CHARS = {"\ufb00": "ff", "\ufb01": "fi", "\ufb02": "fl", "\ufb03": "ffi", "\ufb04": "ffl"}
+_LIGATURE_WORDS = (
+    # ffi / fi
+    "efficac", "efficien", "sufficien", "deficien", "difficul", "office", "officia", "coefficien", "affili",
+    "traffic", "significan", "specific", "specifi", "first", "field", "fifth", "find", "final", "define",
+    "definit", "confirm", "identifi", "classifi", "quantifi", "modifi", "benefit", "profile", "magnifi", "fibr",
+    "figur", "filter", "fixed", "fitted", "fitness", "fiber",
+    # ff
+    "effect", "differ", "offer", "affect", "staff", "suffer", "afford", "effort", "diffus", "buffer", "offspring",
+    # fl / ffl
+    "flow", "influen", "reflect", "conflict", "fluid", "fluor", "inflam", "fluctu", "flexib", "flag", "flat",
+    "floor", "afflict", "baffl", "shuffl",
+)
+_NUL_WORD = re.compile(r"([A-Za-z]*)\x00([A-Za-z]*)")
+
+
+def repair_ligatures(text: str) -> str:
+    if not text:
+        return text or ""
+    for k, v in _LIGATURE_CHARS.items():
+        text = text.replace(k, v)
+    if "\x00" not in text:
+        return text
+
+    def fix(m: "re.Match") -> str:
+        before, after = m.group(1), m.group(2)
+        for lig in ("ffi", "ffl", "fi", "ff", "fl"):
+            word = (before + lig + after).lower()
+            start, end = len(before), len(before) + len(lig)
+            for known in _LIGATURE_WORDS:
+                at = word.find(known)
+                # the known word part must contain the whole ligature, so "first" cannot justify "ffirst"
+                if at != -1 and at <= start and at + len(known) >= end:
+                    return before + lig + after
+        return before + "fi" + after
+
+    return _NUL_WORD.sub(fix, text).replace("\x00", "")
+
+
 def _clean(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "").strip()
+    return re.sub(r"\s+", " ", repair_ligatures(text or "")).strip()
 
 
 def _add(sections: Dict[str, str], name: Optional[str], text: str) -> None:
@@ -183,7 +226,7 @@ def _pdf_to_text(data: bytes) -> str:
         return ""
     try:
         reader = PdfReader(io.BytesIO(data))
-        return "\n".join((page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES])
+        return repair_ligatures("\n".join((page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES]))
     except Exception:
         return ""
 

@@ -68,8 +68,8 @@ from services.verification_gates import run_verification_and_quality_gates
 from services.export_service import (
     generate_markdown_report,
     generate_txt_report,
-    generate_pdf_report,
 )
+from services.pdf_report import generate_pdf_report
 
 app = FastAPI(
     title="CiteLume API",

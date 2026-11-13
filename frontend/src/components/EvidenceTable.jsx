@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 
 const STANCE_BADGE = {
   supporting: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -30,6 +30,11 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
   const [comparabilityFilter, setComparabilityFilter] = useState('all');
   const [showDomainCols, setShowDomainCols] = useState(true);
   const [expandedRows, setExpandedRows] = useState({});
+  const scrollBoxRef = useRef(null);
+  const scrollSideways = (dir) => {
+    const box = scrollBoxRef.current;
+    if (box) box.scrollBy({ left: dir * Math.max(300, box.clientWidth * 0.6), behavior: 'smooth' });
+  };
 
   const rowsByCitation = useMemo(() => {
     const map = {};
@@ -286,10 +291,29 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
         </span>
       </div>
 
-      {/* Main Evidence Matrix Table */}
-      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+      {/* Main Evidence Matrix Table: the box has its own height, so its sideways scrollbar is always on screen */}
+      <div className="flex items-center justify-end gap-2 text-[11px] text-slate-500">
+        <span className="hidden sm:inline">Scroll sideways with the buttons, Shift + mouse wheel, or the bar at the bottom of the table</span>
+        <button
+          type="button"
+          onClick={() => scrollSideways(-1)}
+          className="px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold"
+          aria-label="Scroll table left"
+        >
+          ◀ Left
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollSideways(1)}
+          className="px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold"
+          aria-label="Scroll table right"
+        >
+          Right ▶
+        </button>
+      </div>
+      <div ref={scrollBoxRef} className="overflow-auto max-h-[75vh] border border-slate-200 rounded-xl">
         <table className="w-full text-left border-collapse text-xs">
-          <thead>
+          <thead className="sticky top-0 z-10 shadow-sm">
             <tr className="border-b border-slate-200 text-slate-600 bg-slate-50">
               <th className="py-2.5 px-3 font-semibold w-14">Ref</th>
               <th className="py-2.5 px-3 font-semibold min-w-[230px]">
