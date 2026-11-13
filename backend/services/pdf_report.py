@@ -38,7 +38,14 @@ from reportlab.platypus import (
 
 from models import ExportRequest
 from services.fulltext import repair_ligatures
-from services.export_service import _gap_text_items, review_protocol_lines, selection_report_lines
+from services.export_service import (
+    _gap_text_items,
+    _is_prisma,
+    review_protocol_lines,
+    risk_of_bias_domains,
+    risk_of_bias_rows,
+    selection_report_lines,
+)
 
 # ---------------------------------------------------------------------------------------------------------------
 # Fonts: a Unicode TrueType font when one is installed (so Greek letters, ≥, · and accented names print), otherwise
@@ -469,6 +476,75 @@ def _lines_section(title: str, lines: List[str], st: dict) -> list:
     return out
 
 
+ROB_COLOURS = {"Low": "#22c55e", "Some concerns": "#facc15", "High": "#e11d48", "No information": "#cbd5e1"}
+ROB_SYMBOLS = {"Low": "+", "Some concerns": "!", "High": "-", "No information": "?"}
+
+
+def _prisma_flow_table(f, st: dict) -> Table:
+    def reasons(d):
+        return "".join(f"<br/>{_clean(k)}: <b>{v}</b>" for k, v in (d or {}).items())
+    by_source = "".join(f"<br/>{_clean(k)}: {v}" for k, v in f.identified_by_source.items())
+    rows = [
+        ("Identification", f"<b>Records identified: {f.identified_total}</b>{by_source}",
+         f"<b>Removed before screening</b><br/>Duplicates: <b>{f.duplicates_removed}</b>"
+         + reasons(f.removed_before_screening)),
+        ("Screening", f"<b>Records screened (title and abstract): {f.screened}</b>",
+         f"<b>Records excluded: {f.excluded_at_screening}</b>" + reasons(f.excluded_at_screening_reasons)),
+        ("Eligibility", f"<b>Records assessed for eligibility: {f.assessed_for_eligibility}</b>",
+         f"<b>Excluded, with reasons: {sum(f.excluded_at_eligibility.values())}</b>" + reasons(f.excluded_at_eligibility)),
+        ("Included", f"<b>Eligible studies: {f.eligible}</b><br/><b>Included in the synthesis: "
+                     f"{f.included_in_synthesis or f.included}</b><br/>Full text retrieved: {f.full_text_retrieved}",
+         (f"Eligible but beyond the {f.study_limit}-study limit: <b>{f.beyond_study_limit}</b><br/>"
+          if f.beyond_study_limit else "")
+         + (f"Not addressing the question (found during extraction): <b>{f.excluded_at_extraction}</b>"
+            if f.excluded_at_extraction else "")
+         or "All eligible studies were synthesised."),
+    ]
+    stage_style = ParagraphStyle("stage", parent=st["cellh"], textColor=colors.white, alignment=1)
+    data = []
+    for i, (stage, main, side) in enumerate(rows):
+        data.append([Paragraph(stage.upper(), stage_style), Paragraph(main, st["cell"]), Paragraph(side, st["cell"])])
+        if i < len(rows) - 1:
+            data.append(["", Paragraph("<para alignment='center'>&#9660;</para>", st["cell"]), ""])
+    t = Table(data, colWidths=[PORTRAIT_W * 0.17, PORTRAIT_W * 0.40, PORTRAIT_W * 0.43])
+    style = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 5),
+             ("RIGHTPADDING", (0, 0), (-1, -1), 5), ("TOPPADDING", (0, 0), (-1, -1), 4),
+             ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]
+    for r in range(0, len(data), 2):
+        style += [("BACKGROUND", (0, r), (0, r), ACCENT), ("BOX", (1, r), (1, r), 0.8, INK),
+                  ("BOX", (2, r), (2, r), 0.5, RULE), ("BACKGROUND", (2, r), (2, r), ZEBRA)]
+    style.append(("BACKGROUND", (1, len(data) - 1), (1, len(data) - 1), colors.HexColor("#ecfdf5")))
+    t.setStyle(TableStyle(style))
+    return t
+
+
+def _risk_of_bias_tables(req: ExportRequest, st: dict) -> list:
+    out = []
+    centre = ParagraphStyle("robc", parent=st["cellh"], alignment=1, textColor=INK)
+    for tool, rows in risk_of_bias_rows(req.papers):
+        domains = risk_of_bias_domains(req.papers, tool)
+        head = [Paragraph("Study", st["cellh"])] + [Paragraph(f"D{i + 1}", centre) for i in range(len(domains))] + [
+            Paragraph("Overall", centre), Paragraph("Main concern", st["cellh"])]
+        data = [head]
+        style = _table_style()
+        for r, (label, js, overall, reason) in enumerate(rows, start=1):
+            data.append([Paragraph(_clean(label), st["cell"])]
+                        + [Paragraph(ROB_SYMBOLS.get(j, "?"), centre) for j in js]
+                        + [Paragraph(ROB_SYMBOLS.get(overall, "?"), centre), Paragraph(_clean(reason), st["cell"])])
+            for c, j in enumerate(js + [overall], start=1):
+                style.add("BACKGROUND", (c, r), (c, r), colors.HexColor(ROB_COLOURS.get(j, "#cbd5e1")))
+        mark_w, overall_w = 0.05, 0.08
+        widths = [0.17] + [mark_w] * len(domains) + [overall_w] + [1 - 0.17 - mark_w * len(domains) - overall_w]
+        t = Table(data, colWidths=[PORTRAIT_W * w for w in widths], repeatRows=1)
+        t.setStyle(style)
+        out += [Spacer(1, 4), Paragraph(f"<b>{_clean(tool)}</b> ({len(rows)} studies)", st["small"]), t,
+                Paragraph("; ".join(f"D{i + 1} {_clean(d)}" for i, d in enumerate(domains)), st["note"])]
+    if out:
+        out.append(Paragraph("+ Low; ! Some concerns; - High; ? No information. AI-assessed from the abstract or full "
+                             "text; not a substitute for dual independent review.", st["note"]))
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------------------
 def generate_pdf_report(req: ExportRequest) -> bytes:
     st = _styles()
@@ -481,7 +557,7 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
         Paragraph("CiteLume Literature Synthesis", st["title"]),
         Paragraph(_clean(req.query), st["query"]),
         Paragraph(f"{mode_label} · {len(req.papers)} studies · generated {now_str}", st["meta"]),
-        Paragraph("Summary of the Evidence", st["h1"]),
+        Paragraph("Abstract" if _is_prisma(req) else "Summary of the Evidence", st["h1"]),
         _agreement_table(req, st),
         Spacer(1, 6),
     ]
@@ -490,11 +566,15 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
     story += _paragraphs(req.executive_answer, st["body"])
 
     if req.sections:
-        story.append(Paragraph("Synthesis", st["h1"]))
+        story.append(Paragraph("Systematic Review" if _is_prisma(req) else "Synthesis", st["h1"]))
         for sec in req.sections:
             story.append(CondPageBreak(60))
             story.append(Paragraph(_clean(sec.heading), st["h2"]))
             story += _paragraphs(sec.content, st["body"])
+            if sec.figure == "prisma_flow" and req.review_protocol and req.review_protocol.flow:
+                story += [Spacer(1, 4), _prisma_flow_table(req.review_protocol.flow, st), Spacer(1, 6)]
+            if sec.figure == "risk_of_bias":
+                story += _risk_of_bias_tables(req, st)
 
     wide_parts = []
     if req.include_evidence_table and req.papers:

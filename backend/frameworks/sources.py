@@ -85,6 +85,12 @@ SOURCES: Dict[str, FrameworkSource] = {
         _src("amstar2", "AMSTAR 2", "Shea BJ, et al. AMSTAR 2: a critical appraisal tool for systematic reviews that "
              "include randomised or non-randomised studies of healthcare interventions, or both. BMJ 2017;358:j4008.",
              2017, "https://pmc.ncbi.nlm.nih.gov/articles/5833365", "risk_of_bias"),
+        _src("jbi_checklists", "JBI critical appraisal checklists", "Moola S, Munn Z, Tufanaru C, et al. Chapter 7: "
+             "Systematic reviews of etiology and risk. In: Aromataris E, Munn Z (Editors). JBI Manual for Evidence "
+             "Synthesis. JBI, 2020 (checklists for analytical cross-sectional studies and case reports).", 2020,
+             "https://jbi.global/critical-appraisal-tools", "risk_of_bias"),
+        _src("casp_qualitative", "CASP Qualitative Checklist", "Critical Appraisal Skills Programme. CASP Qualitative "
+             "Studies Checklist. 2018.", 2018, "https://casp-uk.net/casp-tools-checklists/", "risk_of_bias"),
         # --- Qualitative research ---------------------------------------------------------------------------------
         _src("coreq", "COREQ", "Tong A, Sainsbury P, Craig J. Consolidated criteria for reporting qualitative research "
              "(COREQ): a 32-item checklist for interviews and focus groups. Int J Qual Health Care 2007;19:349-357.",

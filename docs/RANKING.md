@@ -76,6 +76,19 @@ A narrative review scores 16 when the question is a broad topic, because reviews
 
 The included studies are then numbered [1], [2], ... in this order.
 
+### Systematic-style (PRISMA 2020) reviews
+
+Deep Research with the PRISMA review type replaces this step with eligibility criteria, so inclusion does not depend on quotas:
+
+1. Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title or abstract addresses every part of the question, including any place or population it names.
+2. Excluded at eligibility: studies addressing only part of the question; reviews of all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, commentaries and letters.
+3. Every eligible study is included, up to the study limit. When more studies are eligible than the limit, they are taken in order of score (the 100-point score above) and the rest are listed as eligible but not synthesised.
+4. If fewer than 5 studies meet the criteria, studies addressing part of the question, and then reviews, are admitted, and the report says so.
+5. No coverage quotas, author limits or caps on study types are applied: inclusion depends only on the criteria.
+6. Screening is in two passes: word matching of the question's concepts in the title and abstract, then the model screens the remaining records on title and abstract, in order of score, until the limit is filled; each included study is checked once more during data extraction. There is no independent dual screening.
+
+Every exclusion is counted at its PRISMA stage (identification, screening, eligibility) and shown in the flow diagram. Each included study also receives a risk-of-bias judgement on the domains of a tool matched to its design (RoB 2, ROBINS-I/E, JBI, SYRCLE, CASP, AMSTAR 2 or a technical validity checklist); the overall judgement is computed from the domains by a fixed rule.
+
 ## What you see with every result
 
 - How many records were found, merged, removed for each reason, eligible and included.

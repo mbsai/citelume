@@ -113,6 +113,20 @@ def render() -> str:
         "",
         "The included studies are then numbered [1], [2], ... in this order.",
         "",
+        "### Systematic-style (PRISMA 2020) reviews",
+        "",
+        "Deep Research with the PRISMA review type replaces this step with eligibility criteria, so inclusion "
+        "does not depend on quotas:",
+        "",
+    ]
+    lines += [f"{i}. {rule}" for i, rule in enumerate(ps.PRISMA_RULES, start=1)]
+    lines += [
+        "",
+        "Every exclusion is counted at its PRISMA stage (identification, screening, eligibility) and shown in the "
+        "flow diagram. Each included study also receives a risk-of-bias judgement on the domains of a tool matched "
+        "to its design (RoB 2, ROBINS-I/E, JBI, SYRCLE, CASP, AMSTAR 2 or a technical validity checklist); the "
+        "overall judgement is computed from the domains by a fixed rule.",
+        "",
         "## What you see with every result",
         "",
         "- How many records were found, merged, removed for each reason, eligible and included.",

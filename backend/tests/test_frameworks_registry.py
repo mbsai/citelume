@@ -10,6 +10,7 @@ if str(BACKEND_DIR) not in sys.path:
 from frameworks.appraisal_routes import detect_biomedical_design, route_biomedical
 from frameworks.reporting import build_review_protocol_report
 from frameworks.review_types import ORGANIZATIONS, REVIEW_FRAMEWORKS
+from frameworks.risk_of_bias import TOOLS as ROB_TOOLS
 from frameworks.rules import GATES, RULES, method_rule_texts, render_rules_for_prompt, rule_texts, select_rules
 from frameworks.sources import SOURCES
 from models import PaperRecord
@@ -44,7 +45,13 @@ class TestRuleRegistryIntegrity(unittest.TestCase):
         used = {s for r in RULES for s in r.source_ids}
         used |= {s for f in REVIEW_FRAMEWORKS.values() for s in f.source_ids}
         used |= {s for o in ORGANIZATIONS.values() for s in o.source_ids}
+        used |= {s for t in ROB_TOOLS.values() for s in t.source_ids}
         self.assertEqual(set(SOURCES) - used, set())
+
+    def test_risk_of_bias_tools_cite_known_sources(self):
+        for t in ROB_TOOLS.values():
+            self.assertTrue(t.domains, t.tool_id)
+            self.assertTrue(set(t.source_ids) <= set(SOURCES), t.tool_id)
 
     def test_enforcement_points_to_real_gates(self):
         for r in RULES:

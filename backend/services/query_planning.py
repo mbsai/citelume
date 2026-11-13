@@ -526,8 +526,14 @@ def build_search_plan(
     return facets
 
 
-def results_per_search(mode: str, kind: str) -> int:
-    core, other = RESULTS_PER_SEARCH.get(mode, RESULTS_PER_SEARCH["standard"])
+# A systematic-style (PRISMA) review searches more deeply: the model screens every record afterwards, so the
+# search can favour sensitivity (Semantic Scholar returns at most 100 per request)
+RESULTS_PER_SEARCH_PRISMA = (100, 40)
+
+
+def results_per_search(mode: str, kind: str, systematic: bool = False) -> int:
+    core, other = RESULTS_PER_SEARCH_PRISMA if (systematic and mode == "deep_research") else \
+        RESULTS_PER_SEARCH.get(mode, RESULTS_PER_SEARCH["standard"])
     return core if kind == "core" else other
 
 

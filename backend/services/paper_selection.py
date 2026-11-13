@@ -8,6 +8,10 @@ choice of studies can be explained and reproduced. The plain-language version is
   Step 3  Score every eligible record out of 100 on five criteria (CRITERIA below).
   Step 4  Balanced selection: cover each aspect of the question, keep null results in view, limit narrative
           reviews and repeated author groups, then fill the remaining places by score.
+
+A systematic-style (PRISMA) review replaces step 4 with eligibility criteria: every primary study that addresses
+every part of the question is included, up to the study limit, and existing reviews are excluded from the synthesis
+and cited in the Discussion instead (PRISMA_RULES).
 """
 from __future__ import annotations
 
@@ -18,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from models import (
+    ListedRecord,
     PaperRecord,
     SearchAspect,
     SearchConcept,
@@ -133,6 +138,55 @@ SELECTION_RULES: List[str] = [
     "No more than two studies with the same first author and year, to favour independent evidence.",
     "Ties are broken by newer publication year, then citations per year, then title.",
 ]
+
+# Systematic-style (PRISMA) review: eligibility instead of balanced selection
+SECONDARY_TYPES = ("review", "evidence_synthesis")
+NOT_PRIMARY_TYPES = SECONDARY_TYPES + ("commentary",)
+MIN_PRISMA_STUDIES = 5          # below this many eligible studies the criteria are relaxed, and the report says so
+MAX_LISTED_REVIEWS = 8          # earlier reviews listed for the Discussion
+
+REASON_NOT_RESEARCH = "Not a research report (correction, retraction, protocol or meeting abstract)"
+REASON_PLACE = "Outside the place or population asked about"
+REASON_TOPIC = "Not about the topic of the question"
+REASON_NO_ABSTRACT = "No abstract available to assess"
+REASON_PARTIAL = "Does not address every part of the question"
+REASON_REVIEW = "Review article (secondary research; earlier reviews are cited in the Discussion)"
+REASON_COMMENTARY = "Editorial, commentary or letter (no primary data)"
+EXCLUSION_STAGE = {
+    REASON_NOT_RESEARCH: "identification",
+    REASON_PLACE: "screening",
+    REASON_TOPIC: "screening",
+    REASON_NO_ABSTRACT: "screening",
+    REASON_PARTIAL: "eligibility",
+    REASON_REVIEW: "eligibility",
+    REASON_COMMENTARY: "eligibility",
+}
+
+PRISMA_RULES: List[str] = [
+    "Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, "
+    "case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title "
+    "or abstract addresses every part of the question, including any place or population it names.",
+    "Excluded at eligibility: studies addressing only part of the question; reviews of all kinds (narrative, "
+    "systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, "
+    "commentaries and letters.",
+    "Every eligible study is included, up to the study limit. When more studies are eligible than the limit, they "
+    "are taken in order of score (the 100-point score above) and the rest are listed as eligible but not "
+    "synthesised.",
+    f"If fewer than {MIN_PRISMA_STUDIES} studies meet the criteria, studies addressing part of the question, and "
+    "then reviews, are admitted, and the report says so.",
+    "No coverage quotas, author limits or caps on study types are applied: inclusion depends only on the criteria.",
+    "Screening is in two passes: word matching of the question's concepts in the title and abstract, then the "
+    "model screens the remaining records on title and abstract, in order of score, until the limit is filled; "
+    "each included study is checked once more during data extraction. There is no independent dual screening.",
+]
+
+
+def _listed(p: PaperRecord, label: str = "") -> "ListedRecord":
+    authors = ", ".join(p.authors[:3]) + (" et al." if len(p.authors) > 3 else "")
+    return ListedRecord(label=label, title=p.title or "", authors=authors, year=p.year, venue=p.venue or p.source or "",
+                        study_type=STUDY_TYPE_LABELS.get(p.study_type, p.study_type or ""),
+                        url=p.url or (f"https://doi.org/{p.doi}" if p.doi else ""), abstract=(p.abstract or "")[:1200])
+
 
 # ---------------------------------------------------------------------------------------------------------------
 # Study type
@@ -382,8 +436,11 @@ def select_studies(
     understanding: Optional[UniversalQuestionUnderstanding] = None,
     stats: Optional[Dict[str, int]] = None,
     records_found: Optional[int] = None,
+    method: str = "narrative",
 ) -> Tuple[List[PaperRecord], SelectionReport]:
-    """Steps 2-4 on de-duplicated records. Returns the included studies (numbered in rank order) and the report."""
+    """Steps 2-4 on de-duplicated records. Returns the included studies (numbered in rank order) and the report.
+    `method="systematic_prisma"` applies eligibility criteria instead of the balanced selection of step 4."""
+    prisma = method == "systematic_prisma"
     now_year = datetime.now(timezone.utc).year
     breadth = understanding.breadth if understanding else "focused"
     domain = understanding.primary_domain if understanding else "biomedical_clinical"
@@ -396,8 +453,9 @@ def select_studies(
     report = SelectionReport(
         protocol_version=PROTOCOL_VERSION, target_count=max_total,
         records_found=records_found if records_found is not None else len(unique_papers),
-        unique_records=len(unique_papers), criteria=CRITERIA, selection_rules=SELECTION_RULES,
-        study_type_labels=STUDY_TYPE_LABELS,
+        unique_records=len(unique_papers), criteria=CRITERIA,
+        selection_rules=PRISMA_RULES if prisma else SELECTION_RULES,
+        study_type_labels=STUDY_TYPE_LABELS, selection_method="systematic_prisma" if prisma else "narrative",
     )
     report.duplicates_merged = max(0, report.records_found - report.unique_records)
 
@@ -460,10 +518,10 @@ def select_studies(
     if apply_screen:
         n_constraint = sum(1 for p in pool if misses_constraint(p))
         if n_constraint:
-            excluded["Outside the place or population asked about"] = n_constraint
+            excluded[REASON_PLACE] = n_constraint
         n_topic = len(pool) - len(matching) - n_constraint
         if n_topic > 0:
-            excluded["Not about the topic of the question"] = n_topic
+            excluded[REASON_TOPIC] = n_topic
         pool = matching
     elif len(matching) < len(unique_papers):
         report.notes.append(
@@ -472,13 +530,17 @@ def select_studies(
 
     typed = [p for p in pool if p.study_type not in INELIGIBLE_TYPES]
     if len(typed) < len(pool):
-        excluded["Not a research report (correction, retraction, protocol or meeting abstract)"] = len(pool) - len(typed)
+        excluded[REASON_NOT_RESEARCH] = len(pool) - len(typed)
     pool = typed
     with_abstract = [p for p in pool if len((p.abstract or "").strip()) >= 20]
-    if len(with_abstract) >= max_total and len(with_abstract) < len(pool):
-        excluded["No abstract available to assess"] = len(pool) - len(with_abstract)
+    # A systematic review screens every record on its abstract, so records without one are excluded whenever enough
+    # remain; otherwise they are dropped only when there are more than enough studies with abstracts
+    enough = MIN_PRISMA_STUDIES if prisma else max_total
+    if len(with_abstract) >= enough and len(with_abstract) < len(pool):
+        excluded[REASON_NO_ABSTRACT] = len(pool) - len(with_abstract)
         pool = with_abstract
     report.excluded = excluded
+    report.exclusion_stage = {r: EXCLUSION_STAGE.get(r, "screening") for r in excluded}
     report.eligible = len(pool)
     if not pool:
         return [], report
@@ -549,13 +611,16 @@ def select_studies(
         p.selection_rank = rank
         p.matched_subquestion_ids = [f"SQ{j + 2}" for j, a in enumerate(aspects) if _aspect_members(a, p)] or ["SQ1"]
 
+    if prisma:
+        return _prisma_selection(ranked, max_total, report, sort_key)
+
     # ---- Step 4: balanced selection ----------------------------------------------------------------------------
     chosen: List[PaperRecord] = []
     chosen_ids: set = set()
     author_year: Counter = Counter()
     review_cap = max(1, int(round(REVIEW_SHARE_CAP[breadth] * max_total)))
     secondary_cap = max(1, int(round(SECONDARY_SHARE_CAP[breadth] * max_total)))
-    secondary_types = ("review", "evidence_synthesis")
+    secondary_types = SECONDARY_TYPES
 
     def key_author_year(p: PaperRecord) -> str:
         return f"{first_author_surname(p)}_{p.year or 0}"
@@ -617,4 +682,70 @@ def select_studies(
     report.included_by_aspect = {a.label: sum(1 for p in chosen if _aspect_members(a, p)) for a in aspects}
     if len(chosen) < max_total:
         report.notes.append(f"Only {len(chosen)} eligible studies were found, fewer than the {max_total} allowed.")
+    return chosen, report
+
+
+def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: SelectionReport, sort_key) -> Tuple[
+        List[PaperRecord], SelectionReport]:
+    """Step 4 for a systematic-style review: include every study meeting the eligibility criteria (PRISMA_RULES),
+    up to the study limit, in order of score."""
+    def is_primary(p: PaperRecord) -> bool:
+        return p.study_type not in NOT_PRIMARY_TYPES
+
+    full_primary = [p for p in ranked if is_primary(p) and p.relevance == "addresses"]
+    partial_primary = [p for p in ranked if is_primary(p) and p.relevance == "partly"]
+    reviews = [p for p in ranked if p.study_type in SECONDARY_TYPES and p.relevance != "off_topic"]
+    commentary = [p for p in ranked if p.study_type == "commentary" and p.relevance != "off_topic"]
+    # Off-topic records still in the pool (the screen is not applied when few records match) are excluded here
+    off_topic = [p for p in ranked if p.relevance == "off_topic"]
+
+    eligible = list(full_primary)
+    relaxed = []
+    if len(eligible) < MIN_PRISMA_STUDIES and partial_primary:
+        eligible += partial_primary
+        relaxed.append(f"only {len(full_primary)} primary studies addressed every part of the question, so "
+                       f"{len(partial_primary)} addressing part of it were admitted")
+    reviews_admitted = False
+    if len(eligible) < MIN_PRISMA_STUDIES and reviews:
+        eligible += reviews
+        reviews_admitted = True
+        relaxed.append(f"fewer than {MIN_PRISMA_STUDIES} primary studies were eligible, so {len(reviews)} review(s) "
+                       "were admitted")
+    eligible.sort(key=sort_key, reverse=True)
+
+    excluded = dict(report.excluded)
+    if off_topic:
+        excluded[REASON_TOPIC] = excluded.get(REASON_TOPIC, 0) + len(off_topic)
+    partial_out = len(partial_primary) if not relaxed else 0
+    if partial_out:
+        excluded[REASON_PARTIAL] = partial_out
+    if reviews and not reviews_admitted:
+        excluded[REASON_REVIEW] = len(reviews)
+    if commentary:
+        excluded[REASON_COMMENTARY] = len(commentary)
+    report.excluded = excluded
+    report.exclusion_stage = {r: EXCLUSION_STAGE.get(r, "screening") for r in excluded}
+    if relaxed:
+        report.notes.append("Eligibility criteria relaxed: " + "; ".join(relaxed) + ".")
+
+    chosen = eligible[:max_total]
+    for p in chosen:
+        p.selection_reason = "Meets the eligibility criteria"
+    over = eligible[max_total:]
+    for i, p in enumerate(chosen, start=1):
+        p.citation_index = i
+    if not reviews_admitted:
+        on_topic_reviews = [p for p in reviews if p.relevance == "addresses"] or reviews
+        report.excluded_reviews = [_listed(p, f"R{i}") for i, p in enumerate(on_topic_reviews[:MAX_LISTED_REVIEWS], 1)]
+    report.eligible_over_limit = [_listed(p) for p in over]
+
+    report.eligible = len(eligible)
+    report.included = len(chosen)
+    report.included_by_study_type = dict(Counter(STUDY_TYPE_LABELS.get(p.study_type, p.study_type) for p in chosen).most_common())
+    report.included_by_reason = {"Meets the eligibility criteria": len(chosen)}
+    if over:
+        report.notes.append(f"{len(eligible)} studies met the eligibility criteria; the {max_total} with the highest "
+                            f"scores were synthesised and the other {len(over)} are listed as eligible but not synthesised.")
+    elif len(chosen) < max_total:
+        report.notes.append(f"All {len(chosen)} eligible studies were included (the limit is {max_total}).")
     return chosen, report

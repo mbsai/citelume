@@ -2,8 +2,10 @@ import asyncio
 import re
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Tuple, Optional, Callable, Awaitable
+from typing import List, Dict, Any, Tuple, Optional, Callable, Awaitable, Sequence
 from models import (
+    RiskOfBiasDomain,
+    StudyRiskOfBias,
     PaperRecord,
     HFResourceRecord,
     ApiKeysConfig,
@@ -57,6 +59,9 @@ from services.verification_gates import (
 )
 from frameworks.appraisal_routes import detect_biomedical_design
 from frameworks.review_types import resolve_review_type
+from frameworks.risk_of_bias import normalise_judgement as normalise_rob_judgement
+from frameworks.risk_of_bias import overall_judgement as overall_rob_judgement
+from frameworks.risk_of_bias import tool_for as rob_tool_for
 from frameworks.rules import render_rules_for_prompt, select_rules
 from services.extraction_patterns import study_sample_size
 from services.review_composition import finalize_llm_sections, organized_groups
@@ -135,6 +140,7 @@ STANDARD_EXEC_MAX_TOKENS = 900
 # Answer tokens budgeted per study (9 short fields) plus fixed JSON overhead; measured ≈150-200 per study
 TASK_C_TOKENS_PER_STUDY = 220
 TASK_C_OUTPUT_OVERHEAD = 200
+TASK_C_ROB_TOKENS_PER_STUDY = 90  # risk-of-bias judgements and reason (systematic-style reviews only)
 # Abstract characters sent per study, chosen by _key_result_sentences rather than a blind cut
 TASK_C_ABSTRACT_CHARS = 480
 # Characters of open-access full text sent per study, by section (≈300 tokens in all; keeps small models in budget)
@@ -551,8 +557,12 @@ async def _run_task_c_batched_study_extraction(
     config: ApiKeysConfig,
     audit_trail: List[TaskExecutionRecord],
     descriptive_question: bool = False,
+    assess_risk_of_bias: bool = False,
 ) -> None:
     """
+    `assess_risk_of_bias` (systematic-style reviews) also asks for a judgement on each domain of the study's
+    design-matched risk-of-bias tool (frameworks/risk_of_bias.py); the overall judgement is computed from them.
+
     Section 4 & 9 — Task C: Extract factual findings from studies in context-window-sized batches.
     - First computes deterministic source-grounded extraction (`abstract_derived` / `metadata_only`) on all papers.
     - Uses `_STUDY_EXTRACTION_CACHE` so unchanged studies are not re-extracted across runs.
@@ -562,16 +572,18 @@ async def _run_task_c_batched_study_extraction(
     cap = resolve_model_capabilities(config)
     # Batch size is bounded by the context window (recommended size) and by how many study answers fit the output limit
     per_call = TASK_C_STUDIES_PER_CALL["local" if config.llm_provider in ("ollama", "custom") else "hosted"]
+    tokens_per_study = TASK_C_TOKENS_PER_STUDY + (TASK_C_ROB_TOKENS_PER_STUDY if assess_risk_of_bias else 0)
     batch_size = max(
         1,
         min(per_call, cap.recommended_study_batch_size,
-            (cap.max_output_tokens - TASK_C_OUTPUT_OVERHEAD) // TASK_C_TOKENS_PER_STUDY),
+            (cap.max_output_tokens - TASK_C_OUTPUT_OVERHEAD) // tokens_per_study),
     )
+    rob_key = ":rob" if assess_risk_of_bias else ""
 
     uncached_papers: List[PaperRecord] = []
     for p in papers:
         _extract_domain_adaptive_study_fields(p, hf_resources, primary_domain=prim_domain, sample_policy=sample_policy)
-        ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}"
+        ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}{rob_key}"
         if ckey in _STUDY_EXTRACTION_CACHE:
             cached_elicit, cached_stance, cached_relevance, cached_note = _STUDY_EXTRACTION_CACHE[ckey]
             if p.relevance != "off_topic":
@@ -600,11 +612,17 @@ async def _run_task_c_batched_study_extraction(
         batch_lines = []
         for p in batch:
             abs_text = _key_result_sentences(p.abstract, TASK_C_ABSTRACT_CHARS) or "Metadata only (no abstract provided by source)"
+            rob_line = ""
+            if assess_risk_of_bias:
+                tool = rob_tool_for(p.study_type)
+                rob_line = (f"\n    Risk-of-bias tool: {tool.label}. Domains in order: "
+                            + "; ".join(f"{k}) {d}" for k, d in enumerate(tool.domains, 1)))
             batch_lines.append(
                 f"[{p.citation_index}] Title: {p.title} ({p.year or 'n.d.'}, {p.source}, Status: {p.version_status})\n"
                 f"    Deterministic Baseline Design: {p.elicit.study_design} | Sample/Scale: {p.elicit.sample_or_scale} ({p.elicit.sample_reporting_status})\n"
                 f"    Abstract: {abs_text}"
                 + _full_text_excerpt(p)
+                + rob_line
             )
 
         sys_prompt = (
@@ -625,8 +643,17 @@ async def _run_task_c_batched_study_extraction(
                 "5. stance is relative to the query: 'supporting' if the findings support it, 'contradicting' if they go "
                 "against it, 'mixed' if conditional, 'neutral' if the study does not take a position.\n"
             )
+            + (
+                "6. Risk of bias: for each study, judge every domain of its risk-of-bias tool, in the order listed, as "
+                "'Low', 'Some concerns', 'High' or 'No information', using only what its record reports. Use 'No "
+                "information' when the abstract or full text does not say (do not assume). Give risk_of_bias_reason in "
+                "under 25 words, naming the main concern.\n"
+                if assess_risk_of_bias else ""
+            )
             + "Return ONLY valid JSON matching:\n"
-            '{"study_extractions": [{"citation_index": 1, "addresses_question": "yes|partly|no", "relevance_reason": "...", "stance": "supporting|mixed|contradicting|neutral", "study_design": "...", "methodology": "...", "dataset_or_system": "...", "sample_or_scale": "...", "sample_reporting_status": "Reported|Not reported|Not applicable|Unavailable", "quantitative_result": "...", "key_findings": "...", "limitations": "..."}]}'
+            + ('{"study_extractions": [{"citation_index": 1, "addresses_question": "yes|partly|no", "relevance_reason": "...", "stance": "supporting|mixed|contradicting|neutral", "study_design": "...", "methodology": "...", "dataset_or_system": "...", "sample_or_scale": "...", "sample_reporting_status": "Reported|Not reported|Not applicable|Unavailable", "quantitative_result": "...", "key_findings": "...", "limitations": "..."'
+               + (', "risk_of_bias": ["Low|Some concerns|High|No information", "..."], "risk_of_bias_reason": "..."' if assess_risk_of_bias else "")
+               + '}]}')
         )
         user_prompt = f"Query: {query}\nExtract factual study fields for batch [{batch[0].citation_index}..{batch[-1].citation_index}]:\n" + "\n".join(batch_lines)
 
@@ -659,7 +686,7 @@ async def _run_task_c_batched_study_extraction(
             custom_validator=_validate_batch,
             max_retries=1,
             temperature=0.1,
-            max_tokens=TASK_C_TOKENS_PER_STUDY * len(batch) + TASK_C_OUTPUT_OVERHEAD,
+            max_tokens=tokens_per_study * len(batch) + TASK_C_OUTPUT_OVERHEAD,
             grow_on_truncation=False,  # a cut-off batch is split in half below instead
             deadline_s=step_budget(config, "extraction"),
             repair=_repair_batch,
@@ -697,9 +724,20 @@ async def _run_task_c_batched_study_extraction(
                         tp.elicit.key_findings = item.key_findings[:250]
                     if item.limitations:
                         tp.elicit.limitations = item.limitations[:220]
+                    if assess_risk_of_bias and item.risk_of_bias:
+                        tool = rob_tool_for(tp.study_type)
+                        judged = [normalise_rob_judgement(j) for j in item.risk_of_bias[:len(tool.domains)]]
+                        judged += ["No information"] * (len(tool.domains) - len(judged))
+                        tp.elicit.risk_of_bias = StudyRiskOfBias(
+                            tool=tool.label,
+                            domains=[RiskOfBiasDomain(domain=d, judgement=j) for d, j in zip(tool.domains, judged)],
+                            overall=overall_rob_judgement(judged),
+                            reason=(item.risk_of_bias_reason or "")[:220],
+                            basis="full text" if tp.full_text_sections else "abstract",
+                        )
 
         for p in batch:
-            ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}"
+            ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}{rob_key}"
             _STUDY_EXTRACTION_CACHE[ckey] = (p.elicit.model_copy(deep=True), p.stance, p.relevance, p.relevance_note)
         return [rec]
 
@@ -858,6 +896,35 @@ _DEEP_CONCLUSION_PURPOSE = (
     "Conclude: answer each part of the research question directly, separate what is established from what is only "
     "suggested or uncertain, and set out implications for future research and study design."
 )
+# Systematic-style (PRISMA 2020) review: the Introduction and Discussion are written by the model; Methods and the
+# descriptive parts of Results are computed (services/prisma_report.py)
+PRISMA_INTRODUCTION_HEADING = "1. Introduction"
+PRISMA_DISCUSSION_HEADING = "4. Discussion"
+PRISMA_INTRODUCTION_WORDS = 200
+PRISMA_INTRODUCTION_PURPOSE = (
+    "Write the Introduction of a systematic review (PRISMA 2020 items 3-4): the rationale - why the question matters, "
+    "what is already known, and what earlier reviews found or left unresolved (cite them by their labels, such as "
+    "[R1]) - ending with one sentence stating the objective of this review. Do not report this review's own results."
+)
+PRISMA_DISCUSSION_PURPOSE = (
+    "Write the Discussion of a systematic review (PRISMA 2020 item 23), in this order: (a) a general interpretation of "
+    "the results, compared with the earlier reviews (cite them by label, such as [R1]) - where this review agrees or "
+    "differs and why; (b) limitations of the evidence included (design, risk of bias, consistency, directness, "
+    "precision); (c) limitations of the review process: automated single-pass screening from titles and abstracts, "
+    "AI-assisted data extraction and risk-of-bias judgements, a limited set of databases, and the study limit; "
+    "(d) implications for practice, policy and future research."
+)
+
+
+def _prisma_introduction_fallback(query: str, previous_reviews: Sequence[Any]) -> str:
+    text = f"This review asks: {query.strip().rstrip('?')}?"
+    if previous_reviews:
+        text += (" Earlier reviews on this question were identified by the search ("
+                 + ", ".join(f"[{r.label}] {r.authors.split(',')[0] if r.authors else 'n.a.'} {r.year or 'n.d.'}"
+                             for r in previous_reviews) + ").")
+    return text + " The objective is to identify and synthesise the primary studies that address it."
+
+
 # Concurrent section-writing calls per review (local models are serialised separately by the LLM router)
 DEEP_SECTION_CONCURRENCY = 4
 
@@ -884,6 +951,7 @@ async def _write_deep_review_sections(
     contradicting_idxs: List[int],
     config: ApiKeysConfig,
     standard: bool = False,
+    previous_reviews: Sequence[Any] = (),
 ) -> Tuple[List[SynthesisSection], List[TaskExecutionRecord], List[str]]:
     """
     `standard=True` writes the four sections of a Standard synthesis (one body section, then C, D and E) at Standard
@@ -908,8 +976,14 @@ async def _write_deep_review_sections(
         ]
         return "\n".join(lines) or "- (no verified claims for this part)"
 
-    # Units: (heading, purpose, studies, rule-based fallback text, must cite contradicting studies)
+    # Units: (heading, purpose, studies, rule-based fallback text, must cite contradicting studies); PRISMA_UNITS
+    # below adds the Introduction and replaces the conclusion with a Discussion
     units: List[Tuple[str, str, List[PaperRecord], str, bool]] = []
+    prisma = framework_def.framework_id == "systematic_prisma" and not standard
+    reviews_digest = "\n".join(
+        f"[{r.label}] {r.title} ({r.authors or 'n.a.'}, {r.year or 'n.d.'}) - {r.study_type}. Abstract: {r.abstract[:600]}"
+        for r in previous_reviews) if prisma else ""
+    special: Dict[str, Dict[str, Any]] = {}  # heading -> extra context, own length, citations required
     body_fallback = (det_sections[0].content.split("\n\n") if det_sections else [])
     if standard:
         units.append((
@@ -932,17 +1006,27 @@ async def _write_deep_review_sections(
     for j, (purpose, ps, must_cite) in enumerate([
         (c_purpose, (disagreeing + others)[:25], bool(contradicting_idxs) and framework_def.framework_id != "scoping"),
         (d_purpose, synth_papers[:30], False),
-        (_DEEP_CONCLUSION_PURPOSE, synth_papers[:30], False),
+        (PRISMA_DISCUSSION_PURPOSE if prisma else _DEEP_CONCLUSION_PURPOSE, synth_papers[:30], False),
     ]):
         fallback = det_sections[j + 1].content if j + 1 < len(det_sections) else ""
-        units.append((framework_def.section_plan[j], purpose, ps, fallback, must_cite))
+        heading = PRISMA_DISCUSSION_HEADING if (prisma and j == 2) else framework_def.section_plan[j]
+        units.append((heading, purpose, ps, fallback, must_cite))
+    if prisma:
+        special[PRISMA_DISCUSSION_HEADING] = {"extra": reviews_digest, "words": None, "require_cite": True}
+        units.insert(0, (PRISMA_INTRODUCTION_HEADING, PRISMA_INTRODUCTION_PURPOSE, synth_papers[:12],
+                         _prisma_introduction_fallback(query, previous_reviews), False))
+        special[PRISMA_INTRODUCTION_HEADING] = {"extra": reviews_digest, "words": PRISMA_INTRODUCTION_WORDS,
+                                                "require_cite": False}
 
     semaphore = asyncio.Semaphore(DEEP_SECTION_CONCURRENCY)
 
     async def write(unit) -> Tuple[SynthesisSection, TaskExecutionRecord, bool]:
         heading, purpose, ps, fallback, must_cite = unit
+        extra = special.get(heading, {})
         unit_idx = {p.citation_index for p in ps}
-        target_words = _deep_section_target_words(len(ps))
+        target_words = extra.get("words") or _deep_section_target_words(len(ps))
+        # Figures from earlier reviews (Introduction and Discussion) are legitimate in those sections
+        unit_corpus = corpus_full_text + ("\n" + extra["extra"] if extra.get("extra") else "")
         if standard:
             target_words = min(target_words, STANDARD_BODY_WORDS if heading == units[0][0] else STANDARD_SECTION_WORDS)
         # A Standard section is short by design: a firm upper length keeps each call quick
@@ -955,6 +1039,9 @@ async def _write_deep_review_sections(
             "lists, no heading), synthesising across studies rather than summarising them one by one.\n"
             "RULES:\n"
             f"1. Cite every factual statement with bracketed study numbers such as [3] or [2, 5], using only: {allowed_label}.\n"
+            + ("   Earlier reviews are cited by their labels, such as [R1] or [R2], and are not included studies.\n"
+               if extra.get("extra") else "")
+            + 
             "2. Never invent numbers, percentages or sample sizes that are not in the provided records.\n"
             "3. Do not claim causation from observational or correlational evidence.\n"
             f"Methodology rules:\n{rules_block}\n"
@@ -964,6 +1051,8 @@ async def _write_deep_review_sections(
         user_prompt = (
             f"Research question: {query}\n\nVerified claims:\n{claim_lines(None if len(ps) >= len(synth_papers) else unit_idx)}"
             "\n\nStudies for this section:\n" + "\n".join(_deep_digest_line(p) for p in ps)
+            + (f"\n\nEarlier reviews found by the search (excluded from the synthesis):\n{extra['extra']}"
+               if extra.get("extra") else "")
         )
 
         def validate(out: TaskJSectionOutput) -> List[str]:
@@ -975,13 +1064,13 @@ async def _write_deep_review_sections(
                 errs.append(f"The section is {words} words - write at least {target_words} words, keeping "
                             "what you wrote and adding study-by-study comparison.")
             cited = extract_citation_numbers(text)
-            if not cited:
+            if not cited and extra.get("require_cite", True):
                 errs.append("The section must cite studies with bracketed numbers such as [3] or [2, 5].")
             bad = sorted({c for c in cited if c not in allowed})
             if bad:
                 errs.append(f"Cites study numbers {bad} that are not among the provided studies; use only {allowed_label}.")
             for num in extract_nontrivial_numbers(text):
-                if num not in corpus_full_text:
+                if num not in unit_corpus:
                     errs.append(f"Contains the number '{num}', which is not in the retrieved study records.")
             if must_cite and not any(ci in cited for ci in contradicting_idxs):
                 errs.append(f"Must cite and weigh the contradicting studies {contradicting_idxs}.")
@@ -990,7 +1079,7 @@ async def _write_deep_review_sections(
         def repair(out: TaskJSectionOutput, _errors: List[str]) -> Optional[TaskJSectionOutput]:
             # Drop the sentence with an unsupported figure, or the citation of a study that was not provided
             text = strip_citations_not_in(out.content or "", allowed)
-            text = drop_unsupported_numbers(text, corpus_full_text, by_clause=False)
+            text = drop_unsupported_numbers(text, unit_corpus, by_clause=False)
             return out.model_copy(update={"content": text}) if text and text != out.content else None
 
         async with semaphore:
@@ -1039,6 +1128,7 @@ async def generate_synthesis_and_extractions(
     on_claim_evidence_ready: Optional[Callable[[SynthesisEvidencePackage], Awaitable[None]]] = None,
     review_framework: str = "narrative",
     organization: str = "thematic",
+    previous_reviews: Sequence[Any] = (),
 ) -> Tuple[str, List[SynthesisSection], ConsensusBreakdown, List[str]]:
     """
     `on_claim_evidence_ready`, when given, is started as a concurrent task as soon as the study findings,
@@ -1098,6 +1188,7 @@ async def generate_synthesis_and_extractions(
             decomposition_plan and decomposition_plan.question_understanding
             and decomposition_plan.question_understanding.primary_intent == "descriptive"
         ),
+        assess_risk_of_bias=(mode == "deep_research" and review_framework == "systematic_prisma"),
     )
 
     # Studies screened as not addressing the question (constraint mismatch or the model's judgement) keep their
@@ -1320,7 +1411,7 @@ async def generate_synthesis_and_extractions(
             _write_deep_review_sections(
                 query, synth_papers, validated_claims, verified_synth_claims, det_sections, organization,
                 review_framework, rules_block, corpus_full_text, contradicting_idxs, config,
-                standard=mode != "deep_research",
+                standard=mode != "deep_research", previous_reviews=previous_reviews,
             ),
         )
         audit_trail.append(rec_j)
@@ -1406,20 +1497,40 @@ async def generate_synthesis_and_extractions(
             sections_out = finalize_llm_sections(review_framework, list(deep_sections), synth_papers, atomic_findings)
 
     # Phase 11: Run Explicit 10-Dimension Section 1 Synthesis Quality Gate
-    s1_quality = evaluate_section1_quality_gate(
-        query=query,
-        papers=synth_papers,
-        findings=atomic_findings,
-        clusters=evidence_clusters,
-        verified_claims=verified_synth_claims,
-        executive_answer=exec_answer,
-        sections=sections_out,
-        primary_domain=prim_domain,
-        model_used=rec_j.model_used,
-    )
+    reviews_text = " ".join(f"{r.title} {r.abstract}" for r in previous_reviews)
+
+    def run_gate():
+        return evaluate_section1_quality_gate(
+            query=query,
+            papers=synth_papers,
+            findings=atomic_findings,
+            clusters=evidence_clusters,
+            verified_claims=verified_synth_claims,
+            executive_answer=exec_answer,
+            sections=sections_out,
+            primary_domain=prim_domain,
+            model_used=rec_j.model_used,
+            extra_source_text=reviews_text,
+        )
+
+    s1_quality = run_gate()
     failed = [c for c in s1_quality.checks if not c.passed]
     hard_failed = [c for c in failed if c.name in HARD_QUALITY_CHECKS]
     llm_narrative = exec_answer is not det_exec
+    if llm_narrative and [c.name for c in hard_failed] == ["quantitative_accuracy"]:
+        # One untraceable figure does not justify discarding the whole model-written review: remove the sentences
+        # that carry it, then check again
+        source_text = " ".join(f"{study_source_text(p)} {p.elicit.quantitative_result}" for p in synth_papers) \
+            + " " + reviews_text
+        exec_answer = drop_unsupported_numbers(exec_answer, source_text, by_clause=False)
+        sections_out = [sec.model_copy(update={"content": drop_unsupported_numbers(sec.content, source_text,
+                                                                                   by_clause=False)})
+                        for sec in sections_out]
+        s1_quality = run_gate()
+        failed = [c for c in s1_quality.checks if not c.passed]
+        hard_failed = [c for c in failed if c.name in HARD_QUALITY_CHECKS]
+        if not hard_failed:
+            warnings.append("Sentences with a figure that could not be traced to a study record were removed.")
     if llm_narrative and failed and not hard_failed:
         # Softer issues (wording, coverage, structure) do not justify discarding a verified model answer: keep it
         # and say what the checks noticed

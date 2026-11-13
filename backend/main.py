@@ -36,6 +36,11 @@ from services.llm_service import (
     classify_model_scale,
 )
 from frameworks.reporting import build_review_protocol_report
+from services.prisma_report import compose_prisma_report
+from services.ai_screening import screen_and_limit
+
+# PRISMA reviews: word-eligible records kept for title/abstract screening by the model
+PRISMA_CANDIDATE_POOL = 400
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
@@ -394,7 +399,8 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     # ROUND 1: the core search, the reviews search and one search per aspect of the question, on every source
     _report_stage(req, 2, f"{len(plan.search_facets)} searches (core, reviews and {max(0, len(plan.search_facets) - 2)} aspects)")
     wave_tasks = [
-        _harvest_facet_queries(facet, results_per_search(req.mode, facet.kind), req, fallback_entities_str, domain)
+        _harvest_facet_queries(facet, results_per_search(req.mode, facet.kind, req.review_framework == "systematic_prisma"),
+                               req, fallback_entities_str, domain)
         for facet in plan.search_facets
     ]
     wave_results = await asyncio.gather(*wave_tasks)
@@ -468,15 +474,21 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     dedup_stats: Dict[str, int] = {}
     selection_reports: list = []
     await enrich_citation_counts(all_raw_papers)  # records added by citation links
+    prisma = req.mode == "deep_research" and req.review_framework == "systematic_prisma"
     ranked_papers = deduplicate_and_rank_papers(
         all_raw_papers,
         ranking_query,
-        max_total=max_total_papers,
+        # A PRISMA review keeps every word-eligible record, so the model can screen them before the limit applies
+        max_total=PRISMA_CANDIDATE_POOL if prisma else max_total_papers,
         understanding=plan.question_understanding,
         stats=dedup_stats,
         report_out=selection_reports,
+        method="systematic_prisma" if prisma else "narrative",
     )
     selection_report = selection_reports[0] if selection_reports else None
+    if prisma and selection_report and ranked_papers:
+        _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
+        ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
 
     # Open-access full text for the included studies, fetched while Hugging Face Hub is scanned below
     fulltext_task = (
@@ -546,6 +558,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         on_claim_evidence_ready=_build_evidence_and_gaps,
         review_framework=req.review_framework,
         organization=req.organization,
+        previous_reviews=selection_report.excluded_reviews if selection_report else (),
     )
 
     # Sync updated stances onto graph nodes
@@ -625,7 +638,16 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         year_from=req.year_from,
         year_to=req.year_to,
         constraint_excluded=dedup_stats.get("constraint_excluded", 0),
+        selection_report=selection_report,
     )
+    if req.mode == "deep_research" and req.review_framework == "systematic_prisma" and selection_report and ranked_papers:
+        # PRISMA 2020 reporting order: structured abstract, computed Methods and descriptive Results around the
+        # model-written Introduction, syntheses and Discussion
+        exec_answer, sections = compose_prisma_report(
+            query=req.query, executive_answer=exec_answer, sections=sections, papers=ranked_papers,
+            selection_report=selection_report, protocol=review_protocol, model=cfg.llm_model,
+            organization_id=req.organization,
+        )
 
     return ResearchResponse(
         query=req.query,

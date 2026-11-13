@@ -352,6 +352,20 @@ class TaskCStudyExtractionItem(BaseModel):
     # Does the study address the research question (topic, place, population)?
     addresses_question: Literal["yes", "partly", "no"] = "yes"
     relevance_reason: str = ""
+    # PRISMA mode only: one judgement per domain of the study's tool, in the order given, and a one-line reason
+    risk_of_bias: List[str] = Field(default_factory=list)
+    risk_of_bias_reason: str = ""
+
+    @field_validator("risk_of_bias", mode="before")
+    @classmethod
+    def _rob_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, dict):
+            v = v.get("domains") or list(v.values())
+        if isinstance(v, str):
+            v = [x for x in re.split(r"[,;|]", v) if x.strip()]
+        return [str(x.get("judgement", "") if isinstance(x, dict) else x).strip() for x in v]
 
 
 class TaskCStudyBatchOutput(BaseModel):
@@ -435,7 +449,23 @@ class TaskJNarrativeSynthesisOutput(BaseModel):
     sections: List[TaskJSynthesisSectionItem] = Field(default_factory=list)
 
 
+class RiskOfBiasDomain(BaseModel):
+    domain: str
+    judgement: Literal["Low", "Some concerns", "High", "No information"] = "No information"
+
+
+class StudyRiskOfBias(BaseModel):
+    """A design-matched risk-of-bias judgement for one study (frameworks/risk_of_bias.py), made by the model from the
+    abstract or full text; the overall judgement is computed from the domains by a fixed rule."""
+    tool: str = ""
+    domains: List[RiskOfBiasDomain] = Field(default_factory=list)
+    overall: Literal["Low", "Some concerns", "High", "No information"] = "No information"
+    reason: str = ""
+    basis: Literal["abstract", "full text"] = "abstract"
+
+
 class ElicitExtraction(BaseModel):
+    risk_of_bias: Optional[StudyRiskOfBias] = None
     methodology: str = ""
     dataset_or_system: str = ""
     key_findings: str = ""
@@ -1223,6 +1253,8 @@ class SynthesisSection(BaseModel):
     heading: str
     content: str
     cited_indices: List[int] = Field(default_factory=list)
+    # A figure or table the page and exports show with this section: "prisma_flow" or "risk_of_bias"
+    figure: str = ""
 
 
 # ============================================================================
@@ -1729,6 +1761,18 @@ class SelectionCriterion(BaseModel):
     rule: str
 
 
+class ListedRecord(BaseModel):
+    """A record named in the report without being one of the included studies."""
+    label: str = ""
+    title: str = ""
+    authors: str = ""
+    year: Optional[int] = None
+    venue: str = ""
+    study_type: str = ""
+    url: str = ""
+    abstract: str = ""
+
+
 class SelectionReport(BaseModel):
     """How the included studies were chosen from everything the searches returned (services/paper_selection.py)."""
     protocol_version: str = ""
@@ -1738,8 +1782,16 @@ class SelectionReport(BaseModel):
     unique_records: int = 0
     # Reason -> number of records removed before scoring
     excluded: Dict[str, int] = Field(default_factory=dict)
+    # Reason -> PRISMA stage at which it applies ("identification", "screening" or "eligibility")
+    exclusion_stage: Dict[str, str] = Field(default_factory=dict)
     eligible: int = 0
     included: int = 0
+    # "narrative" (balanced selection) or "systematic_prisma" (every eligible primary study, up to the limit)
+    selection_method: str = "narrative"
+    # PRISMA mode: existing reviews excluded from the synthesis (cited in the Discussion), and eligible studies
+    # beyond the study limit (listed so nothing eligible disappears silently)
+    excluded_reviews: List["ListedRecord"] = Field(default_factory=list)
+    eligible_over_limit: List["ListedRecord"] = Field(default_factory=list)
     criteria: List[SelectionCriterion] = Field(default_factory=list)
     selection_rules: List[str] = Field(default_factory=list)
     # Included studies per study type and per aspect of the question
@@ -1756,9 +1808,21 @@ class PrismaFlowCounts(BaseModel):
     identified_by_source: Dict[str, int] = Field(default_factory=dict)
     identified_total: int = 0
     duplicates_removed: int = 0
+    # Removed before screening (not research reports), by reason
+    removed_before_screening: Dict[str, int] = Field(default_factory=dict)
     screened: int = 0
     excluded_at_screening: int = 0
+    excluded_at_screening_reasons: Dict[str, int] = Field(default_factory=dict)
+    # PRISMA mode: eligibility assessment, the study limit and the screening done during data extraction
+    assessed_for_eligibility: int = 0
+    excluded_at_eligibility: Dict[str, int] = Field(default_factory=dict)
+    eligible: int = 0
+    beyond_study_limit: int = 0
+    study_limit: int = 0
+    excluded_at_extraction: int = 0
+    full_text_retrieved: int = 0
     included: int = 0
+    included_in_synthesis: int = 0
 
 
 class ReviewProtocolReport(BaseModel):
@@ -1769,6 +1833,8 @@ class ReviewProtocolReport(BaseModel):
     framework_citations: List[str] = Field(default_factory=list)
     disclosure: str = ""
     flow: Optional[PrismaFlowCounts] = None
+    # PRISMA mode: earlier reviews found by the search, labelled R1, R2 ... and cited in the Discussion
+    previous_reviews: List[ListedRecord] = Field(default_factory=list)
     search_strategies: Dict[str, List[str]] = Field(default_factory=dict)
     eligibility_criteria: List[str] = Field(default_factory=list)
     rules_applied: List[AppliedRule] = Field(default_factory=list)

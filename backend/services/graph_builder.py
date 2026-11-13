@@ -95,6 +95,7 @@ def deduplicate_and_rank_papers(
     understanding: Optional[UniversalQuestionUnderstanding] = None,
     stats: Optional[Dict[str, int]] = None,
     report_out: Optional[list] = None,
+    method: str = "narrative",
 ) -> List[PaperRecord]:
     """
     Merges duplicate records, then applies the CiteLume selection protocol (eligibility, 100-point score and
@@ -202,7 +203,7 @@ def deduplicate_and_rank_papers(
 
     # Eligibility, scoring and balanced selection follow the documented protocol (services/paper_selection.py)
     chosen, report = select_studies(unique_papers, query, max_total, understanding, stats,
-                                    records_found=len(raw_papers))
+                                    records_found=len(raw_papers), method=method)
     if report_out is not None:
         report_out.append(report)
     return chosen

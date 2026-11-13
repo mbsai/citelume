@@ -32,6 +32,79 @@ def selection_report_lines(report: Optional[SelectionReport], papers=None) -> Li
     return lines
 
 
+def _is_prisma(req: ExportRequest) -> bool:
+    return bool(req.review_protocol and req.review_protocol.framework_id == "systematic_prisma")
+
+
+def prisma_flow_lines(f) -> List[str]:
+    """The PRISMA 2020 flow as text lines, one per box (shared by the text exports)."""
+    def reasons(d):
+        return f" ({'; '.join(f'{k}: {v}' for k, v in d.items())})" if d else ""
+    by_source = ", ".join(f"{k} {v}" for k, v in f.identified_by_source.items())
+    lines = [
+        f"Identification: {f.identified_total} records identified" + (f" ({by_source})" if by_source else "")
+        + f"; {f.duplicates_removed} duplicates removed" + (
+            f"; {sum(f.removed_before_screening.values())} removed before screening{reasons(f.removed_before_screening)}"
+            if f.removed_before_screening else ""),
+        f"Screening: {f.screened} records screened on title and abstract; {f.excluded_at_screening} excluded"
+        + reasons(f.excluded_at_screening_reasons),
+        f"Eligibility: {f.assessed_for_eligibility} records assessed; "
+        f"{sum(f.excluded_at_eligibility.values())} excluded{reasons(f.excluded_at_eligibility)}",
+        f"Included: {f.eligible} eligible; {f.included_in_synthesis or f.included} included in the synthesis "
+        f"(full text retrieved for {f.full_text_retrieved})"
+        + (f"; {f.beyond_study_limit} eligible beyond the {f.study_limit}-study limit" if f.beyond_study_limit else "")
+        + (f"; {f.excluded_at_extraction} found not to address the question during extraction"
+           if f.excluded_at_extraction else ""),
+    ]
+    return lines
+
+
+def risk_of_bias_rows(papers) -> List[Tuple[str, List[Tuple[str, List[str], str, str]]]]:
+    """Risk-of-bias judgements grouped by tool: (tool, [(study label, domain judgements, overall, reason)]), with
+    the tool's domain names as the first row's header via `risk_of_bias_domains`."""
+    groups: dict = {}
+    for p in papers:
+        rob = p.elicit.risk_of_bias
+        if not rob:
+            continue
+        who = (p.authors[0].split()[-1] if p.authors else p.source) or ""
+        groups.setdefault(rob.tool, []).append((
+            f"[{p.citation_index}] {who} {p.year or ''}".strip(),
+            [d.judgement for d in rob.domains], rob.overall, f"{rob.reason} ({rob.basis})".strip()))
+    return list(groups.items())
+
+
+def risk_of_bias_domains(papers, tool: str) -> List[str]:
+    for p in papers:
+        rob = p.elicit.risk_of_bias
+        if rob and rob.tool == tool:
+            return [d.domain for d in rob.domains]
+    return []
+
+
+def _section_figure_lines(sec, req, markdown: bool) -> List[str]:
+    out: List[str] = []
+    if sec.figure == "prisma_flow" and req.review_protocol and req.review_protocol.flow:
+        out += ["", "PRISMA 2020 flow of records:" if not markdown else "**PRISMA 2020 flow of records**", ""]
+        out += [f"- {ln}" for ln in prisma_flow_lines(req.review_protocol.flow)]
+    if sec.figure == "risk_of_bias":
+        for tool, rows in risk_of_bias_rows(req.papers):
+            domains = risk_of_bias_domains(req.papers, tool)
+            out += ["", f"**{tool}**" if markdown else tool]
+            if markdown:
+                out.append("| Study | " + " | ".join(f"D{i + 1}" for i in range(len(domains))) + " | Overall | Main concern |")
+                out.append("|---" * (len(domains) + 3) + "|")
+                for label, js, overall, reason in rows:
+                    out.append(f"| {label} | " + " | ".join(js) + f" | **{overall}** | {reason.replace('|', '/')} |")
+            else:
+                for label, js, overall, reason in rows:
+                    out.append(f"  {label}: " + "; ".join(f"D{i + 1} {j}" for i, j in enumerate(js))
+                               + f"; overall {overall}. {reason}")
+            out.append(("Domains: " if not markdown else "_Domains: ")
+                       + "; ".join(f"D{i + 1} {d}" for i, d in enumerate(domains)) + ("" if not markdown else "_"))
+    return out
+
+
 def review_protocol_lines(protocol: Optional[ReviewProtocolReport]) -> List[str]:
     """Plain-text lines for the review method, PRISMA-style flow and source-cited rules (shared by all formats)."""
     if protocol is None:
@@ -39,7 +112,10 @@ def review_protocol_lines(protocol: Optional[ReviewProtocolReport]) -> List[str]
     lines = [f"Review type: {protocol.framework_label}. Findings organisation: {protocol.organization_label}."]
     if protocol.disclosure:
         lines.append(protocol.disclosure)
-    if protocol.flow:
+    if protocol.flow and protocol.flow.assessed_for_eligibility:
+        lines.append("Flow of records (PRISMA 2020):")
+        lines.extend(f"- {ln}" for ln in prisma_flow_lines(protocol.flow))
+    elif protocol.flow:
         f = protocol.flow
         by_source = ", ".join(f"{k} {v}" for k, v in f.identified_by_source.items())
         lines.append(
@@ -69,7 +145,7 @@ def generate_markdown_report(req: ExportRequest) -> str:
         "",
         "---",
         "",
-        "## 1. Evidence Agreement & Executive Synthesis",
+        "## Abstract" if _is_prisma(req) else "## 1. Evidence Agreement & Executive Synthesis",
         f"- **Agreement Verdict:** {req.consensus.consensus_verdict or 'Synthesized'} "
         f"(Supporting: {req.consensus.supporting_pct}% | Mixed: {req.consensus.mixed_pct}% | Contradicting: {req.consensus.contradicting_pct}%)",
         f"- **Agreement Summary:** {req.consensus.consensus_summary}",
@@ -79,11 +155,12 @@ def generate_markdown_report(req: ExportRequest) -> str:
     ]
 
     if req.sections:
-        lines.append("## 2. Thematic Synthesis & Detailed Analysis")
+        lines.append("## Systematic Review (PRISMA 2020 order)" if _is_prisma(req) else "## 2. Thematic Synthesis & Detailed Analysis")
         lines.append("")
         for sec in req.sections:
             lines.append(f"### {sec.heading}")
             lines.append(sec.content)
+            lines.extend(_section_figure_lines(sec, req, markdown=True))
             lines.append("")
 
     if req.include_evidence_table and req.papers:
@@ -247,15 +324,16 @@ def generate_txt_report(req: ExportRequest) -> str:
         f"Distribution      : Supporting {req.consensus.supporting_pct}% | Mixed {req.consensus.mixed_pct}% | Contradicting {req.consensus.contradicting_pct}%",
         f"Agreement Summary : {req.consensus.consensus_summary}",
         "",
-        req.executive_answer,
+        ("ABSTRACT\n" if _is_prisma(req) else "") + req.executive_answer.replace("**", ""),
         "",
     ]
 
     if req.sections:
-        lines.extend(["THEMATIC SYNTHESIS & DETAILED ANALYSIS", subsep, ""])
+        lines.extend(["SYSTEMATIC REVIEW (PRISMA 2020 ORDER)" if _is_prisma(req) else "THEMATIC SYNTHESIS & DETAILED ANALYSIS", subsep, ""])
         for sec in req.sections:
             lines.append(f"[{sec.heading}]")
-            lines.append(sec.content)
+            lines.append(sec.content.replace("**", ""))
+            lines.extend(_section_figure_lines(sec, req, markdown=False))
             lines.append("")
 
     if req.include_evidence_table and req.papers:

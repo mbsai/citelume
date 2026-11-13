@@ -984,6 +984,7 @@ def evaluate_section1_quality_gate(
     sections: List[SynthesisSection],
     primary_domain: str,
     model_used: str = "deterministic",
+    extra_source_text: str = "",
 ) -> SynthesisQualityReport:
     """
     Phase 11 — Deterministic 10-Dimension Synthesis Quality Gate for Section 1:
@@ -1005,7 +1006,9 @@ def evaluate_section1_quality_gate(
     full_narrative = executive_answer + "\n" + "\n".join(f"{s.heading}\n{s.content}" for s in sections)
     cited_in_text = extract_citation_numbers(full_narrative)
     cited_set = set(cited_in_text)
-    source_corpus_text = " ".join(f"{study_source_text(p)} {p.elicit.quantitative_result}" for p in papers)
+    # extra_source_text: other cited sources, such as the earlier reviews a PRISMA Introduction and Discussion cite
+    source_corpus_text = " ".join(f"{study_source_text(p)} {p.elicit.quantitative_result}" for p in papers) \
+        + " " + (extra_source_text or "")
 
     # 1. Answer relevance
     q_terms = [normalize_spelling(t) for t in extract_core_scientific_terms(query, max_terms=6)]

@@ -170,7 +170,10 @@ _PLACES: Dict[str, Tuple[str, ...]] = {
 _POPULATIONS: Dict[str, Tuple[str, ...]] = {
     "children": ("children", "child", "pediatric", "paediatric", "infants", "infant", "adolescents", "adolescent"),
     "neonates": ("neonates", "neonatal", "newborns", "newborn", "preterm"),
-    "older adults": ("older adults", "elderly", "aged", "geriatric", "older people"),
+    "older adults": ("older adults", "elderly", "aged", "geriatric", "older people", "older persons",
+                     "older individuals", "older women", "older men", "older patients", "older participants",
+                     "older subjects", "older population", "seniors", "postmenopausal", "nursing home",
+                     "nursing homes", "care home", "care homes", "long-term care", "octogenarians", "nonagenarians"),
     "women": ("women", "female", "females", "maternal", "pregnant", "pregnancy"),
     "pregnant women": ("pregnant women", "pregnant", "pregnancy", "maternal", "antenatal"),
 }

@@ -14,6 +14,7 @@ from models import (
     PrismaFlowCounts,
     QueryDecompositionPlan,
     ReviewProtocolReport,
+    SelectionReport,
 )
 
 # Search-plan query fields per source label used in source_stats
@@ -59,6 +60,7 @@ def build_review_protocol_report(
     year_from: Optional[int],
     year_to: Optional[int],
     constraint_excluded: int = 0,
+    selection_report: Optional[SelectionReport] = None,
 ) -> ReviewProtocolReport:
     framework, organization = resolve_review_type(framework_id, organization_id)
     # Designs seen in the included abstracts plus the study-method profiles the planner detected
@@ -99,9 +101,21 @@ def build_review_protocol_report(
         excluded_at_screening=max(0, unique_records - len(included_papers)),
         included=len(included_papers),
     )
+    if selection_report is not None and selection_report.selection_method == "systematic_prisma":
+        _fill_prisma_flow(report.flow, selection_report, included_papers)
+        report.previous_reviews = list(selection_report.excluded_reviews)
     report.search_strategies = _search_strategies(plan, enabled_sources)
     constraints = plan.question_understanding.concepts.required_constraints if plan.question_understanding else []
     years = (f"{year_from or 'earliest'}-{year_to or 'latest'}" if (year_from or year_to) else "no date limit")
+    if selection_report is not None and selection_report.selection_method == "systematic_prisma":
+        report.eligibility_criteria = [
+            f"Sources searched: {', '.join(enabled_sources)}.",
+            f"Publication years: {years}.",
+        ] + ([
+            "Place / population: " + "; ".join(c.name for c in constraints) + "; studies whose title and abstract "
+            "did not mention them were excluded at screening.",
+        ] if constraints else []) + list(selection_report.selection_rules)
+        return report
     report.eligibility_criteria = [
         f"Sources searched: {', '.join(enabled_sources)}.",
         f"Publication years: {years}.",
@@ -118,3 +132,24 @@ def build_review_protocol_report(
         f"top {len(included_papers)} were included. Screening was automated and single-pass, from titles and abstracts.",
     ]
     return report
+
+
+def _fill_prisma_flow(flow: PrismaFlowCounts, sel: SelectionReport, included: Sequence[PaperRecord]) -> None:
+    """The full PRISMA 2020 flow for a systematic-style review, from the selection report's staged exclusions and
+    the screening done during data extraction."""
+    by_stage: Dict[str, Dict[str, int]] = {"identification": {}, "screening": {}, "eligibility": {}}
+    for reason, n in sel.excluded.items():
+        by_stage.setdefault(sel.exclusion_stage.get(reason, "screening"), {})[reason] = n
+    flow.removed_before_screening = by_stage["identification"]
+    flow.screened = max(0, sel.unique_records - sum(by_stage["identification"].values()))
+    flow.excluded_at_screening_reasons = by_stage["screening"]
+    flow.excluded_at_screening = sum(by_stage["screening"].values())
+    flow.assessed_for_eligibility = max(0, flow.screened - flow.excluded_at_screening)
+    flow.excluded_at_eligibility = by_stage["eligibility"]
+    flow.eligible = sel.eligible
+    flow.study_limit = sel.target_count
+    flow.beyond_study_limit = len(sel.eligible_over_limit)
+    flow.included = len(included)
+    flow.excluded_at_extraction = sum(1 for p in included if p.relevance == "off_topic")
+    flow.included_in_synthesis = flow.included - flow.excluded_at_extraction
+    flow.full_text_retrieved = sum(1 for p in included if p.full_text_sections)
