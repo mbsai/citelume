@@ -1,8 +1,10 @@
 # How CiteLume chooses its studies
 
-Protocol version: `citelume-selection/2.0`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
+Protocol version: `citelume-selection/2.1`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
 
 CiteLume answers a question from at most **20 studies (Standard)** or **60 studies (Deep Research)**. A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and every result shows the counts at each step and the score of each included study.
+
+An AI model, when one is configured, may widen the *searches* in step 1 by proposing synonyms and aspects. Steps 2 to 5 do not read the model's plan: studies are matched against the concepts parsed from the question's own words by rule, so the same records give the same included studies with any model or none.
 
 ## Step 1. Search
 
@@ -99,6 +101,8 @@ Every exclusion is counted at its PRISMA stage (identification, screening, eligi
 ## After selection
 
 When an AI model is configured it reads each included study and can mark one as not addressing the question. Such a study keeps its number and stays in the reference list, but is left out of the written synthesis, and the results say so.
+
+In a systematic-style (PRISMA) review the model also screens titles and abstracts before the study limit is applied. That screening is a separate step after the rule-based selection, not part of it: it can differ between models and runs, so every decision is stored with its reason and the model's name, and the flow diagram counts its exclusions on their own line.
 
 ## Limits to state when presenting this
 

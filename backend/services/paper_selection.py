@@ -39,7 +39,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.0"
+PROTOCOL_VERSION = "citelume-selection/2.1"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)
@@ -426,6 +426,14 @@ def _aspect_members(aspect: SearchAspect, p: PaperRecord) -> bool:
     return any(t in title for t in terms) or sum(1 for t in terms if t in text) >= 2
 
 
+def label_subquestions(papers: Sequence[PaperRecord], understanding: Optional[UniversalQuestionUnderstanding]) -> None:
+    """Marks which sub-questions of the search plan each study bears on (SQ1 = the question as asked, SQ2... = its
+    aspects). This is labelling for the synthesis, done after selection; it does not affect which studies are in."""
+    aspects = [a for a in (understanding.aspects if understanding else []) if a.kind == "aspect"]
+    for p in papers:
+        p.matched_subquestion_ids = [f"SQ{j + 2}" for j, a in enumerate(aspects) if _aspect_members(a, p)] or ["SQ1"]
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # The protocol
 # ---------------------------------------------------------------------------------------------------------------
@@ -458,6 +466,8 @@ def select_studies(
         study_type_labels=STUDY_TYPE_LABELS, selection_method="systematic_prisma" if prisma else "narrative",
     )
     report.duplicates_merged = max(0, report.records_found - report.unique_records)
+    report.selection_concepts = [c.name + (f" ({', '.join(c.synonyms)})" if c.synonyms else "") for c in concepts]
+    report.concepts_source = (understanding.planned_by if understanding else "rules") or "rules"
 
     # ---- Step 2: eligibility -----------------------------------------------------------------------------------
     for p in unique_papers:

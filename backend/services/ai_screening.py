@@ -14,7 +14,7 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 
-from models import ApiKeysConfig, PaperRecord, SelectionReport
+from models import ApiKeysConfig, PaperRecord, ScreeningDecisionRecord, SelectionReport
 from services.llm_service import execute_validated_llm_task
 from services.paper_selection import EXCLUSION_STAGE, _listed
 
@@ -99,6 +99,7 @@ async def screen_and_limit(
     """
     included: List[PaperRecord] = []
     excluded: List[PaperRecord] = []
+    log: List[ScreeningDecisionRecord] = []
     screened = 0
     failed_batches = 0
     pos = 0
@@ -113,9 +114,13 @@ async def screen_and_limit(
             if decisions is None:
                 failed_batches += 1
                 included.extend(batch)  # the word-based decision stands for this batch
+                log.extend(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=True, screened=False,
+                                                   reason="Not screened: the model gave no usable answer")
+                           for p in batch)
                 continue
             for p in batch:
                 keep, reason = decisions.get(p.id, (True, ""))
+                log.append(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=keep, reason=reason))
                 if keep:
                     included.append(p)
                 else:
@@ -130,6 +135,8 @@ async def screen_and_limit(
     for i, p in enumerate(chosen, start=1):
         p.citation_index = i
         p.selection_reason = "Meets the eligibility criteria and passed title/abstract screening"
+    report.screening_decisions = log
+    report.screening_model = f"{config.llm_provider}:{config.llm_model}" if any(d.screened for d in log) else ""
     report.included = len(chosen)
     report.target_count = limit
     report.eligible = len(included) + len(unscreened)

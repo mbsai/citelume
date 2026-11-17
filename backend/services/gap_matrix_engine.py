@@ -615,7 +615,7 @@ async def execute_targeted_gap_verification(
         return (
             [],
             "Corroborated Within Search Scope",
-            f"Targeted verification query ({gap.verification_queries[0] if gap.verification_queries else 'executed'}) found no resolving studies within the documented search scope; deficiency corroborated relative to retrieved literature (does not prove universal global absence).",
+            f"Targeted verification query ({gap.verification_queries[0] if gap.verification_queries else 'executed'}) matched none of the other records retrieved for this question; no further search was run, so other work may already answer it.",
         )
 
     direct_hits = [r for r in supp_records if r.relevance_to_gap == "directly_addresses"]
@@ -1536,14 +1536,14 @@ async def build_universal_knowledge_gap_matrix(
         )
     else:
         adequacy_explanation = (
-            f"Identified {len(active_gaps)} corroborated/partially-addressed knowledge gaps across {len(papers)} primary studies "
-            f"({len(evidence_matrix.evidence_units)} independent study units), separated from {len(research_opportunities)} constructive "
-            f"research opportunity record(s) and {len(resolved_gaps)} resolved/invalidated candidate(s)."
+            f"{len(active_gaps)} open question(s) and thin area(s) found in the {len(papers)} included studies. They "
+            "describe these studies, not the whole field: no further search was run to check whether other work "
+            "already answers them."
         )
 
     disclosures = [
         f"Search & Selection Scope: Primary analysis is bounded to {len(papers)} selected studies; "
-        "corroborated gaps reflect the documented search scope and do not prove universal absence across all global literature.",
+        "open questions and thin areas describe these studies only and do not show that the wider literature lacks an answer.",
         "Verification Separation: Supplementary verification records are inspected to falsify candidate gaps without silently expanding the primary 20/60 synthesis study cap.",
         "Conceptual Distinction: Evidence-backed Knowledge Gaps (G1–G9) are strictly separated from Methodological Limitations and constructive Research Opportunities.",
     ]

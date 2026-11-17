@@ -272,6 +272,10 @@ class QueryDecompositionPlan(BaseModel):
 
     # New Phase 2-5 structured objects
     question_understanding: Optional[UniversalQuestionUnderstanding] = None
+    # The question as parsed by rules alone. Study selection reads this one, so the included studies do not depend
+    # on which model (if any) planned the searches; `question_understanding` drives the searches and may come from
+    # the model.
+    selection_understanding: Optional[UniversalQuestionUnderstanding] = None
     search_plan: Optional[UniversalSearchPlan] = None
     active_profile_summary: Dict[str, Any] = Field(default_factory=dict)
 
@@ -1773,6 +1777,15 @@ class ListedRecord(BaseModel):
     abstract: str = ""
 
 
+class ScreeningDecisionRecord(BaseModel):
+    record_id: str
+    title: str = ""
+    include: bool = True
+    reason: str = ""
+    # False when the model gave no usable answer for this record's batch and the rule-based decision stood
+    screened: bool = True
+
+
 class SelectionReport(BaseModel):
     """How the included studies were chosen from everything the searches returned (services/paper_selection.py)."""
     protocol_version: str = ""
@@ -1788,6 +1801,14 @@ class SelectionReport(BaseModel):
     included: int = 0
     # "narrative" (balanced selection) or "systematic_prisma" (every eligible primary study, up to the limit)
     selection_method: str = "narrative"
+    # The concepts (with any synonyms) studies were matched against, and where they came from ("rules" = parsed
+    # from the question's own words, independent of any model)
+    selection_concepts: List[str] = Field(default_factory=list)
+    concepts_source: str = "rules"
+    # PRISMA mode: the model's title/abstract screening, one entry per screened record (a separate, logged step
+    # after the rule-based selection; see services/ai_screening.py)
+    screening_model: str = ""
+    screening_decisions: List["ScreeningDecisionRecord"] = Field(default_factory=list)
     # PRISMA mode: existing reviews excluded from the synthesis (cited in the Discussion), and eligible studies
     # beyond the study limit (listed so nothing eligible disappears silently)
     excluded_reviews: List["ListedRecord"] = Field(default_factory=list)

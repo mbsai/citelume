@@ -74,7 +74,7 @@ class PdfReportTests(unittest.TestCase):
         self.assertTrue(pdf.startswith(b"%PDF"))
         text = _text(pdf)
         for expected in ["Summary of the Evidence", "Thematic synthesis", "Evidence Table",
-                         "Trial number 3 of vitamin D", "Finding sentence for study 4", "Knowledge Gaps",
+                         "Trial number 3 of vitamin D", "Finding sentence for study 4", "Open Questions and Thin Areas",
                          "Optimal dose remains unclear", "Evidence coverage grid", "Monthly bolus",
                          "Literature Map", "Theme 1"]:
             self.assertIn(expected, text)
@@ -91,7 +91,7 @@ class PdfReportTests(unittest.TestCase):
         text = _text(generate_pdf_report(_request(include_evidence_table=False, include_gap_matrix=False,
                                                   include_network_summary=False)))
         self.assertNotIn("Evidence Table", text)
-        self.assertNotIn("Knowledge Gaps", text)
+        self.assertNotIn("Open Questions and Thin Areas", text)
         self.assertNotIn("Literature Map", text)
         self.assertIn("Summary of the Evidence", text)
 

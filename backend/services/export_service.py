@@ -32,6 +32,22 @@ def selection_report_lines(report: Optional[SelectionReport], papers=None) -> Li
     return lines
 
 
+# Plain descriptions of what a gap was checked against. No search beyond the retrieved records is run, so the
+# stored status values ("Corroborated...", "...Verified") are not shown as they are.
+GAP_STATUS_LABELS = {
+    "Candidate — Not Yet Verified": "Not checked beyond these studies",
+    "Corroborated Within Search Scope": "Not answered by the other records retrieved",
+    "Partially Addressed": "Partly answered by another retrieved record",
+    "Contradicted / Resolved by Retrieved Evidence": "Answered by a retrieved record",
+    "Inconclusive": "Unclear",
+    "Verification Unavailable": "Not checked",
+}
+
+
+def gap_status_label(status: str) -> str:
+    return GAP_STATUS_LABELS.get(status, status)
+
+
 def _is_prisma(req: ExportRequest) -> bool:
     return bool(req.review_protocol and req.review_protocol.framework_id == "systematic_prisma")
 
@@ -206,13 +222,13 @@ def generate_markdown_report(req: ExportRequest) -> str:
         lines.append("")
 
     if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
-        lines.append("## Knowledge Gap Matrix & Verified Research Priorities")
+        lines.append("## Open Questions and Thin Areas in These Studies")
         lines.append("")
         if req.gap_matrix.corpus_adequacy_explanation:
             lines.append(f"> {req.gap_matrix.corpus_adequacy_explanation}")
             lines.append("")
         if req.gap_matrix.structured_gaps:
-            lines.append("| Knowledge Gap | What Is Known | What Remains Unresolved | Evidence Basis | Verification Status | Research Direction |")
+            lines.append("| Open Question | What Is Known | What Remains Unresolved | Evidence Basis | Checked Against | Research Direction |")
             lines.append("|---|---|---|---|---|---|")
             for sg in req.gap_matrix.structured_gaps:
                 g_title = f"**[{sg.gap_id}] {sg.gap_title}** ({sg.taxonomy_code}: {sg.primary_gap_type})".replace("|", "/")
@@ -222,7 +238,7 @@ def generate_markdown_report(req: ExportRequest) -> str:
                     f"Refs: {', '.join(f'[{i}]' for i in sg.supporting_study_indices) or '0 in selected set'} "
                     f"| Units: {', '.join(sg.supporting_evidence_unit_ids) or 'None'}"
                 ).replace("|", "/")
-                v_stat = f"{sg.verification_status} ({sg.priority_assessment})".replace("|", "/")
+                v_stat = f"{gap_status_label(sg.verification_status)} ({sg.priority_assessment})".replace("|", "/")
                 r_dir = (sg.recommended_study_or_approach or "").replace("|", "/")
                 lines.append(f"| {g_title} | {known} | {unres} | {ev_basis} | {v_stat} | {r_dir} |")
             lines.append("")
@@ -348,7 +364,7 @@ def generate_txt_report(req: ExportRequest) -> str:
             lines.append("")
 
     if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
-        lines.extend(["KNOWLEDGE GAPS", subsep, ""])
+        lines.extend(["OPEN QUESTIONS AND THIN AREAS IN THESE STUDIES", subsep, ""])
         for item in _gap_text_items(req.gap_matrix):
             lines.append(f"* {item[0]}")
             lines.extend(f"  {label:<20}: {value}" for label, value in item[1])
@@ -405,7 +421,7 @@ def _gap_text_items(gm) -> list:
             f"[{sg.gap_id}] {sg.gap_title} ({sg.taxonomy_code}: {sg.primary_gap_type})",
             [("What is known", sg.current_knowledge), ("What is unresolved", sg.unresolved_issue),
              ("Why it matters", sg.why_it_matters), ("Studies", refs),
-             ("Verification", f"{sg.verification_status}; {sg.priority_assessment}"),
+             ("Checked against", f"{gap_status_label(sg.verification_status)}; {sg.priority_assessment}"),
              ("Research direction", sg.recommended_study_or_approach)],
         ))
     if not items:

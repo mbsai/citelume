@@ -38,6 +38,7 @@ from services.llm_service import (
 from frameworks.reporting import build_review_protocol_report
 from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit
+from services.paper_selection import label_subquestions
 
 # PRISMA reviews: word-eligible records kept for title/abstract screening by the model
 PRISMA_CANDIDATE_POOL = 400
@@ -388,6 +389,8 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     fallback_entities_str = " ".join(plan.extracted_technical_entities[:3]) or req.query
 
     max_total_papers = 60 if req.mode == "deep_research" else 20
+    # Selection reads the rule-based parse of the question, so it does not depend on the model that planned the searches
+    selection_understanding = plan.selection_understanding or plan.question_understanding
     per_q_limit = results_per_search(req.mode, "core")
     domain = plan.question_understanding.primary_domain if plan.question_understanding else ""
 
@@ -446,7 +449,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
             all_raw_papers,
             req.query,
             max_total=15,
-            understanding=plan.question_understanding,
+            understanding=selection_understanding,
         )
         seminal = sorted(prelim, key=lambda x: x.citation_count, reverse=True)[:2]
         snowball_tasks = [
@@ -480,7 +483,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         ranking_query,
         # A PRISMA review keeps every word-eligible record, so the model can screen them before the limit applies
         max_total=PRISMA_CANDIDATE_POOL if prisma else max_total_papers,
-        understanding=plan.question_understanding,
+        understanding=selection_understanding,
         stats=dedup_stats,
         report_out=selection_reports,
         method="systematic_prisma" if prisma else "narrative",
@@ -489,6 +492,9 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     if prisma and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
         ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
+
+    # Which sub-questions of the search plan each included study bears on (labelling only, after selection)
+    label_subquestions(ranked_papers, plan.question_understanding)
 
     # Open-access full text for the included studies, fetched while Hugging Face Hub is scanned below
     fulltext_task = (

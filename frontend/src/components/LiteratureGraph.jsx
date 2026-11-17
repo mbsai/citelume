@@ -341,7 +341,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Separates verified bibliographic links (Layer A), computed semantic similarity (Layer B), scientific claims/gaps (Layer C), and research lineage (Layer D).
+              Links among the included studies only: citations (Layer A), wording similarity (Layer B), claims and open questions (Layer C) and research lineage (Layer D). It is not a map of the whole field.
             </p>
           </div>
 
@@ -708,7 +708,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
                 <span className="w-2.5 h-2.5 rounded-sm bg-teal-700 inline-block" /> Synthesized Claim (Layer C)
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rotate-45 bg-amber-700 inline-block" /> Verified Gap (Layer C)
+                <span className="w-2.5 h-2.5 rotate-45 bg-amber-700 inline-block" /> Open question (Layer C)
               </span>
             </div>
             <span className="text-slate-400">
@@ -805,7 +805,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
                       : selectedNode.node_type === 'scientific_claim'
                       ? 'Synthesized Claim Node'
                       : selectedNode.node_type === 'knowledge_gap'
-                      ? 'Verified Gap Node'
+                      ? 'Open Question Node'
                       : 'Hugging Face Artifact'}
                   </span>
                   <button
@@ -923,7 +923,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
               <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1 text-[11px]">
                 <div className="font-semibold text-slate-700">Network Coverage Summary</div>
                 <div>• Included Synthesis Studies: {cs.included_studies_count ?? papers.length}</div>
-                <div>• Verified Direct Citations: {cs.direct_citation_edges_count ?? 0}</div>
+                <div>• Direct Citations: {cs.direct_citation_edges_count ?? 0}</div>
                 <div>• Bibliographic Coupling / Co-Citation: {(cs.bibliographic_coupling_edges_count || 0) + (cs.co_citation_edges_count || 0)}</div>
                 <div>• Semantic Similarity Links: {cs.semantic_edges_count ?? 0}</div>
                 <div>• Evidence Claim / Dataset / Gap Links: {cs.evidence_edges_count ?? 0}</div>
@@ -948,7 +948,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
             </div>
             {graph.validation_report && (
               <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                ✓ Bibliographic & Mathematical Graph Invariants Verified
+                Graph consistency checks passed
               </span>
             )}
           </div>

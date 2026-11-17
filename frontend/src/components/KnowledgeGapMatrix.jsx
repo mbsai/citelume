@@ -38,6 +38,16 @@ const CELL_CLASSIFICATION_STYLES = {
   },
 };
 
+// Plain descriptions of what a gap was checked against (no search beyond the retrieved records is run)
+const VERIFICATION_LABEL = {
+  'Candidate — Not Yet Verified': 'Not checked beyond these studies',
+  'Corroborated Within Search Scope': 'Not answered by the other records retrieved',
+  'Partially Addressed': 'Partly answered by another retrieved record',
+  'Contradicted / Resolved by Retrieved Evidence': 'Answered by a retrieved record',
+  Inconclusive: 'Unclear',
+  'Verification Unavailable': 'Not checked',
+};
+
 const VERIFICATION_BADGE = {
   'Corroborated Within Search Scope': 'bg-indigo-50 text-indigo-800 border-indigo-200',
   'Partially Addressed': 'bg-amber-50 text-amber-800 border-amber-200',
@@ -88,22 +98,20 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-bold text-slate-900">
-                Universal Evidence-Gap Identification, Verification & Research Prioritization Engine
+                Open Questions and Thin Areas in These Studies
               </h2>
               {gapMatrix.domain_profile && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   Domain Profile: {gapMatrix.domain_profile}
                 </span>
               )}
-              {validation && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  ✓ 5-Gate Adversarial & Cross-Section Verified
-                </span>
-              )}
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Exploratory: describes the included studies, not the field
+              </span>
             </div>
             <p className="text-xs text-slate-600 mt-1">
               {gapMatrix.corpus_adequacy_explanation ||
-                'Distinguishes evidence-backed knowledge gaps (G1–G9) from methodological limitations, incomplete search scope, and constructive research opportunities.'}
+                'Open questions the study authors state, and areas few of the included studies cover. No further search is run to check whether other work already answers them.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -173,7 +181,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              Structured Knowledge Gaps, Research Opportunities & Verification Audit Trail
+              Open Questions, Research Opportunities and Checks
             </h3>
             <p className="text-xs text-slate-500">
               Click any gap row to inspect its G1–G9 taxonomy classification, Section 1/2 evidence IDs, targeted verification queries, 6-dimension priority rationale, and 10-point adversarial check.
@@ -189,7 +197,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              Verified / Active Knowledge Gaps ({structuredGaps.length})
+              Open Questions ({structuredGaps.length})
             </button>
             <button
               type="button"
@@ -211,7 +219,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              Resolved / Invalidated Audit Trail ({resolvedGaps.length})
+              Answered by Retrieved Records ({resolvedGaps.length})
             </button>
           </div>
         </div>
@@ -220,7 +228,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
           <>
             {structuredGaps.length === 0 ? (
               <div className="p-6 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-900">
-                <strong>No Unresolved Knowledge Gaps Fabricated:</strong>{' '}
+                <strong>No open questions found in these studies:</strong>{' '}
                 {gapMatrix.corpus_adequacy_explanation ||
                   'All candidate questions were adequately addressed by existing proofs/evidence or resolved during targeted verification.'}
               </div>
@@ -229,7 +237,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
-                      <th className="py-2.5 px-3 font-semibold min-w-[190px]">Knowledge Gap & Taxonomy</th>
+                      <th className="py-2.5 px-3 font-semibold min-w-[190px]">Open Question & Type</th>
                       <th className="py-2.5 px-3 font-semibold min-w-[190px]">What Is Known</th>
                       <th className="py-2.5 px-3 font-semibold min-w-[200px]">What Remains Unresolved</th>
                       <th className="py-2.5 px-3 font-semibold min-w-[150px]">Evidence Basis (Sec 1 & 2)</th>
@@ -287,7 +295,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                                   VERIFICATION_BADGE[g.verification_status] || VERIFICATION_BADGE['Candidate — Not Yet Verified']
                                 }`}
                               >
-                                {g.verification_status}
+                                {VERIFICATION_LABEL[g.verification_status] || g.verification_status}
                               </span>
                               <span
                                 className={`block px-2 py-0.5 rounded border text-[10px] font-medium ${

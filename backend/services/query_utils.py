@@ -872,6 +872,10 @@ async def generate_multi_api_decomposition_plan(
                 final_plan = compile_deterministic_decomposition_plan(
                     query, mode=mode, domain_override=domain_override, model_plan=model_plan)
 
+    # Selection always reads the rule-based parse, whatever planned the searches
+    if base_plan.question_understanding is not None:
+        final_plan.selection_understanding = base_plan.question_understanding.model_copy(deep=True)
+
     if len(_DECOMPOSITION_CACHE) > 64:
         _DECOMPOSITION_CACHE.clear()
     _DECOMPOSITION_CACHE[cache_key] = final_plan

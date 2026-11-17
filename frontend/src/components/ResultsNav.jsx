@@ -23,9 +23,9 @@ export function resultSections(result) {
     {
       id: 'gap_matrix',
       icon: '🧩',
-      title: 'Knowledge Gaps',
-      short: 'Gaps',
-      desc: 'What is still unknown and where to look next',
+      title: 'Open Questions',
+      short: 'Open questions',
+      desc: 'Open questions and thin areas in these studies (exploratory)',
       count: `${gaps} gap${gaps === 1 ? '' : 's'}`,
     },
     {

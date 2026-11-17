@@ -41,6 +41,7 @@ from services.fulltext import repair_ligatures
 from services.export_service import (
     _gap_text_items,
     _is_prisma,
+    gap_status_label,
     review_protocol_lines,
     risk_of_bias_domains,
     risk_of_bias_rows,
@@ -315,12 +316,12 @@ def _coverage_grid(gm, st: dict) -> list:
     return [CondPageBreak(130), Paragraph("Evidence coverage grid", st["h2"]),
             Paragraph(f"Rows: {_clean(gm.row_dimension_title)}. Columns: {_clean(gm.col_dimension_title)}. Each cell "
                       f"shows the number of included studies and their reference numbers; red cells have none, amber "
-                      f"cells only one.", st["note"]), t]
+                      f"cells only one. This is coverage within the included studies, not the field.", st["note"]), t]
 
 
 def _gap_section(req: ExportRequest, st: dict) -> list:
     gm = req.gap_matrix
-    out = [Paragraph("Knowledge Gaps", st["h1"])]
+    out = [Paragraph("Open Questions and Thin Areas in These Studies", st["h1"])]
     if gm.corpus_adequacy_explanation:
         out.append(Paragraph(_rich(gm.corpus_adequacy_explanation), st["note"]))
     if gm.structured_gaps:
@@ -329,7 +330,7 @@ def _gap_section(req: ExportRequest, st: dict) -> list:
         for sg in gm.structured_gaps:
             refs = ", ".join(f"[{i}]" for i in sg.supporting_study_indices) or "none in the selected studies"
             title = f"<b>{_clean(sg.gap_title)}</b><br/><font color='#64748b'>{_clean(sg.primary_gap_type)}; " \
-                    f"{_clean(sg.verification_status)}</font>"
+                    f"{_clean(gap_status_label(sg.verification_status))}</font>"
             data.append([
                 Paragraph(title, st["cell"]),
                 Paragraph(_rich(sg.current_knowledge), st["cellj"]),
@@ -413,7 +414,7 @@ def _map_section(req: ExportRequest, st: dict) -> list:
     cs = g.coverage_stats
     out = [Paragraph("Literature Map", st["h1"]),
            Paragraph(f"{len(g.nodes)} nodes ({cs.included_studies_count} included studies, "
-                     f"{cs.context_publications_count} citation-context papers) and {len(g.edges)} links. Circles are "
+                     f"{cs.context_publications_count} citation-context papers) and {len(g.edges)} links among the included studies only. Circles are "
                      f"studies numbered as in the reference list, sized by citations and coloured by cluster; lines "
                      f"join studies that cite each other, share references or address similar questions. Grey "
                      f"circles are papers outside the included set.", st["note"])]
