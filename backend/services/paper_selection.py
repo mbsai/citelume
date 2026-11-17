@@ -40,7 +40,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.2"
+PROTOCOL_VERSION = "citelume-selection/2.3"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)
@@ -169,6 +169,20 @@ EXCLUSION_STAGE = {
     REASON_REVIEW: "eligibility",
     REASON_COMMENTARY: "eligibility",
 }
+
+SCOPING_RULES: List[str] = [
+    "Eligibility criteria: any study, primary research or review, whose title or abstract addresses every part of "
+    "the question, including any place or population it names.",
+    "Excluded at eligibility: studies addressing only part of the question; editorials, commentaries and letters; "
+    "reviews only if the review protocol excludes them.",
+    "Every eligible study is included, up to the study limit (a cost limit: each included study is read by the "
+    "model). When more studies are eligible than the limit, they are taken in order of score and the rest are "
+    "listed as eligible but not analysed.",
+    f"If fewer than {MIN_PRISMA_STUDIES} studies meet the criteria, studies addressing part of the question are "
+    "admitted, and the report says so.",
+    "Screening is in two passes: word matching of the question's concepts in the title and abstract, then the "
+    "model screens the remaining records on title and abstract, in order of score, until the limit is filled.",
+]
 
 PRISMA_RULES: List[str] = [
     "Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, "
@@ -473,7 +487,9 @@ def select_studies(
 ) -> Tuple[List[PaperRecord], SelectionReport]:
     """Steps 2-4 on de-duplicated records. Returns the included studies (numbered in rank order) and the report.
     `method="systematic_prisma"` applies eligibility criteria instead of the balanced selection of step 4."""
-    prisma = method == "systematic_prisma"
+    # Eligibility-based selection (every eligible study, up to the limit): systematic-style and scoping reviews
+    prisma = method in ("systematic_prisma", "scoping")
+    scoping = method == "scoping"
     # Recency and citations per year are measured from this year; a stored corpus is replayed with its own year
     now_year = reference_year or datetime.now(timezone.utc).year
     details = details if details is not None else SelectionDetails()
@@ -494,8 +510,8 @@ def select_studies(
         protocol_version=PROTOCOL_VERSION, target_count=max_total,
         records_found=records_found if records_found is not None else len(unique_papers),
         unique_records=len(unique_papers), criteria=CRITERIA,
-        selection_rules=PRISMA_RULES if prisma else SELECTION_RULES,
-        study_type_labels=STUDY_TYPE_LABELS, selection_method="systematic_prisma" if prisma else "narrative",
+        selection_rules=(SCOPING_RULES if scoping else PRISMA_RULES) if prisma else SELECTION_RULES,
+        study_type_labels=STUDY_TYPE_LABELS, selection_method=method if prisma else "narrative",
     )
     report.duplicates_merged = max(0, report.records_found - report.unique_records)
     report.selection_concepts = [c.name + (f" ({', '.join(c.synonyms)})" if c.synonyms else "") for c in concepts]
@@ -680,8 +696,10 @@ def select_studies(
 
     details.candidates = ranked
     if prisma:
-        return _prisma_selection(ranked, max_total, report, sort_key, details,
-                                 include_reviews=elig.reviews == "include")
+        # A scoping review maps reviews too, unless its protocol excludes them
+        include_reviews = elig.reviews == "include" or (scoping and elig.reviews != "exclude")
+        return _prisma_selection(ranked, max_total, report, sort_key, details, include_reviews=include_reviews,
+                                 review_reason=REASON_REVIEW_BY_PROTOCOL if scoping else REASON_REVIEW)
 
     # ---- Step 4: balanced selection ----------------------------------------------------------------------------
     chosen: List[PaperRecord] = []
@@ -755,7 +773,8 @@ def select_studies(
 
 
 def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: SelectionReport, sort_key,
-                      details: "SelectionDetails", include_reviews: bool = False) -> Tuple[List[PaperRecord], SelectionReport]:
+                      details: "SelectionDetails", include_reviews: bool = False,
+                      review_reason: str = REASON_REVIEW) -> Tuple[List[PaperRecord], SelectionReport]:
     """Step 4 for a systematic-style review: include every study meeting the eligibility criteria (PRISMA_RULES),
     up to the study limit, in order of score. `include_reviews` (set by a review protocol) treats reviews like
     primary studies (an overview of reviews)."""
@@ -794,8 +813,8 @@ def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: Selecti
         excluded[REASON_PARTIAL] = partial_out
         details.excluded.update({p.id: REASON_PARTIAL for p in partial_primary})
     if reviews and not reviews_admitted:
-        excluded[REASON_REVIEW] = len(reviews)
-        details.excluded.update({p.id: REASON_REVIEW for p in reviews})
+        excluded[review_reason] = len(reviews)
+        details.excluded.update({p.id: review_reason for p in reviews})
     if commentary:
         excluded[REASON_COMMENTARY] = len(commentary)
         details.excluded.update({p.id: REASON_COMMENTARY for p in commentary})

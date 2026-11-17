@@ -24,6 +24,7 @@ from models import (
     ApiKeysConfig,
     Corpus,
     CorpusSummary,
+    ReselectRequest,
     ProtocolPreviewRequest,
     ProtocolProposeRequest,
     ReviewProtocol,
@@ -52,9 +53,10 @@ from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit
 from services.paper_selection import label_subquestions
 from services import corpus_store
-from services.corpus import finish_corpus, replay_included, select_for_corpus
+from services.corpus import derive_corpus, finish_corpus, replay_included, select_for_corpus
 from services.review_protocol import default_protocol, plan_from_protocol, propose_protocol
 from services.search_counts import preview_searches
+from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
@@ -432,6 +434,9 @@ def _summary(run: "CorpusRun") -> CorpusSummary:
         records_found=c.records_found, unique_records=len(c.records), candidates=len(c.candidates),
         source_stats={k: v for k, v in c.source_stats.items() if v}, included=run.papers,
         selection_report=run.selection_report, warnings=list(c.search_warnings), analysed=c.analysis is not None,
+        selection_method=c.selection_method, study_limit=c.study_limit,
+        eligible=run.selection_report.eligible if run.selection_report else len(run.papers),
+        max_study_limit=ceiling(c.mode, c.review_framework), estimated_minutes=estimate_minutes(len(run.papers)),
     )
 
 
@@ -477,6 +482,22 @@ async def create_corpus(req: SearchRequest, request: Request) -> CorpusSummary:
     return summary
 
 
+@app.post("/api/corpus/{corpus_id}/reselect", response_model=CorpusSummary)
+async def reselect_corpus(corpus_id: str, body: ReselectRequest) -> CorpusSummary:
+    """A new corpus from the same records with a different number of studies: no new search and no model (a
+    systematic-style or scoping review re-applies its stored screening decisions). The original is unchanged."""
+    corpus = _corpus_or_404(corpus_id)
+    top = ceiling(corpus.mode, corpus.review_framework)
+    if corpus.selection_method != "narrative":
+        # Only studies already screened can be chosen without the model, so the limit can only go down
+        top = min(top, corpus.study_limit)
+    if not (5 <= body.study_limit <= top):
+        raise HTTPException(400, f"Choose between 5 and {top} studies.")
+    derived = derive_corpus(corpus, body.study_limit)
+    corpus_store.save(derived)
+    return _summary(_run_from_corpus(derived, ApiKeysConfig()))
+
+
 @app.get("/api/corpus/{corpus_id}", response_model=Corpus)
 async def get_corpus(corpus_id: str) -> Corpus:
     return _corpus_or_404(corpus_id)
@@ -509,20 +530,24 @@ async def _stored_analysis(corpus_id: str, mreq: ModuleRequest, request: Request
     corpus = _corpus_or_404(corpus_id)
     if corpus.analysis is not None and not mreq.rerun:
         return corpus.analysis
+    # Allowances are counted on the original corpus, so deriving corpora with other limits does not add analyses
+    counter = (corpus_store.load(corpus.root_id) if corpus.root_id else None) or corpus
     if demo_mode.demo_enabled():
         _, uses_server_key = demo_mode.apply_demo_config(mreq.config)
-        if uses_server_key and corpus.analysis_runs >= DEMO_ANALYSES_PER_CORPUS:
-            raise HTTPException(429, "This corpus has already been analysed with the demo's shared model. "
+        if uses_server_key and counter.analysis_runs >= DEMO_ANALYSES_PER_CORPUS:
+            raise HTTPException(429, "This search has already been analysed with the demo's shared model. "
                                      "Add your own API key to analyse it again with another model.")
-    # The first analysis of a corpus is covered by the allowance charged when the corpus was built
-    charge = corpus.analysis_runs > 0
-    corpus.analysis_runs += 1
+    # The first analysis of a search is covered by the allowance charged when its corpus was built
+    charge = counter.analysis_runs > 0
+    counter.analysis_runs += 1
+    if counter is not corpus:
+        corpus_store.save(counter)
     try:
         return await _with_demo_limits(
             request, corpus.mode, mreq.config,
             lambda cfg: _analyse(_run_from_corpus(corpus, cfg, mreq.progress_id)), charge=charge)
     except Exception:
-        corpus.analysis_runs -= 1
+        counter.analysis_runs -= 1
         raise
     finally:
         if mreq.progress_id:
@@ -625,7 +650,9 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
                                     year_from=req.year_from, year_to=req.year_to)
     fallback_entities_str = " ".join(plan.extracted_technical_entities[:3]) or req.query
 
-    max_total_papers = 60 if req.mode == "deep_research" else 20
+    # How many studies, and how they are chosen, follow the review type and the protocol (services/study_limits.py)
+    method = selection_method(req.mode, req.review_framework)
+    max_total_papers = resolve_study_limit(req.mode, req.review_framework, protocol.study_limit)
     # Selection reads the rule-based parse of the question, so it does not depend on the model that planned the searches
     selection_understanding = plan.selection_understanding or plan.question_understanding
     per_q_limit = results_per_search(req.mode, "core")
@@ -639,7 +666,7 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     # ROUND 1: the core search, the reviews search and one search per aspect of the question, on every source
     _report_stage(req, 2, f"{len(plan.search_facets)} searches (core, reviews and {max(0, len(plan.search_facets) - 2)} aspects)")
     wave_tasks = [
-        _harvest_facet_queries(facet, results_per_search(req.mode, facet.kind, req.review_framework == "systematic_prisma"),
+        _harvest_facet_queries(facet, results_per_search(req.mode, facet.kind, method != "narrative"),
                                req, fallback_entities_str, domain)
         for facet in plan.search_facets
     ]
@@ -714,19 +741,19 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     ranking_query = f"{req.query} {' '.join(plan.selection_entities or plan.extracted_technical_entities)}"
     dedup_stats: Dict[str, int] = {}
     await enrich_citation_counts(all_raw_papers)  # records added by citation links
-    prisma = req.mode == "deep_research" and req.review_framework == "systematic_prisma"
-    # A PRISMA review keeps every word-eligible record, so the model can screen them before the limit applies
+    # Systematic-style and scoping reviews keep every word-eligible record, so the model can screen them before
+    # the limit applies
     ranked_papers, selection_report, corpus = select_for_corpus(
         all_raw_papers,
         query=req.query,
         ranking_query=ranking_query,
         study_limit=max_total_papers,
         understanding=selection_understanding,
-        method="systematic_prisma" if prisma else "narrative",
+        method=method,
         stats=dedup_stats,
         protocol=protocol,
     )
-    if prisma and selection_report and ranked_papers:
+    if method != "narrative" and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
         ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
     # The corpus: the records, the inputs and the decisions, so the selection can be audited and replayed

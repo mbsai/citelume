@@ -5,7 +5,10 @@ tools and benchmarks. It follows `docs/HANDOFF.md` and the decision to build the
 session below is sized for one working session and ends with a "done when" check. Start a session by reading this
 file and `docs/HANDOFF.md`.
 
-**Progress:** Sessions 1-3, 3b and 3c done 17 Nov 2026. Next: Session 3d (imports and user PDFs).
+**Progress:** Sessions 1-3, 3b and 3c done 17 Nov 2026, plus study limits by review type (selection protocol 2.3:
+quick answer 20; narrative 60 by default; systematic-style and scoping reviews take every eligible study up to a
+ceiling of 150 / 200 locally and 60 on the demo; the number can be lowered after the search without searching
+again). Next: Session 3d (imports and user PDFs).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

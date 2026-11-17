@@ -1,8 +1,8 @@
 # How CiteLume chooses its studies
 
-Protocol version: `citelume-selection/2.2`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
+Protocol version: `citelume-selection/2.3`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
 
-CiteLume answers a question from at most **20 studies (Standard)** or **60 studies (Deep Research)**. A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and every result shows the counts at each step and the score of each included study.
+A **quick answer** uses at most **20 studies**. A **guided review** sets its study limit in the review protocol: a narrative review uses up to **60** by default, and systematic-style and scoping reviews include **every study that meets the criteria**, up to a ceiling (150 for systematic-style and 200 for scoping reviews in a local install, 60 on the public demo). The ceiling is a cost limit, not a method choice: the model reads every included study, and eligible studies beyond it are listed. After the search, the user may choose a smaller number from the same records without searching again. A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and every result shows the counts at each step and the score of each included study.
 
 An AI model, when one is configured, may widen the *searches* in step 1 by proposing synonyms and aspects. Steps 2 to 5 do not read the model's plan: studies are matched against the concepts parsed from the question's own words by rule, so the same records give the same included studies with any model or none.
 
@@ -90,7 +90,7 @@ The included studies are then numbered [1], [2], ... in this order.
 
 ### Systematic-style (PRISMA 2020) reviews
 
-Deep Research with the PRISMA review type replaces this step with eligibility criteria, so inclusion does not depend on quotas:
+A guided review of the systematic-style type replaces this step with eligibility criteria, so inclusion does not depend on quotas:
 
 1. Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title or abstract addresses every part of the question, including any place or population it names.
 2. Excluded at eligibility: studies addressing only part of the question; reviews of all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, commentaries and letters.
@@ -98,6 +98,16 @@ Deep Research with the PRISMA review type replaces this step with eligibility cr
 4. If fewer than 5 studies meet the criteria, studies addressing part of the question, and then reviews, are admitted, and the report says so.
 5. No coverage quotas, author limits or caps on study types are applied: inclusion depends only on the criteria.
 6. Screening is in two passes: word matching of the question's concepts in the title and abstract, then the model screens the remaining records on title and abstract, in order of score, until the limit is filled; each included study is checked once more during data extraction. There is no independent dual screening.
+
+### Scoping reviews
+
+A scoping review also includes every eligible study, but maps reviews as well and does not judge risk of bias:
+
+1. Eligibility criteria: any study, primary research or review, whose title or abstract addresses every part of the question, including any place or population it names.
+2. Excluded at eligibility: studies addressing only part of the question; editorials, commentaries and letters; reviews only if the review protocol excludes them.
+3. Every eligible study is included, up to the study limit (a cost limit: each included study is read by the model). When more studies are eligible than the limit, they are taken in order of score and the rest are listed as eligible but not analysed.
+4. If fewer than 5 studies meet the criteria, studies addressing part of the question are admitted, and the report says so.
+5. Screening is in two passes: word matching of the question's concepts in the title and abstract, then the model screens the remaining records on title and abstract, in order of score, until the limit is filled.
 
 Every exclusion is counted at its PRISMA stage (identification, screening, eligibility) and shown in the flow diagram. Each included study also receives a risk-of-bias judgement on the domains of a tool matched to its design (RoB 2, ROBINS-I/E, JBI, SYRCLE, CASP, AMSTAR 2 or a technical validity checklist); the overall judgement is computed from the domains by a fixed rule.
 

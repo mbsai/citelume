@@ -1788,6 +1788,9 @@ class ReviewProtocol(BaseModel):
     populations_and_places: List[ProtocolConstraint] = Field(default_factory=list)
     aspects: List[ProtocolAspect] = Field(default_factory=list)
     eligibility: EligibilityCriteria = Field(default_factory=EligibilityCriteria)
+    # How many studies to analyse. None = the default for the review type: up to 60 for a narrative review, every
+    # eligible study (up to the ceiling) for systematic-style and scoping reviews (services/study_limits.py)
+    study_limit: Optional[int] = None
     # True when the user accepted every default without changing anything
     accepted_defaults: bool = False
     suggestions: List[ProtocolSuggestion] = Field(default_factory=list)
@@ -1880,6 +1883,10 @@ class Corpus(BaseModel):
     protocol: Optional[ReviewProtocol] = None
     search_warnings: List[str] = Field(default_factory=list)
 
+    # Set when this corpus was derived from another (same records, a different study limit); demo allowances
+    # are counted on the original
+    root_id: str = ""
+
     # The analysis of the included studies (synthesis, evidence table, gaps, map), once run; not part of the hash
     analysis: Optional["ResearchResponse"] = None
     analysis_model: str = ""
@@ -1912,6 +1919,18 @@ class CorpusSummary(BaseModel):
     selection_report: Optional["SelectionReport"] = None
     warnings: List[str] = Field(default_factory=list)
     analysed: bool = False
+    # The limit applied, how many studies met the criteria, the most this install allows for this review type, and
+    # a rough analysis time with a free hosted model
+    selection_method: str = "narrative"
+    study_limit: int = 0
+    eligible: int = 0
+    max_study_limit: int = 0
+    estimated_minutes: float = 0.0
+
+
+class ReselectRequest(BaseModel):
+    """Choose a different number of studies from a stored corpus (no new search; no model)."""
+    study_limit: int
 
 
 class ExportRequest(BaseModel):

@@ -37,8 +37,11 @@ def protocol_lines(protocol: Optional[ReviewProtocol]) -> List[str]:
     changed = (f" (changed by the user: {', '.join(e.changed_by_user)})" if e.changed_by_user else "")
     lines.append(f"Eligibility: study designs: {designs}; publication years: {years}; reviews: "
                  f"{REVIEWS_POLICY.get(e.reviews, e.reviews)}{changed}.")
+    if protocol.study_limit:
+        lines.append(f"Study limit: {protocol.study_limit} studies.")
     if protocol.accepted_defaults:
         lines.append("The user accepted the proposed protocol without changes.")
+    lines += list(protocol.notes)
     return lines
 
 

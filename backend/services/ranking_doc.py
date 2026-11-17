@@ -3,6 +3,7 @@ Run from backend/:  python -m services.ranking_doc"""
 from pathlib import Path
 
 from services import paper_selection as ps
+from services import study_limits as sl
 from services import query_planning as qp
 
 DOC_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "RANKING.md"
@@ -18,7 +19,13 @@ def render() -> str:
         f"Protocol version: `{ps.PROTOCOL_VERSION}`. This file is generated from the code "
         "(`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.",
         "",
-        "CiteLume answers a question from at most **20 studies (Standard)** or **60 studies (Deep Research)**. "
+        f"A **quick answer** uses at most **{sl.QUICK_LIMIT} studies**. A **guided review** sets its study limit in "
+        f"the review protocol: a narrative review uses up to **{sl.NARRATIVE_LIMIT}** by default, and systematic-"
+        "style and scoping reviews include **every study that meets the criteria**, up to a ceiling "
+        f"({sl.DEFAULT_CEILING} for systematic-style and {sl.DEFAULT_SCOPING_CEILING} for scoping reviews in a "
+        f"local install, {sl.DEMO_CEILING} on the public demo). The ceiling is a cost limit, not a method choice: "
+        "the model reads every included study, and eligible studies beyond it are listed. After the search, the "
+        "user may choose a smaller number from the same records without searching again. "
         "A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed "
         "steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and "
         "every result shows the counts at each step and the score of each included study.",
@@ -138,11 +145,15 @@ def render() -> str:
         "",
         "### Systematic-style (PRISMA 2020) reviews",
         "",
-        "Deep Research with the PRISMA review type replaces this step with eligibility criteria, so inclusion "
+        "A guided review of the systematic-style type replaces this step with eligibility criteria, so inclusion "
         "does not depend on quotas:",
         "",
     ]
     lines += [f"{i}. {rule}" for i, rule in enumerate(ps.PRISMA_RULES, start=1)]
+    lines += ["", "### Scoping reviews", "",
+              "A scoping review also includes every eligible study, but maps reviews as well and does not judge "
+              "risk of bias:", ""]
+    lines += [f"{i}. {rule}" for i, rule in enumerate(ps.SCOPING_RULES, start=1)]
     lines += [
         "",
         "Every exclusion is counted at its PRISMA stage (identification, screening, eligibility) and shown in the "

@@ -103,9 +103,11 @@ async def screen_and_limit(
     screened = 0
     failed_batches = 0
     pos = 0
-    while len(included) < limit and pos < len(candidates) and screened < MAX_SCREENED:
+    # Larger reviews may need more records screened to fill their limit
+    cap = max(MAX_SCREENED, 2 * limit)
+    while len(included) < limit and pos < len(candidates) and screened < cap:
         wave = []
-        while len(wave) < SCREEN_CONCURRENCY and pos < len(candidates) and screened + sum(map(len, wave)) < MAX_SCREENED:
+        while len(wave) < SCREEN_CONCURRENCY and pos < len(candidates) and screened + sum(map(len, wave)) < cap:
             wave.append(candidates[pos:pos + SCREEN_BATCH])
             pos += SCREEN_BATCH
         results = await asyncio.gather(*[_screen_batch(query, b, config) for b in wave])

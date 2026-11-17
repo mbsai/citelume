@@ -7,7 +7,16 @@ import KnowledgeGapMatrix from './components/KnowledgeGapMatrix';
 import HuggingFacePanel from './components/HuggingFacePanel';
 import { ResultsCards, ResultsTabStrip } from './components/ResultsNav';
 import SelectionPanel from './components/SelectionPanel';
-import { runLiteratureSearch, fetchSearchProgress, fetchModelScale, fetchDemoStatus } from './utils/api';
+import {
+  analyseCorpus,
+  createCorpus,
+  fetchDemoStatus,
+  fetchModelScale,
+  fetchSearchProgress,
+  reselectCorpus,
+  runLiteratureSearch,
+} from './utils/api';
+import AnalysisChoice from './components/AnalysisChoice';
 import GuidedReview from './components/GuidedReview';
 
 // Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
@@ -148,7 +157,7 @@ function DeepResearchModelNote({ model, hasLlm, scale, override, onOverride }) {
       }`}
     >
       <p>
-        <span className="font-semibold">The guided review writes a long academic review (2,500+ words) from up to 60 studies.</span>{' '}
+        <span className="font-semibold">The guided review writes a long academic review (2,500+ words).</span>{' '}
         Use a large model with a long context window: Claude Sonnet/Opus, GPT-4o/4.1, Gemini 2.5 Pro, DeepSeek V3/R1,
         Llama 3.3 70B, Qwen 2.5 72B, or the free NVIDIA Nemotron Super/Ultra on OpenRouter.
       </p>
@@ -226,6 +235,8 @@ export default function App() {
   const [deepOverride, setDeepOverride] = useState(false);
   // The guided review's set-up steps (shown instead of searching straight away)
   const [guidedOpen, setGuidedOpen] = useState(false);
+  // A guided review's built corpus, waiting for the choice of how many studies to analyse
+  const [pendingCorpus, setPendingCorpus] = useState(null);
   const [activeTab, setActiveTab] = useState('synthesis');
   // Search options (field, review type, sources) fold away once results are on screen
   const [optionsOpen, setOptionsOpen] = useState(true);
@@ -360,49 +371,83 @@ export default function App() {
     handleSearch();
   };
 
-  const handleSearch = async (protocol = null) => {
-    if (!query.trim() || !queryLooksSearchable()) return;
+  const showResult = (data) => {
+    setResult(data);
+    setActiveTab('synthesis');
+    setOptionsOpen(false);
+    scrollToResults();
+    const entryId = `hist_${Date.now()}`;
+    const newEntry = {
+      id: entryId,
+      query: query.trim(),
+      mode,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
+      paperCount: data.papers?.length || 0,
+      hfCount: data.hf_resources?.length || 0,
+      verdict: data.consensus?.consensus_verdict || 'Synthesized',
+      resultData: data,
+    };
+    setActiveHistoryId(entryId);
+    const filteredPrev = history.filter(
+      (h) => !(h.query.toLowerCase() === newEntry.query.toLowerCase() && h.mode === newEntry.mode)
+    );
+    saveHistoryToStorage([newEntry, ...filteredPrev].slice(0, 15));
+  };
+
+  const startRun = () => {
     const pid = `search_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     setProgressId(pid);
     setLoading(true);
     setError('');
-    try {
-      const data = await runLiteratureSearch({
-        query: query.trim(),
-        mode,
-        max_per_source: mode === 'deep_research' ? 18 : 10,
-        config,
-        progress_id: pid,
-        domain: domain || null,
-        // Review types apply to the guided review (from its protocol); a quick answer is narrative and thematic
-        review_framework: mode === 'deep_research' ? (protocol?.review_type || reviewFramework) : 'narrative',
-        organization: mode === 'deep_research' ? (protocol?.organization || organization) : 'thematic',
-        protocol,
-      });
-      setGuidedOpen(false);
-      setResult(data);
-      setActiveTab('synthesis');
-      setOptionsOpen(false);
-      scrollToResults();
+    return pid;
+  };
 
-      const entryId = `hist_${Date.now()}`;
-      const newEntry = {
-        id: entryId,
-        query: query.trim(),
-        mode,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
-        paperCount: data.papers?.length || 0,
-        hfCount: data.hf_resources?.length || 0,
-        verdict: data.consensus?.consensus_verdict || 'Synthesized',
-        resultData: data,
-      };
-      setActiveHistoryId(entryId);
-      const filteredPrev = history.filter(
-        (h) => !(h.query.toLowerCase() === newEntry.query.toLowerCase() && h.mode === newEntry.mode)
-      );
-      saveHistoryToStorage([newEntry, ...filteredPrev].slice(0, 15));
+  // A quick answer searches and analyses in one call. A guided review first builds the corpus (search and
+  // selection, no model), then asks how many of the eligible studies to analyse.
+  const handleSearch = async (protocol = null) => {
+    if (!query.trim() || !queryLooksSearchable()) return;
+    const pid = startRun();
+    const request = {
+      query: query.trim(),
+      mode,
+      max_per_source: mode === 'deep_research' ? 18 : 10,
+      config,
+      progress_id: pid,
+      domain: domain || null,
+      // Review types apply to the guided review (from its protocol); a quick answer is narrative and thematic
+      review_framework: mode === 'deep_research' ? (protocol?.review_type || reviewFramework) : 'narrative',
+      organization: mode === 'deep_research' ? (protocol?.organization || organization) : 'thematic',
+      protocol,
+    };
+    try {
+      if (mode === 'deep_research' && protocol) {
+        const summary = await createCorpus(request);
+        setGuidedOpen(false);
+        setPendingCorpus(summary);
+        return;
+      }
+      showResult(await runLiteratureSearch(request));
     } catch (err) {
       setError(err.message || 'Failed to run literature search');
+    } finally {
+      setLoading(false);
+      if (demo.demo) refreshDemo();
+    }
+  };
+
+  const handleAnalyse = async (studyCount) => {
+    if (!pendingCorpus) return;
+    const pid = startRun();
+    try {
+      let corpusId = pendingCorpus.corpus_id;
+      if (studyCount !== pendingCorpus.included.length) {
+        corpusId = (await reselectCorpus(corpusId, studyCount)).corpus_id;
+      }
+      const data = await analyseCorpus(corpusId, { config, progress_id: pid });
+      setPendingCorpus(null);
+      showResult(data);
+    } catch (err) {
+      setError(err.message || 'Failed to analyse the studies');
     } finally {
       setLoading(false);
       if (demo.demo) refreshDemo();
@@ -585,7 +630,7 @@ export default function App() {
                             : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                         }`}
                       >
-                        {item.mode === 'deep_research' ? 'Guided (≤60)' : 'Quick (≤20)'}
+                        {item.mode === 'deep_research' ? 'Guided' : 'Quick (≤20)'}
                       </span>
                       <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
                         {item.paperCount} papers
@@ -619,6 +664,7 @@ export default function App() {
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setGuidedOpen(false); // a changed question needs a new protocol
+                  setPendingCorpus(null);
                 }}
                 placeholder="Ask a research question, list keywords, or paste a DOI / PubMed / arXiv link..."
                 className="flex-1 bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-3 text-sm text-slate-900 outline-none transition"
@@ -631,10 +677,10 @@ export default function App() {
               >
                 {loading
                   ? mode === 'deep_research'
-                    ? 'Running the guided review (≤60 studies)...'
+                    ? 'Running the guided review...'
                     : 'Synthesizing (≤20 Papers)...'
                   : mode === 'deep_research'
-                  ? 'Set up the guided review (up to 60 studies)'
+                  ? 'Set up the guided review'
                   : 'Synthesize & Map Literature (Up to 20 Papers)'}
               </button>
             </div>
@@ -664,7 +710,7 @@ export default function App() {
                       : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
                   }`}
                 >
-                  🧭 Guided review (up to 60 studies)
+                  🧭 Guided review
                 </button>
                 <span id="guided-review-hint" className="sr-only">
                   Set the purpose, the parts of the question and the eligibility criteria before searching
@@ -778,6 +824,18 @@ export default function App() {
             />
           )}
 
+          {pendingCorpus && !loading && (
+            <AnalysisChoice
+              summary={pendingCorpus}
+              running={loading}
+              onAnalyse={handleAnalyse}
+              onBack={() => {
+                setPendingCorpus(null);
+                setGuidedOpen(true);
+              }}
+            />
+          )}
+
           {/* Live Progress Indicator driven by the backend's reported pipeline stage */}
           {loading && (
             <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-5 shadow-sm space-y-3">
@@ -787,7 +845,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
                       {mode === 'deep_research'
-                        ? 'Guided Review Running (Up to 60 Studies)...'
+                        ? 'Guided Review Running...'
                         : 'Standard Literature Synthesis Running (Up to 20 Papers)...'}
                     </span>
                     <span className="text-[11px] font-mono text-indigo-600 font-semibold">

@@ -48,6 +48,20 @@ export function previewProtocol(payload) {
   return postJson('/api/protocol/preview', payload, 'Search preview');
 }
 
+// Guided review, in two steps: build the corpus (search and selection, no model), then analyse it
+export function createCorpus(payload) {
+  return postJson('/api/corpus', payload, 'Search');
+}
+
+// The same records with a different number of studies (no new search, no model)
+export function reselectCorpus(corpusId, studyLimit) {
+  return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/reselect`, { study_limit: studyLimit }, 'Choosing studies');
+}
+
+export function analyseCorpus(corpusId, payload) {
+  return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/analyse`, payload, 'Analysis');
+}
+
 export async function fetchDemoStatus() {
   try {
     const response = await fetch(`${API_BASE}/api/demo-status`);

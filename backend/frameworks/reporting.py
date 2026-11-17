@@ -101,13 +101,13 @@ def build_review_protocol_report(
         excluded_at_screening=max(0, unique_records - len(included_papers)),
         included=len(included_papers),
     )
-    if selection_report is not None and selection_report.selection_method == "systematic_prisma":
+    if selection_report is not None and selection_report.selection_method in ("systematic_prisma", "scoping"):
         _fill_prisma_flow(report.flow, selection_report, included_papers)
         report.previous_reviews = list(selection_report.excluded_reviews)
     report.search_strategies = _search_strategies(plan, enabled_sources)
     constraints = plan.question_understanding.concepts.required_constraints if plan.question_understanding else []
     years = (f"{year_from or 'earliest'}-{year_to or 'latest'}" if (year_from or year_to) else "no date limit")
-    if selection_report is not None and selection_report.selection_method == "systematic_prisma":
+    if selection_report is not None and selection_report.selection_method in ("systematic_prisma", "scoping"):
         report.eligibility_criteria = [
             f"Sources searched: {', '.join(enabled_sources)}.",
             f"Publication years: {years}.",

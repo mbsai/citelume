@@ -172,7 +172,7 @@ def select_for_corpus(
     snapshot = [p.model_copy(deep=True) for p in unique]
     if stats is not None:
         stats["unique_records"] = len(unique)
-    pool_limit = PRISMA_CANDIDATE_POOL if method == "systematic_prisma" else study_limit
+    pool_limit = PRISMA_CANDIDATE_POOL if method in ("systematic_prisma", "scoping") else study_limit
     details = SelectionDetails()
     chosen, report = ([], None)
     if unique:
@@ -241,7 +241,34 @@ def replay_included(corpus: "Corpus") -> Tuple[List[PaperRecord], Optional["Sele
                                     records_found=corpus.records_found, method=corpus.selection_method,
                                     reference_year=corpus.reference_year or None,
                                     eligibility=corpus.protocol.eligibility if corpus.protocol else None)
-    if corpus.selection_method == "systematic_prisma" and corpus.selection_report is not None:
+    if corpus.selection_method in ("systematic_prisma", "scoping") and corpus.selection_report is not None:
         chosen = apply_screening_decisions(chosen, report, corpus.selection_report.screening_decisions,
                                            corpus.study_limit, corpus.selection_report.screening_model)
     return chosen, report
+
+
+def derive_corpus(corpus: "Corpus", study_limit: int) -> "Corpus":
+    """
+    A corpus with the same records, protocol and decisions but a different study limit. Selection is re-run on the
+    stored records (no search, no model); a systematic-style or scoping review re-applies its stored screening.
+    """
+    derived = corpus.model_copy(deep=True)
+    now = datetime.now(timezone.utc)
+    derived.corpus_id = uuid.uuid4().hex
+    derived.created_at = now.isoformat(timespec="seconds")
+    derived.root_id = corpus.root_id or corpus.corpus_id
+    derived.study_limit = study_limit
+    if derived.selection_method == "narrative":
+        derived.pool_limit = study_limit
+    if derived.protocol is not None:
+        derived.protocol.study_limit = study_limit
+        derived.protocol.notes.append(
+            f"After the search, the user chose to analyse {study_limit} studies (the search had included "
+            f"{len(corpus.included_ids)}).")
+    derived.analysis, derived.analysis_model, derived.analysed_at, derived.analysis_runs = None, "", "", 0
+    papers, report = replay_included(derived)
+    if report is not None and corpus.selection_report is not None:
+        # Keep what the first selection recorded that a replay does not recompute
+        report.screening_decisions = list(corpus.selection_report.screening_decisions)
+        report.screening_model = corpus.selection_report.screening_model
+    return finish_corpus(derived, papers, report)

@@ -55,7 +55,8 @@ export default function ProtocolCard({ protocol }) {
       </div>
       {protocol.accepted_defaults && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          The proposed settings were accepted without changes.
+          The proposed settings were accepted without changes
+          {protocol.study_limit ? '; the number of studies was chosen after the search.' : '.'}
         </p>
       )}
       <dl className="text-sm text-slate-700 space-y-2">
@@ -101,6 +102,17 @@ export default function ProtocolCard({ protocol }) {
             <dd className="inline">{protocol.aspects.map((a) => a.label).join('; ')}</dd>
           </div>
         )}
+        {protocol.study_limit && (
+          <div>
+            <dt className="font-semibold text-slate-800 inline">Studies analysed: </dt>
+            <dd className="inline">up to {protocol.study_limit}</dd>
+          </div>
+        )}
+        {(protocol.notes || []).map((n, i) => (
+          <p key={i} className="text-xs text-slate-600">
+            {n}
+          </p>
+        ))}
         <div>
           <dt className="font-semibold text-slate-800 inline">Eligibility: </dt>
           <dd className="inline">
