@@ -8,7 +8,9 @@ file and `docs/HANDOFF.md`.
 **Progress:** Sessions 1-3, 3b and 3c done 17 Nov 2026, plus study limits by review type (selection protocol 2.3:
 quick answer 20; narrative 60 by default; systematic-style and scoping reviews take every eligible study up to a
 ceiling of 150 / 200 locally and 60 on the demo; the number can be lowered after the search without searching
-again). Next: Session 3d (imports and user PDFs).
+again). Session 3d done 17 Nov 2026: Scopus / Web of Science strings, imports (RIS, BibTeX, CSV, Web of Science
+and PubMed text) and user PDFs (attach or add; include regardless with a recorded reason). Decision: imports and PDFs
+are disabled on the public demo. Next: Session 3e (screening by criterion).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

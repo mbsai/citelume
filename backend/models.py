@@ -79,6 +79,50 @@ class SearchRequest(BaseModel):
     # A review protocol (POST /api/protocol/propose, then edited by the user). When given, it drives the searches
     # and selection, its review type and years replace the fields above, and no model plans the searches.
     protocol: Optional["ReviewProtocol"] = None
+    # Local installs only: exports the user uploaded (POST /api/imports) and PDFs (POST /api/imports/pdf)
+    import_ids: List[str] = Field(default_factory=list)
+    user_pdfs: List["UserPdfChoice"] = Field(default_factory=list)
+
+
+class UserPdfChoice(BaseModel):
+    pdf_id: str
+    # Include this study even if it fails the eligibility criteria; the reason is recorded
+    force_include: bool = False
+    reason: str = ""
+
+
+class ImportRequest(BaseModel):
+    filename: str = ""
+    content_base64: str
+    # "Scopus", "Web of Science", "Embase"...; guessed from the file when empty
+    source: str = ""
+    # The search string the user ran (as shown in the preview), recorded with the import
+    search_string: str = ""
+
+
+class ImportResult(BaseModel):
+    import_id: str
+    filename: str = ""
+    source: str = ""
+    format: str = ""
+    records: int = 0
+    with_abstract: int = 0
+    sample_titles: List[str] = Field(default_factory=list)
+
+
+class PdfUploadRequest(BaseModel):
+    filename: str = ""
+    content_base64: str
+
+
+class PdfUploadResult(BaseModel):
+    pdf_id: str
+    filename: str = ""
+    title: str = ""
+    doi: str = ""
+    year: Optional[int] = None
+    text_characters: int = 0
+    sections: List[str] = Field(default_factory=list)
 
 
 class ExpandNodeRequest(BaseModel):
@@ -1804,6 +1848,12 @@ class SearchCount(BaseModel):
     note: str = ""
 
 
+class ManualSearch(BaseModel):
+    database: str
+    query: str
+    how_to: str = ""
+
+
 class SearchPreview(BaseModel):
     """The searches a protocol will run, before running them: the strings for every database and, for the core
     search, how many records each database holds."""
@@ -1811,6 +1861,10 @@ class SearchPreview(BaseModel):
     core_counts: List[SearchCount] = Field(default_factory=list)
     concepts_used: List[str] = Field(default_factory=list)
     populations_and_places: List[str] = Field(default_factory=list)
+    # The core search in Scopus and Web of Science syntax, for the user to run and import
+    manual_searches: List[ManualSearch] = Field(default_factory=list)
+    # False on the public demo (imports and PDFs are the user's licensed material: local installs only)
+    imports_allowed: bool = True
 
 
 class ProtocolProposeRequest(BaseModel):
@@ -1829,6 +1883,25 @@ class ProtocolPreviewRequest(BaseModel):
     protocol: ReviewProtocol
     mode: Literal["standard", "deep_research"] = "standard"
     config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+
+
+class ImportSummary(BaseModel):
+    source: str
+    format: str = ""
+    filename: str = ""
+    records: int = 0
+    search_string: str = ""
+    imported_at: str = ""
+
+
+class UserPdfSummary(BaseModel):
+    filename: str = ""
+    title: str = ""
+    # The study it was attached to, or "" when it was added as a new study
+    matched_record_id: str = ""
+    record_id: str = ""
+    force_include: bool = False
+    reason: str = ""
 
 
 class CorpusCandidate(BaseModel):
@@ -1881,6 +1954,12 @@ class Corpus(BaseModel):
     selection_stats: Dict[str, int] = Field(default_factory=dict)
     # The review protocol the searches and selection followed (the default one when the user gave none)
     protocol: Optional[ReviewProtocol] = None
+    # What the user brought: imported exports, PDFs, their full texts (kept here because full text is not part of
+    # a record's stored form) and studies included by the user despite the criteria (record id -> reason)
+    imports: List["ImportSummary"] = Field(default_factory=list)
+    user_pdfs: List["UserPdfSummary"] = Field(default_factory=list)
+    user_full_texts: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    forced_includes: Dict[str, str] = Field(default_factory=dict)
     search_warnings: List[str] = Field(default_factory=list)
 
     # Set when this corpus was derived from another (same records, a different study limit); demo allowances
@@ -1926,6 +2005,8 @@ class CorpusSummary(BaseModel):
     eligible: int = 0
     max_study_limit: int = 0
     estimated_minutes: float = 0.0
+    imports: List["ImportSummary"] = Field(default_factory=list)
+    user_pdfs: List["UserPdfSummary"] = Field(default_factory=list)
 
 
 class ReselectRequest(BaseModel):

@@ -48,6 +48,24 @@ export function previewProtocol(payload) {
   return postJson('/api/protocol/preview', payload, 'Search preview');
 }
 
+// Local installs only: a database export (RIS, BibTeX, CSV, Web of Science or PubMed text) or a PDF, sent as base64
+export function importRecords(payload) {
+  return postJson('/api/imports', payload, 'Import');
+}
+
+export function importPdf(payload) {
+  return postJson('/api/imports/pdf', payload, 'PDF upload');
+}
+
+export function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
 // Guided review, in two steps: build the corpus (search and selection, no model), then analyse it
 export function createCorpus(payload) {
   return postJson('/api/corpus', payload, 'Search');

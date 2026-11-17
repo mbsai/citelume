@@ -328,6 +328,8 @@ def _cache_write(key: str, payload: dict) -> None:
 
 
 async def _fetch_one(client: httpx.AsyncClient, sem: asyncio.Semaphore, p: PaperRecord) -> None:
+    if p.full_text_source and p.full_text_sections:
+        return  # full text the user supplied (a PDF) is kept
     key = _cache_key(p)
     if not key:
         return

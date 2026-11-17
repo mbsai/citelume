@@ -125,7 +125,13 @@ async def screen_and_limit(
                 log.append(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=keep, reason=reason))
                 (included if keep else excluded).append(p)
         if failed_batches and failed_batches == len(wave) and not excluded:
-            break  # no model available: keep the word-based eligibility for the rest
+            # No model available: the word-based eligibility stands for every remaining candidate too
+            rest = candidates[pos:]
+            included.extend(rest)
+            log.extend(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=True, screened=False,
+                                               reason="Not screened: no model available") for p in rest)
+            pos = len(candidates)
+            break
     model = f"{config.llm_provider}:{config.llm_model}" if any(d.screened for d in log) else ""
     return apply_screening_decisions(candidates, report, log, limit, model)
 

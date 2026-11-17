@@ -29,6 +29,17 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack }) 
             ? '; all of them are included.'
             : `; the ranking chose ${included}.`}
         </li>
+        {(summary.imports || []).map((imp) => (
+          <li key={imp.filename}>
+            Imported from {imp.source}: {imp.records.toLocaleString()} records ({imp.filename}).
+          </li>
+        ))}
+        {(summary.user_pdfs || []).map((pdf) => (
+          <li key={pdf.filename}>
+            {pdf.filename}: {pdf.matched_record_id ? 'full text added to a study the search found' : 'added as a study'}
+            {pdf.force_include ? ` (included regardless of the criteria: ${pdf.reason})` : ''}.
+          </li>
+        ))}
       </ul>
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
         <label className="inline-flex items-center gap-2">

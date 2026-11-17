@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { previewProtocol, proposeProtocol } from '../utils/api';
+import { fileToBase64, importPdf, importRecords, previewProtocol, proposeProtocol } from '../utils/api';
 
 // The guided review: four steps that turn the question into a review protocol before anything is searched.
 // Each step asks for a decision and says what it changes. The protocol then drives the searches and selection,
@@ -125,6 +125,42 @@ export default function GuidedReview({ query, domain, config, hasLlm, running, o
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(null);
   const [showStrings, setShowStrings] = useState(false);
+  // Records and full texts the user brings (local installs only)
+  const [imports, setImports] = useState([]);
+  const [pdfs, setPdfs] = useState([]);
+  const [importSource, setImportSource] = useState({});
+
+  const uploadExport = async (file, search) => {
+    setBusy(`Reading ${file.name}...`);
+    setError('');
+    try {
+      const res = await importRecords({
+        filename: file.name,
+        content_base64: await fileToBase64(file),
+        source: importSource[search.database] || search.database,
+        search_string: search.query,
+      });
+      setImports((prev) => [...prev, res]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const uploadPdfs = async (files) => {
+    setError('');
+    for (const file of files) {
+      setBusy(`Reading ${file.name}...`);
+      try {
+        const res = await importPdf({ filename: file.name, content_base64: await fileToBase64(file) });
+        setPdfs((prev) => [...prev, { ...res, force_include: false, reason: '' }]);
+      } catch (e) {
+        setError(`${file.name}: ${e.message}`);
+      }
+    }
+    setBusy('');
+  };
 
   const propose = async (p, acceptDefaults = false) => {
     setBusy(hasLlm ? 'Reading the question and asking the model for synonyms...' : 'Reading the question...');
@@ -616,12 +652,132 @@ export default function GuidedReview({ query, domain, config, hasLlm, running, o
               )}
             </>
           )}
+          {preview && preview.imports_allowed && (
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Databases you can search yourself (optional)</h4>
+                <p className="text-xs text-slate-600">
+                  If you have access, run the same search there, export the results and upload the file. The records
+                  join the others and go through the same criteria and ranking.
+                </p>
+              </div>
+              {preview.manual_searches.map((m) => (
+                <div key={m.database} className="border border-slate-200 rounded-lg p-2 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-800">{m.database}</span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(m.query)}
+                      className="text-xs font-semibold text-indigo-700 hover:underline"
+                    >
+                      Copy the search
+                    </button>
+                  </div>
+                  <code className="block text-[11px] bg-slate-50 rounded p-1.5 break-words">{m.query}</code>
+                  <p className="text-[11px] text-slate-500">{m.how_to}</p>
+                  <label className="inline-flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                    Upload the export
+                    <input
+                      type="file"
+                      accept=".ris,.txt,.csv,.tsv,.bib,.nbib"
+                      onChange={(e) => e.target.files[0] && uploadExport(e.target.files[0], m)}
+                      className="text-xs"
+                    />
+                  </label>
+                </div>
+              ))}
+              <label className="inline-flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                Another database (Embase, CINAHL...):
+                <input
+                  value={importSource.Other || ''}
+                  onChange={(e) => setImportSource((s) => ({ ...s, Other: e.target.value }))}
+                  placeholder="database name"
+                  className={`${input} text-xs w-36`}
+                />
+                <input
+                  type="file"
+                  accept=".ris,.txt,.csv,.tsv,.bib,.nbib"
+                  onChange={(e) =>
+                    e.target.files[0] && uploadExport(e.target.files[0], { database: importSource.Other || 'Imported', query: '' })
+                  }
+                  className="text-xs"
+                />
+              </label>
+              {imports.length > 0 && (
+                <ul className="text-xs text-slate-700 space-y-0.5">
+                  {imports.map((imp, i) => (
+                    <li key={imp.import_id}>
+                      ✓ {imp.source}: {imp.records.toLocaleString()} records ({imp.with_abstract} with abstracts) from {imp.filename}{' '}
+                      <button type="button" onClick={() => setImports((p) => p.filter((_, k) => k !== i))} className="text-rose-600 hover:underline">
+                        remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Your own full texts (optional)</h4>
+                <p className="text-xs text-slate-600">
+                  PDFs with selectable text (scans cannot be read). A PDF of a study the search found adds its full
+                  text; any other PDF is added as a study and still has to meet the criteria, unless you include it
+                  with a reason. When the studies are analysed, excerpts of these texts are sent to the configured AI
+                  model ({config.llm_provider}); use a local model (Ollama) to keep them on this computer.
+                </p>
+                <input type="file" accept="application/pdf" multiple onChange={(e) => uploadPdfs([...e.target.files])} className="text-xs" />
+                {pdfs.map((pdf, i) => (
+                  <div key={pdf.pdf_id} className="flex flex-wrap items-center gap-2 text-xs text-slate-700 border border-slate-200 rounded-lg p-1.5">
+                    <span className="font-medium">{pdf.filename}</span>
+                    <span className="text-slate-500">
+                      {pdf.title}
+                      {pdf.doi ? ` · doi ${pdf.doi}` : ''}
+                    </span>
+                    <label className="inline-flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={pdf.force_include}
+                        onChange={(e) => setPdfs((p) => p.map((x, k) => (k === i ? { ...x, force_include: e.target.checked } : x)))}
+                      />
+                      include even if it does not meet the criteria
+                    </label>
+                    {pdf.force_include && (
+                      <input
+                        value={pdf.reason}
+                        onChange={(e) => setPdfs((p) => p.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)))}
+                        placeholder="reason (recorded)"
+                        className={`${input} text-xs w-56`}
+                      />
+                    )}
+                    <button type="button" onClick={() => setPdfs((p) => p.filter((_, k) => k !== i))} className="text-rose-600 hover:underline">
+                      remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {preview && !preview.imports_allowed && (
+            <p className="text-xs text-slate-500">
+              Importing records from other databases and adding your own PDFs is available when CiteLume runs on your
+              own computer.
+            </p>
+          )}
           <Changes>nothing yet: running the review searches with exactly these strings and applies these criteria.</Changes>
           <div className="flex gap-2">
             <button type="button" className={btnPlain} onClick={() => goTo(protocol.accepted_defaults ? 1 : 3)}>
               Back
             </button>
-            <button type="button" className={btnPrimary} disabled={!preview || running} onClick={() => onRun(protocol)}>
+            <button
+              type="button"
+              className={btnPrimary}
+              disabled={!preview || running || pdfs.some((p) => p.force_include && !p.reason.trim())}
+              onClick={() =>
+                onRun(protocol, {
+                  import_ids: imports.map((i) => i.import_id),
+                  user_pdfs: pdfs.map((p) => ({ pdf_id: p.pdf_id, force_include: p.force_include, reason: p.reason })),
+                })
+              }
+            >
               {running ? 'Running the review...' : 'Run the review'}
             </button>
           </div>

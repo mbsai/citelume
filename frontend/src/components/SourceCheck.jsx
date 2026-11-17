@@ -63,7 +63,8 @@ export default function SourceCheck({ claim, paper, onClose, onShowReference }) 
   const text = [paper.abstract || '', ...Object.values(paper.full_text_sections || {})].join(' ').replace(/·/g, '.');
   const claimFigures = figures(claim.replace(/\[[\d,\s]+\]/g, ' ').replace(/·/g, '.'));
   const matches = closestSentences(claim, paper);
-  const hasFullText = Object.keys(paper.full_text_sections || {}).length > 0;
+  // Full text is read by the analysis but not sent to the page, so this check searches the abstract
+  const hasFullText = !!paper.full_text_source;
   return (
     <div
       role="dialog"
@@ -77,7 +78,8 @@ export default function SourceCheck({ claim, paper, onClose, onShowReference }) 
             [{paper.citation_index}] {paper.title}
           </div>
           <div className="text-xs text-slate-500">
-            {(paper.authors || [])[0] || paper.source} {paper.year || ''} · {hasFullText ? 'abstract and open-access full text' : 'abstract only'}
+            {(paper.authors || [])[0] || paper.source} {paper.year || ''} · this check searches the abstract
+            {hasFullText ? ' (the analysis also read the full text)' : ' (no full text was available)'}
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500 hover:text-slate-900 text-lg leading-none">

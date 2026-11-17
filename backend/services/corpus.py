@@ -86,8 +86,12 @@ def merge_duplicates(raw_papers: List[PaperRecord]) -> List[PaperRecord]:
                 curr.pmid = clean_pmid
             if not curr.s2_id and clean_s2:
                 curr.s2_id = clean_s2
-            if len(p.abstract or "") > len(curr.abstract or ""):
+            # A user's PDF supplies full text, but its guessed abstract never replaces a database abstract
+            from_pdf = p.source == "User PDF"
+            if len(p.abstract or "") > len(curr.abstract or "") and not (from_pdf and (curr.abstract or "").strip()):
                 curr.abstract = p.abstract
+            if p.full_text_sections and not curr.full_text_sections:
+                curr.full_text_source, curr.full_text_sections = p.full_text_source, dict(p.full_text_sections)
             if p.citation_count > curr.citation_count:
                 curr.citation_count = p.citation_count
                 curr.citation_source = p.citation_source or curr.citation_source
@@ -244,6 +248,8 @@ def replay_included(corpus: "Corpus") -> Tuple[List[PaperRecord], Optional["Sele
     if corpus.selection_method in ("systematic_prisma", "scoping") and corpus.selection_report is not None:
         chosen = apply_screening_decisions(chosen, report, corpus.selection_report.screening_decisions,
                                            corpus.study_limit, corpus.selection_report.screening_model)
+    chosen = apply_forced_includes(chosen, corpus, report)
+    attach_user_full_texts(chosen, corpus)
     return chosen, report
 
 
@@ -272,3 +278,34 @@ def derive_corpus(corpus: "Corpus", study_limit: int) -> "Corpus":
         report.screening_decisions = list(corpus.selection_report.screening_decisions)
         report.screening_model = corpus.selection_report.screening_model
     return finish_corpus(derived, papers, report)
+
+
+def apply_forced_includes(chosen: List[PaperRecord], corpus: "Corpus",
+                          report: Optional["SelectionReport"] = None) -> List[PaperRecord]:
+    """Adds the studies the user chose to include despite the criteria (each with its recorded reason), after the
+    selected ones. Applied the same way when a corpus is built and when it is replayed."""
+    from services.paper_selection import classify_study_type
+
+    have = {p.id for p in chosen}
+    by_id = {r.id: r for r in corpus.records}
+    for rid, reason in corpus.forced_includes.items():
+        if rid in have or rid not in by_id:
+            continue
+        rec = by_id[rid].model_copy(deep=True)
+        rec.study_type = rec.study_type or classify_study_type(rec)
+        rec.selection_reason = f"Included by the user despite the criteria: {reason}"
+        rec.relevance = rec.relevance if rec.relevance and rec.relevance != "off_topic" else "partly"
+        rec.citation_index = len(chosen) + 1
+        chosen.append(rec)
+        if report is not None:
+            report.included = len(chosen)
+            report.notes.append(f"Included by the user despite the eligibility criteria: \"{rec.title}\" ({reason}).")
+    return chosen
+
+
+def attach_user_full_texts(papers: List[PaperRecord], corpus: "Corpus") -> None:
+    """Puts the full text of the user's PDFs back on their studies (full text is not part of a stored record)."""
+    for p in papers:
+        ft = corpus.user_full_texts.get(p.id)
+        if ft and not p.full_text_sections:
+            p.full_text_source, p.full_text_sections = ft.get("source", ""), dict(ft.get("sections", {}))

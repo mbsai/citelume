@@ -13,9 +13,10 @@ from typing import Dict, Optional, Tuple
 
 import httpx
 
-from models import ApiKeysConfig, ReviewProtocol, SearchCount, SearchPreview
+from models import ApiKeysConfig, ManualSearch, ReviewProtocol, SearchCount, SearchPreview
 from services.pubmed_client import EUTILS_BASE, _clean_search_query, _pubmed_slot
 from services.query_planning import results_per_search
+from services.importers import manual_search_strings
 from services.review_protocol import plan_from_protocol
 from services.s2_client import S2_SEARCH_URL, _prepare_s2_phrase
 from services.source_budget import pace_semantic_scholar
@@ -136,6 +137,13 @@ async def preview_searches(protocol: ReviewProtocol, mode: str, config: ApiKeysC
                        for c in plan.question_understanding.concepts.search_concepts],
         populations_and_places=[c.name for c in plan.question_understanding.concepts.required_constraints],
     )
+    u = plan.question_understanding
+    preview.manual_searches = [ManualSearch(**m) for m in manual_search_strings(
+        [(c.name, list(c.synonyms)) for c in u.concepts.search_concepts],
+        [list(c.spellings) for c in u.concepts.required_constraints],
+        protocol.eligibility.year_from, protocol.eligibility.year_to)]
+    from services import demo_mode
+    preview.imports_allowed = not demo_mode.demo_enabled()
     if not facets:
         return preview
     core = facets[0].queries

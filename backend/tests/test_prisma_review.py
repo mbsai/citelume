@@ -222,6 +222,11 @@ class TestAiScreening(unittest.TestCase):
         self.assertEqual(len(out), 5)
         self.assertNotIn(scr.REASON_AI_SCREEN, rep.excluded)
         self.assertTrue(any("not available" in n for n in rep.notes))
+        # Every candidate counts as eligible on the word-based criteria, not only the first round of batches
+        out, rep, scr = self._run(fake, n_trials=70, limit=150)
+        self.assertEqual(len(out), 70)
+        self.assertEqual(rep.eligible, 70)
+        self.assertFalse(rep.eligible_over_limit)
 
 
 if __name__ == "__main__":

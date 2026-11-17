@@ -1,0 +1,28 @@
+FN Clarivate Analytics Web of Science
+VR 1.0
+PT J
+AU Tanaka, H
+   Sato, M
+AF Tanaka, Hiroshi
+   Sato, Mai
+TI Vitamin D supplementation and fractures in older adults: a randomised
+   trial in Japan
+SO OSTEOPOROSIS INTERNATIONAL
+PY 2019
+AB Older adults were randomly assigned to vitamin D supplementation or
+   placebo and fractures were recorded for three years.
+DI 10.1000/wos-new-1
+UT WOS:000123456700001
+ER
+
+PT J
+AU Brown, L
+TI Statin therapy after myocardial infarction in women
+SO HEART
+PY 2018
+AB Women received statins after myocardial infarction.
+DI 10.1000/wos-new-2
+UT WOS:000123456700002
+ER
+
+EF

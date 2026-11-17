@@ -1,6 +1,8 @@
 import time
 import re
 import asyncio
+import base64
+import binascii
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +27,12 @@ from models import (
     Corpus,
     CorpusSummary,
     ReselectRequest,
+    ImportRequest,
+    ImportResult,
+    ImportSummary,
+    PdfUploadRequest,
+    PdfUploadResult,
+    UserPdfSummary,
     ProtocolPreviewRequest,
     ProtocolProposeRequest,
     ReviewProtocol,
@@ -53,7 +61,16 @@ from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit
 from services.paper_selection import label_subquestions
 from services import corpus_store
-from services.corpus import derive_corpus, finish_corpus, replay_included, select_for_corpus
+from services.corpus import (
+    apply_forced_includes,
+    attach_user_full_texts,
+    derive_corpus,
+    finish_corpus,
+    replay_included,
+    select_for_corpus,
+)
+from services import importers
+from services.importers import match_pdf, parse_export, parse_pdf
 from services.review_protocol import default_protocol, plan_from_protocol, propose_protocol
 from services.search_counts import preview_searches
 from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
@@ -437,6 +454,7 @@ def _summary(run: "CorpusRun") -> CorpusSummary:
         selection_method=c.selection_method, study_limit=c.study_limit,
         eligible=run.selection_report.eligible if run.selection_report else len(run.papers),
         max_study_limit=ceiling(c.mode, c.review_framework), estimated_minutes=estimate_minutes(len(run.papers)),
+        imports=c.imports, user_pdfs=c.user_pdfs,
     )
 
 
@@ -465,6 +483,110 @@ async def preview_review_protocol(req: ProtocolPreviewRequest) -> SearchPreview:
     begin_search_budget()
     set_openalex_api_key(cfg.openalex_api_key)
     return await preview_searches(req.protocol, req.mode, cfg)
+
+
+USER_PDF_SOURCE = "Full texts supplied by the user"
+
+
+def _local_only() -> None:
+    if demo_mode.demo_enabled():
+        raise HTTPException(403, "Importing records and PDFs is available only when CiteLume runs on your own "
+                                 "computer: exports and full texts are licensed to you and are not uploaded to "
+                                 "the public demo.")
+
+
+def _decode(content_base64: str) -> bytes:
+    try:
+        return base64.b64decode(content_base64, validate=False)
+    except (ValueError, binascii.Error):
+        raise HTTPException(400, "The file could not be read.")
+
+
+@app.post("/api/imports", response_model=ImportResult)
+async def import_records(req: ImportRequest) -> ImportResult:
+    """Parses a database export (RIS, BibTeX, CSV, Web of Science or PubMed text) and holds its records until a
+    corpus is built with its import_id."""
+    _local_only()
+    try:
+        records, fmt, source = parse_export(_decode(req.content_base64), req.filename, req.source)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    key = importers.hold("export", {"records": records, "format": fmt, "source": source, "filename": req.filename,
+                                    "search_string": req.search_string.strip()})
+    return ImportResult(import_id=key, filename=req.filename, source=source, format=fmt, records=len(records),
+                        with_abstract=sum(1 for r in records if len(r.abstract) >= 20),
+                        sample_titles=[r.title for r in records[:3]])
+
+
+@app.post("/api/imports/pdf", response_model=PdfUploadResult)
+async def import_pdf(req: PdfUploadRequest) -> PdfUploadResult:
+    """Reads a PDF's text layer and holds it until a corpus is built with its pdf_id."""
+    _local_only()
+    try:
+        record = parse_pdf(_decode(req.content_base64), req.filename)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    key = importers.hold("pdf", {"record": record, "filename": req.filename})
+    return PdfUploadResult(pdf_id=key, filename=req.filename, title=record.title, doi=record.doi or "",
+                           year=record.year, text_characters=sum(len(v) for v in record.full_text_sections.values()),
+                           sections=sorted(record.full_text_sections))
+
+
+def _user_material(req: SearchRequest, raw: List[PaperRecord], source_stats: Dict[str, int]):
+    """Adds the user's held exports and PDFs to the raw records. Returns the import summaries, the PDF records,
+    their summaries and the PDFs to include regardless of the criteria."""
+    if not (req.import_ids or req.user_pdfs):
+        return [], [], [], {}
+    _local_only()
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    imports: List[ImportSummary] = []
+    for key in req.import_ids:
+        batch = importers.held(key, "export")
+        if batch is None:
+            raise HTTPException(400, "An imported file has expired; upload it again.")
+        recs = [r.model_copy(deep=True) for r in batch["records"]]
+        raw.extend(recs)
+        label = f"{batch['source']} (imported by the user)"
+        source_stats[label] = source_stats.get(label, 0) + len(recs)
+        imports.append(ImportSummary(source=batch["source"], format=batch["format"], filename=batch["filename"],
+                                     records=len(recs), search_string=batch["search_string"], imported_at=now))
+    pdf_records, summaries, forced = [], [], {}
+    for choice in req.user_pdfs:
+        held_pdf = importers.held(choice.pdf_id, "pdf")
+        if held_pdf is None:
+            raise HTTPException(400, "An uploaded PDF has expired; upload it again.")
+        rec = held_pdf["record"].model_copy(deep=True)
+        match = match_pdf(rec, raw, " ".join(rec.full_text_sections.values())[:3000] + " " + rec.title)
+        if match is not None:
+            # Same DOI and title as the searched record, so the two are merged and the full text joins it
+            rec.doi, rec.title = match.doi or rec.doi, match.title
+        else:
+            source_stats[USER_PDF_SOURCE] = source_stats.get(USER_PDF_SOURCE, 0) + 1
+        raw.append(rec)
+        pdf_records.append(rec)
+        summaries.append(UserPdfSummary(filename=held_pdf["filename"], title=rec.title,
+                                        matched_record_id=match.id if match is not None else "",
+                                        force_include=choice.force_include, reason=choice.reason.strip()))
+        if choice.force_include:
+            if not choice.reason.strip():
+                raise HTTPException(400, f"Give a reason for including \"{held_pdf['filename']}\" regardless of the criteria.")
+            forced[len(pdf_records) - 1] = choice.reason.strip()
+    return imports, pdf_records, summaries, forced
+
+
+def _record_user_pdfs(corpus: Corpus, pdf_records: List[PaperRecord], summaries: List[UserPdfSummary],
+                      forced: Dict[int, str]) -> None:
+    """Finds which merged study each PDF became, keeps its full text with the corpus, and records forced
+    inclusions by study id."""
+    for i, rec in enumerate(pdf_records):
+        merged = match_pdf(rec, corpus.records) or next((r for r in corpus.records if r.id == rec.id), None)
+        if merged is None:
+            continue
+        summaries[i].record_id = merged.id
+        corpus.user_full_texts[merged.id] = {"source": rec.full_text_source, "sections": dict(rec.full_text_sections)}
+        if i in forced:
+            corpus.forced_includes[merged.id] = forced[i]
+    corpus.user_pdfs = summaries
 
 
 @app.post("/api/corpus", response_model=CorpusSummary)
@@ -735,6 +857,10 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
                 all_raw_papers.extend(sb)
                 source_stats["Semantic Scholar"] = source_stats.get("Semantic Scholar", 0) + len(sb)
 
+    # What the user brought (local installs only): exported records and PDFs join the pool before duplicates are
+    # merged, so they pass the same eligibility and scoring as searched records
+    imports, pdf_records, pdf_summaries, forced_keys = _user_material(req, all_raw_papers, source_stats)
+
     # ROUND 3: Verification, Deduplication & Multi-Criteria Study Selection
     _report_stage(req, 3, f"{len(all_raw_papers)} candidate records harvested")
     # Scored against the question plus the rule-based parse's key terms (not the model's plan)
@@ -756,6 +882,11 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     if method != "narrative" and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
         ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
+    # The user's material: which merged study each PDF became, its full text, and studies included by the user
+    corpus.imports = imports
+    _record_user_pdfs(corpus, pdf_records, pdf_summaries, forced_keys)
+    ranked_papers = apply_forced_includes(ranked_papers, corpus, selection_report)
+    attach_user_full_texts(ranked_papers, corpus)
     # The corpus: the records, the inputs and the decisions, so the selection can be audited and replayed
     corpus.mode, corpus.review_framework, corpus.organization = req.mode, req.review_framework, req.organization
     corpus.year_from, corpus.year_to = req.year_from, req.year_to
@@ -916,7 +1047,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
     enabled_sources = [
         name for name, on in (("PubMed", cfg.enable_pubmed), ("arXiv", cfg.enable_arxiv),
                               ("bioRxiv", cfg.enable_biorxiv), ("Semantic Scholar", cfg.enable_s2)) if on
-    ]
+    ] + [k for k in source_stats if k.endswith("(imported by the user)") or k == USER_PDF_SOURCE]
     review_protocol = build_review_protocol_report(
         framework_id=req.review_framework,
         organization_id=req.organization,
@@ -932,6 +1063,9 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         constraint_excluded=dedup_stats.get("constraint_excluded", 0),
         selection_report=selection_report,
     )
+    for imp in corpus.imports:
+        if imp.search_string:
+            review_protocol.search_strategies[f"{imp.source} (run by the user, {imp.imported_at[:10]})"] = [imp.search_string]
     if req.mode == "deep_research" and req.review_framework == "systematic_prisma" and selection_report and ranked_papers:
         # PRISMA 2020 reporting order: structured abstract, computed Methods and descriptive Results around the
         # model-written Introduction, syntheses and Discussion

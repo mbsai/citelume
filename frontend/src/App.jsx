@@ -404,7 +404,7 @@ export default function App() {
 
   // A quick answer searches and analyses in one call. A guided review first builds the corpus (search and
   // selection, no model), then asks how many of the eligible studies to analyse.
-  const handleSearch = async (protocol = null) => {
+  const handleSearch = async (protocol = null, extras = {}) => {
     if (!query.trim() || !queryLooksSearchable()) return;
     const pid = startRun();
     const request = {
@@ -418,6 +418,8 @@ export default function App() {
       review_framework: mode === 'deep_research' ? (protocol?.review_type || reviewFramework) : 'narrative',
       organization: mode === 'deep_research' ? (protocol?.organization || organization) : 'thematic',
       protocol,
+      import_ids: extras.import_ids || [],
+      user_pdfs: extras.user_pdfs || [],
     };
     try {
       if (mode === 'deep_research' && protocol) {
@@ -820,7 +822,7 @@ export default function App() {
               hasLlm={hasLlm}
               running={loading}
               onCancel={() => setGuidedOpen(false)}
-              onRun={(protocol) => handleSearch(protocol)}
+              onRun={(protocol, extras) => handleSearch(protocol, extras)}
             />
           )}
 
