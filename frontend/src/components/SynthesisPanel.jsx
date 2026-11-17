@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
 import { downloadReportFromServer } from '../utils/api';
+import ProtocolCard from './ProtocolCard';
+import SourceCheck from './SourceCheck';
 
+// Each citation button passes the sentence it sits in, so the claim can be checked against the cited study
 function renderCitationsOnly(text, onCitationClick, keyPrefix) {
-  const parts = text.split(/(\[\d+(?:,\s*\d+)*\])/g);
+  return text.split(/(?<=[.!?])(\s+)/).map((sentence, si) => (
+    <React.Fragment key={`${keyPrefix}-s${si}`}>
+      {renderSentenceCitations(sentence, onCitationClick, `${keyPrefix}-s${si}`)}
+    </React.Fragment>
+  ));
+}
+
+function renderSentenceCitations(sentence, onCitationClick, keyPrefix) {
+  const parts = sentence.split(/(\[\d+(?:,\s*\d+)*\])/g);
   return parts.map((part, i) => {
     const idx = `${keyPrefix}-${i}`;
     const match = part.match(/^\[(\d+(?:,\s*\d+)*)\]$/);
@@ -13,9 +24,9 @@ function renderCitationsOnly(text, onCitationClick, keyPrefix) {
           {nums.map((num) => (
             <button
               key={num}
-              onClick={() => onCitationClick && onCitationClick(num)}
+              onClick={() => onCitationClick && onCitationClick(num, sentence.trim())}
               className="px-1.5 py-0.5 text-[11px] font-mono font-semibold rounded bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
-              title={`Jump to Reference [${num}]`}
+              title={`Check this against study [${num}]`}
             >
               [{num}]
             </button>
@@ -363,6 +374,7 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
   const [bibStyle, setBibStyle] = useState('apa');
   const [exportingFormat, setExportingFormat] = useState('');
   const [highlightedRef, setHighlightedRef] = useState(null);
+  const [sourceCheck, setSourceCheck] = useState(null);
   const [showDecomposition, setShowDecomposition] = useState(false);
   const [exportOpts, setExportOpts] = useState({
     include_evidence_table: true,
@@ -393,14 +405,24 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
     }
   };
 
-  const handleCitationClick = (idx) => {
+  const showReference = (idx) => {
     setHighlightedRef(idx);
     const el = document.getElementById(`bib-entry-${idx}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  };
+
+  // A citation opens the source check for the sentence it sits in; without a sentence it goes to the reference
+  const handleCitationClick = (idx, sentence) => {
     const paper = (data.papers || []).find((p) => p.citation_index === idx);
     if (paper && onSelectPaper) onSelectPaper(paper);
+    if (paper && sentence) {
+      setHighlightedRef(idx);
+      setSourceCheck({ idx, sentence });
+    } else {
+      showReference(idx);
+    }
   };
 
   const toggleExportOpt = (key) => {
@@ -599,7 +621,22 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
         ))}
       </div>
 
+      <ProtocolCard protocol={data.protocol} />
+
       <ReviewProtocolPanel protocol={data.review_protocol} />
+
+      {sourceCheck && (
+        <SourceCheck
+          claim={sourceCheck.sentence}
+          paper={(data.papers || []).find((p) => p.citation_index === sourceCheck.idx)}
+          onClose={() => setSourceCheck(null)}
+          onShowReference={() => {
+            const idx = sourceCheck.idx;
+            setSourceCheck(null);
+            showReference(idx);
+          }}
+        />
+      )}
 
       {/* Mandatory Bibliography at the End of the Answer */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">

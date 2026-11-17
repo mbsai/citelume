@@ -1,6 +1,45 @@
 import datetime
 from typing import List, Optional, Tuple
-from models import ExportRequest, ReviewProtocolReport, SelectionReport
+from models import ExportRequest, ReviewProtocol, ReviewProtocolReport, SelectionReport
+
+ROLE_LABELS = {"population": "Population", "intervention": "Intervention", "exposure": "Exposure",
+               "comparison": "Comparison", "outcome": "Outcome", "topic": "Topic", "method": "Method"}
+REVIEWS_POLICY = {"default": "excluded in a systematic-style review, included otherwise", "include": "included",
+                  "exclude": "excluded"}
+
+
+def protocol_lines(protocol: Optional[ReviewProtocol]) -> List[str]:
+    """Plain-text lines for the review protocol: what was decided before searching, and by whom."""
+    if protocol is None:
+        return []
+    from services.paper_selection import STUDY_TYPE_LABELS
+
+    def who(set_by: str) -> str:
+        return {"user": " (set by the user)", "suggestion": " (model suggestion accepted by the user)"}.get(set_by, "")
+
+    e = protocol.eligibility
+    years = f"{e.year_from or 'earliest'} to {e.year_to or 'latest'}" if (e.year_from or e.year_to) else "no limit"
+    designs = ", ".join(STUDY_TYPE_LABELS.get(d, d) for d in e.study_designs) or "all designs"
+    lines = [
+        f"Question: {protocol.question}",
+        f"Review type: {protocol.review_type.replace('systematic_prisma', 'systematic-style (PRISMA 2020)')}. "
+        f"{protocol.review_type_reason}",
+        "Concepts (every included study must match each, except comparisons):",
+    ]
+    lines += [f"- {ROLE_LABELS.get(c.role, c.role)}: {c.name}" + (" [main topic]" if c.main else "")
+              + (f"; also searched as: {', '.join(c.synonyms)}" if c.synonyms else "") + who(c.set_by)
+              for c in protocol.concepts]
+    if protocol.populations_and_places:
+        lines.append("Populations and places every study must name:")
+        lines += [f"- {c.name} ({', '.join(c.spellings)})" + who(c.set_by) for c in protocol.populations_and_places]
+    if protocol.aspects:
+        lines.append("Aspects searched separately: " + "; ".join(a.label + who(a.set_by) for a in protocol.aspects))
+    changed = (f" (changed by the user: {', '.join(e.changed_by_user)})" if e.changed_by_user else "")
+    lines.append(f"Eligibility: study designs: {designs}; publication years: {years}; reviews: "
+                 f"{REVIEWS_POLICY.get(e.reviews, e.reviews)}{changed}.")
+    if protocol.accepted_defaults:
+        lines.append("The user accepted the proposed protocol without changes.")
+    return lines
 
 
 def selection_report_lines(report: Optional[SelectionReport], papers=None) -> List[str]:
@@ -298,6 +337,12 @@ def generate_markdown_report(req: ExportRequest) -> str:
             )
         lines.append("")
 
+    if req.protocol:
+        lines.append("## Review Protocol")
+        lines.append("")
+        lines.extend(f"{ln}  " for ln in protocol_lines(req.protocol))
+        lines.append("")
+
     if req.selection_report and req.selection_report.included:
         lines.append("## How the Studies Were Chosen")
         lines.append("")
@@ -391,6 +436,11 @@ def generate_txt_report(req: ExportRequest) -> str:
         lines.extend(["HUGGING FACE MODELS & DATASETS", subsep, ""])
         for hf in req.hf_resources[:12]:
             lines.append(f"* {hf.id} ({hf.resource_type.upper()} | {hf.pipeline_tag} | {hf.downloads:,} downloads): {hf.url}")
+        lines.append("")
+
+    if req.protocol:
+        lines.extend(["REVIEW PROTOCOL", subsep, ""])
+        lines.extend(protocol_lines(req.protocol))
         lines.append("")
 
     if req.selection_report and req.selection_report.included:

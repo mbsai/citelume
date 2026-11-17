@@ -23,7 +23,8 @@ from services.source_health import retrying_transport
 
 EPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 ARXIV_API = "https://export.arxiv.org/api/query"
-COUNT_TIMEOUT_S = 12.0
+COUNT_TIMEOUT_S = 10.0
+COUNT_DEADLINE_S = 15.0   # the longest a preview waits for any one database
 CACHE_SECONDS = 600
 _CACHE: Dict[Tuple, Tuple[float, SearchCount]] = {}
 
@@ -64,7 +65,7 @@ async def count_pubmed(query: str, api_key: str, y1: Optional[int], y2: Optional
             params["api_key"] = api_key.strip()
         try:
             async with _pubmed_slot(bool(api_key.strip())), \
-                    httpx.AsyncClient(transport=retrying_transport(), timeout=COUNT_TIMEOUT_S) as client:
+                    httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=COUNT_TIMEOUT_S) as client:
                 r = await client.get(f"{EUTILS_BASE}/esearch.fcgi", params=params)
                 r.raise_for_status()
                 return SearchCount(source="PubMed", query=term, count=int(r.json()["esearchresult"]["count"]))
@@ -84,7 +85,7 @@ async def count_semantic_scholar(query: str, api_key: str, y1: Optional[int], y2
         if _years(y1, y2):
             params["year"] = _years(y1, y2)
         try:
-            async with httpx.AsyncClient(transport=retrying_transport(), timeout=COUNT_TIMEOUT_S,
+            async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=COUNT_TIMEOUT_S,
                                          headers=headers) as client:
                 await pace_semantic_scholar("x-api-key" in headers)
                 r = await client.get(S2_SEARCH_URL, params=params)
@@ -101,7 +102,7 @@ async def count_preprints(phrase: str, y1: Optional[int], y2: Optional[int]) -> 
 
     async def fetch() -> SearchCount:
         try:
-            async with httpx.AsyncClient(transport=retrying_transport(), timeout=COUNT_TIMEOUT_S) as client:
+            async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=COUNT_TIMEOUT_S) as client:
                 r = await client.get(EPMC_SEARCH_URL, params={"query": q, "pageSize": "1", "format": "json"})
                 r.raise_for_status()
                 return SearchCount(source="bioRxiv / medRxiv (via Europe PMC)", query=q,
@@ -115,7 +116,7 @@ async def count_preprints(phrase: str, y1: Optional[int], y2: Optional[int]) -> 
 async def count_arxiv(query: str) -> SearchCount:
     async def fetch() -> SearchCount:
         try:
-            async with httpx.AsyncClient(transport=retrying_transport(), timeout=COUNT_TIMEOUT_S) as client:
+            async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=COUNT_TIMEOUT_S) as client:
                 r = await client.get(ARXIV_API, params={"search_query": query, "max_results": "0"})
                 r.raise_for_status()
                 m = re.search(r"<opensearch:totalResults[^>]*>(\d+)<", r.text)
@@ -148,7 +149,17 @@ async def preview_searches(protocol: ReviewProtocol, mode: str, config: ApiKeysC
         tasks.append(count_preprints(core.biorxiv_medrxiv[0], y1, y2))
     if config.enable_arxiv and core.arxiv:
         tasks.append(count_arxiv(core.arxiv))
-    counts = list(await asyncio.gather(*tasks))
+    async def within_limit(task, source: str) -> SearchCount:
+        # A preview must answer quickly: a database that is slow or limiting requests is reported as such
+        try:
+            return await asyncio.wait_for(task, timeout=COUNT_DEADLINE_S)
+        except asyncio.TimeoutError:
+            return SearchCount(source=source, note="Count not available: the database did not reply in time")
+
+    sources = ["PubMed", "Semantic Scholar", "bioRxiv / medRxiv (via Europe PMC)", "arXiv"]
+    names = [n for n, on in zip(sources, [config.enable_pubmed and core.pubmed, config.enable_s2 and core.semantic_scholar,
+                                         config.enable_biorxiv and core.biorxiv_medrxiv, config.enable_arxiv and core.arxiv]) if on]
+    counts = list(await asyncio.gather(*[within_limit(t, n) for t, n in zip(tasks, names)]))
     per_db = results_per_search(mode, "core", protocol.review_type == "systematic_prisma")
     for c in counts:
         if c.count is not None and not c.note:

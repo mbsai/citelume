@@ -19,6 +19,35 @@ export async function runLiteratureSearch(payload) {
   return response.json();
 }
 
+async function postJson(path, payload, label) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    let detail = errText;
+    try {
+      detail = JSON.parse(errText).detail || errText;
+    } catch (_) {}
+    if ([400, 429, 503].includes(response.status) && typeof detail === 'string') throw new Error(detail);
+    throw new Error(`${label} failed (${response.status})`);
+  }
+  return response.json();
+}
+
+// The default review protocol for a question (purpose: 'effect' | 'map' | 'overview'); with suggest, the model's
+// extra synonyms and aspects come back as suggestions
+export function proposeProtocol(payload) {
+  return postJson('/api/protocol/propose', payload, 'Setting up the review');
+}
+
+// The search strings a protocol will run, and how many records each database holds for the core search
+export function previewProtocol(payload) {
+  return postJson('/api/protocol/preview', payload, 'Search preview');
+}
+
 export async function fetchDemoStatus() {
   try {
     const response = await fetch(`${API_BASE}/api/demo-status`);
@@ -112,6 +141,7 @@ export async function downloadReportFromServer(format, researchData, exportOptio
     hf_resources: researchData.hf_resources || [],
     review_protocol: researchData.review_protocol || null,
     selection_report: researchData.selection_report || null,
+    protocol: researchData.protocol || null,
     evidence_matrix: researchData.evidence_matrix || null,
     include_evidence_table: exportOptions.include_evidence_table !== false,
     include_gap_matrix: exportOptions.include_gap_matrix !== false,

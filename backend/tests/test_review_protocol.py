@@ -51,7 +51,10 @@ class TestDefaultProtocol(unittest.TestCase):
                                  [f.queries.model_dump() for f in b.search_facets], (q, mode))
 
     def test_running_with_the_default_protocol_changes_nothing(self):
+        # "deep_research" is the guided review with every proposed setting accepted: it must give today's Deep
+        # Research output
         for case, (mode, framework) in {"standard": ("standard", "narrative"),
+                                        "deep_research": ("deep_research", "narrative"),
                                         "prisma": ("deep_research", "systematic_prisma")}.items():
             result = run_with(protocol_for(mode, framework), mode, framework)
             self.assertEqual(golden.snapshot(result), GOLDEN[case], case)
@@ -152,6 +155,30 @@ class TestEditedProtocol(unittest.TestCase):
             self.assertEqual(self.ids(result), GOLDEN["standard"]["included_ids"])
         finally:
             set_test_llm_responder(None)
+
+
+class TestProtocolInResultsAndExports(unittest.TestCase):
+    def test_results_and_every_export_carry_the_protocol(self):
+        import io
+        from pypdf import PdfReader
+        from models import ExportRequest
+        from services.export_service import generate_markdown_report, generate_txt_report
+        from services.pdf_report import generate_pdf_report
+
+        p = protocol_for("deep_research")
+        p.eligibility.study_designs, p.eligibility.changed_by_user = ["rct"], ["study_designs"]
+        p.concepts[0].synonyms, p.concepts[0].set_by = ["cholecalciferol"], "suggestion"
+        result = run_with(p, "deep_research")
+        self.assertEqual(result.protocol.eligibility.study_designs, ["rct"])
+        fields = {k: v for k, v in result.model_dump().items() if k in ExportRequest.model_fields}
+        req = ExportRequest(**{**fields, "format": "md"})
+        md, txt = generate_markdown_report(req), generate_txt_report(req)
+        pdf = "\n".join(pg.extract_text() for pg in PdfReader(io.BytesIO(generate_pdf_report(req))).pages)
+        for text in (md, txt, pdf):
+            self.assertIn("Review Protocol".upper() if text is txt else "Review Protocol", text)
+            self.assertIn("Randomised controlled trial", text)
+            self.assertIn("cholecalciferol", text)
+            self.assertIn("model suggestion accepted by the user", text)
 
 
 class TestSuggestionsAndEndpoints(unittest.TestCase):

@@ -1938,6 +1938,7 @@ class ExportRequest(BaseModel):
     hf_resources: List[HFResourceRecord] = Field(default_factory=list)
     review_protocol: Optional["ReviewProtocolReport"] = None
     selection_report: Optional["SelectionReport"] = None
+    protocol: Optional["ReviewProtocol"] = None
     include_evidence_table: bool = True
     include_gap_matrix: bool = True
     include_network_summary: bool = True
@@ -2082,6 +2083,8 @@ class ResearchResponse(BaseModel):
     # The stored corpus this result was built from (GET /api/corpus/{id}); empty if it was not stored
     corpus_id: str = ""
     corpus_hash: str = ""
+    # The review protocol the searches and selection followed
+    protocol: Optional["ReviewProtocol"] = None
 
 
 # SearchRequest refers to DomainCategoryType, which is defined further down this module

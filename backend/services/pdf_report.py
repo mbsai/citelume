@@ -42,6 +42,7 @@ from services.export_service import (
     _gap_text_items,
     _is_prisma,
     gap_status_label,
+    protocol_lines,
     review_protocol_lines,
     risk_of_bias_domains,
     risk_of_bias_rows,
@@ -605,6 +606,8 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
                 f"<b>{_clean(hf.id)}</b> ({_clean(hf.resource_type)}, {_clean(hf.pipeline_tag)}, "
                 f"{hf.downloads:,} downloads): {_rich(hf.description)}", st["bullet"], bulletText="•"))
 
+    if req.protocol:
+        story += _lines_section("Review Protocol", protocol_lines(req.protocol), st)
     if req.selection_report and req.selection_report.included:
         story += _lines_section("How the Studies Were Chosen", selection_report_lines(req.selection_report, req.papers), st)
     if req.review_protocol:

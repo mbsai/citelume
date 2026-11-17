@@ -937,6 +937,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         selection_report=selection_report,
         corpus_id=corpus.corpus_id,
         corpus_hash=corpus.content_hash,
+        protocol=corpus.protocol,
     )
     # Kept with the corpus so the module endpoints can return their part without running the models again
     corpus.analysis = result.model_copy(deep=True)

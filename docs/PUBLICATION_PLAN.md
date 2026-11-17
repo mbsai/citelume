@@ -5,7 +5,9 @@ tools and benchmarks. It follows `docs/HANDOFF.md` and the decision to build the
 session below is sized for one working session and ends with a "done when" check. Start a session by reading this
 file and `docs/HANDOFF.md`.
 
-**Progress:** Sessions 1-3 and 3b done 17 Nov 2026. Next: Session 3c (guided review page).
+**Progress:** Sessions 1-3, 3b and 3c done 17 Nov 2026. Next: Session 3d (imports and user PDFs).
+Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
+the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
 on the extraction and claims the synthesis run produces; the map can be built from a corpus alone. The evidence-table
 endpoint does not yet accept a user-supplied list of studies.

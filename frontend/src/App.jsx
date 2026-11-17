@@ -8,6 +8,7 @@ import HuggingFacePanel from './components/HuggingFacePanel';
 import { ResultsCards, ResultsTabStrip } from './components/ResultsNav';
 import SelectionPanel from './components/SelectionPanel';
 import { runLiteratureSearch, fetchSearchProgress, fetchModelScale, fetchDemoStatus } from './utils/api';
+import GuidedReview from './components/GuidedReview';
 
 // Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
 // Bump CONFIG_VERSION when the default LLM changes, so saved settings that were never set by hand move to it.
@@ -147,7 +148,7 @@ function DeepResearchModelNote({ model, hasLlm, scale, override, onOverride }) {
       }`}
     >
       <p>
-        <span className="font-semibold">Deep Research writes a long academic review (2,500+ words) from up to 60 studies.</span>{' '}
+        <span className="font-semibold">The guided review writes a long academic review (2,500+ words) from up to 60 studies.</span>{' '}
         Use a large model with a long context window: Claude Sonnet/Opus, GPT-4o/4.1, Gemini 2.5 Pro, DeepSeek V3/R1,
         Llama 3.3 70B, Qwen 2.5 72B, or the free NVIDIA Nemotron Super/Ultra on OpenRouter.
       </p>
@@ -155,7 +156,7 @@ function DeepResearchModelNote({ model, hasLlm, scale, override, onOverride }) {
       {hasLlm && scale.tier === 'small' && (
         <div className="mt-1.5 space-y-1">
           <p className="font-semibold">
-            Your current model ({model}, {scale.reason}) is small for Deep Research: expect a shorter, less detailed review.
+            Your current model ({model}, {scale.reason}) is small for the guided review: expect a shorter, less detailed review.
           </p>
           <label className="inline-flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" checked={override} onChange={(e) => onOverride(e.target.checked)} />
@@ -201,7 +202,7 @@ function DemoBanner({ demo, hasOwnKey, onOpenConfig }) {
         <div>
           Runs on NVIDIA's free models via OpenRouter. Left today from this address:{' '}
           <strong>{r.standard ?? 0} of {l.standard ?? 3} Standard</strong> and{' '}
-          <strong>{r.deep_research ?? 0} of {l.deep_research ?? 1} Deep Research</strong> (resets {demo.resets || '00:00 UTC'}).{' '}
+          <strong>{r.deep_research ?? 0} of {l.deep_research ?? 1} guided review{(l.deep_research ?? 1) === 1 ? '' : 's'}</strong> (resets {demo.resets || '00:00 UTC'}).{' '}
           <button type="button" onClick={onOpenConfig} className="underline font-medium">Add your own LLM key</button> for unlimited use.
         </div>
       )}
@@ -223,6 +224,8 @@ export default function App() {
   // Deep Research model check: scale of the configured model, and the user's explicit override for small models
   const [modelScale, setModelScale] = useState({ tier: 'unknown', reason: '' });
   const [deepOverride, setDeepOverride] = useState(false);
+  // The guided review's set-up steps (shown instead of searching straight away)
+  const [guidedOpen, setGuidedOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('synthesis');
   // Search options (field, review type, sources) fold away once results are on screen
   const [optionsOpen, setOptionsOpen] = useState(true);
@@ -336,14 +339,29 @@ export default function App() {
     }
   };
 
-  const handleSearch = async (e) => {
-    if (e) e.preventDefault();
-    if (!query.trim()) return;
+  const queryLooksSearchable = () => {
     // A topic needs at least two letters; the server gives fuller advice for vaguer queries
     if (!/\p{L}{2,}/u.test(query) && !/\d{4,}/.test(query)) {
       setError('Please type a research topic, for example "statins after myocardial infarction", or paste a DOI or PubMed link.');
+      return false;
+    }
+    return true;
+  };
+
+  // Quick answer: search straight away. Guided review: open the set-up steps first.
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!query.trim() || !queryLooksSearchable()) return;
+    if (mode === 'deep_research') {
+      setError('');
+      setGuidedOpen(true);
       return;
     }
+    handleSearch();
+  };
+
+  const handleSearch = async (protocol = null) => {
+    if (!query.trim() || !queryLooksSearchable()) return;
     const pid = `search_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     setProgressId(pid);
     setLoading(true);
@@ -356,10 +374,12 @@ export default function App() {
         config,
         progress_id: pid,
         domain: domain || null,
-        // Review types apply to Deep Research; Standard keeps the default narrative, thematic synthesis
-        review_framework: mode === 'deep_research' ? reviewFramework : 'narrative',
-        organization: mode === 'deep_research' ? organization : 'thematic',
+        // Review types apply to the guided review (from its protocol); a quick answer is narrative and thematic
+        review_framework: mode === 'deep_research' ? (protocol?.review_type || reviewFramework) : 'narrative',
+        organization: mode === 'deep_research' ? (protocol?.organization || organization) : 'thematic',
+        protocol,
       });
+      setGuidedOpen(false);
       setResult(data);
       setActiveTab('synthesis');
       setOptionsOpen(false);
@@ -565,7 +585,7 @@ export default function App() {
                             : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                         }`}
                       >
-                        {item.mode === 'deep_research' ? 'Deep (≤60)' : 'Standard (≤20)'}
+                        {item.mode === 'deep_research' ? 'Guided (≤60)' : 'Quick (≤20)'}
                       </span>
                       <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
                         {item.paperCount} papers
@@ -588,7 +608,7 @@ export default function App() {
         <main className="lg:col-span-9 space-y-6">
           {/* Query Box & Mode Selector */}
           <form
-            onSubmit={handleSearch}
+            onSubmit={handleSubmit}
             className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4"
           >
             <DemoBanner demo={demo} hasOwnKey={!!config.llm_api_key} onOpenConfig={() => setConfigOpen(true)} />
@@ -596,22 +616,25 @@ export default function App() {
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setGuidedOpen(false); // a changed question needs a new protocol
+                }}
                 placeholder="Ask a research question, list keywords, or paste a DOI / PubMed / arXiv link..."
                 className="flex-1 bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-3 text-sm text-slate-900 outline-none transition"
               />
               <button
                 type="submit"
                 disabled={loading || deepBlocked}
-                title={deepBlocked ? 'Deep Research needs a larger model - see the note below, or tick "Run anyway"' : undefined}
+                title={deepBlocked ? 'The guided review needs a larger model - see the note below, or tick "Run anyway"' : undefined}
                 className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold text-sm shadow-sm transition shrink-0"
               >
                 {loading
                   ? mode === 'deep_research'
-                    ? 'Running Deep Review (≤60 Papers)...'
+                    ? 'Running the guided review (≤60 studies)...'
                     : 'Synthesizing (≤20 Papers)...'
                   : mode === 'deep_research'
-                  ? 'Run Deep Research Review (Up to 60 Papers)'
+                  ? 'Set up the guided review (up to 60 studies)'
                   : 'Synthesize & Map Literature (Up to 20 Papers)'}
               </button>
             </div>
@@ -619,7 +642,7 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               {/* Mode Toggle: Standard (max 20) vs Deep Research (max 60) */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">Synthesis Depth:</span>
+                <span className="text-xs text-slate-500 font-medium">Review:</span>
                 <button
                   type="button"
                   onClick={() => setMode('standard')}
@@ -629,19 +652,23 @@ export default function App() {
                       : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
                   }`}
                 >
-                  ⚡ Standard Synthesis (Max 20 Papers)
+                  ⚡ Quick answer (up to 20 studies)
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('deep_research')}
+                  aria-describedby="guided-review-hint"
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
                     mode === 'deep_research'
                       ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
                   }`}
                 >
-                  🔬 Deep Research Literature Review (Up to 60 Papers)
+                  🧭 Guided review (up to 60 studies)
                 </button>
+                <span id="guided-review-hint" className="sr-only">
+                  Set the purpose, the parts of the question and the eligibility criteria before searching
+                </span>
               </div>
 
               {result && (
@@ -684,34 +711,6 @@ export default function App() {
                     ))}
                   </select>
                 </label>
-                {mode === 'deep_research' && (
-                  <>
-                    <label className="inline-flex items-center gap-1.5">
-                      <span className="text-slate-500 font-medium">Review type:</span>
-                      <select
-                        value={reviewFramework}
-                        onChange={(e) => setReviewFramework(e.target.value)}
-                        className="bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-800"
-                      >
-                        {REVIEW_FRAMEWORK_OPTIONS.map(([val, label]) => (
-                          <option key={val} value={val}>{label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="inline-flex items-center gap-1.5">
-                      <span className="text-slate-500 font-medium">Organise findings:</span>
-                      <select
-                        value={organization}
-                        onChange={(e) => setOrganization(e.target.value)}
-                        className="bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-800"
-                      >
-                        {ORGANIZATION_OPTIONS.map(([val, label]) => (
-                          <option key={val} value={val}>{label}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </>
-                )}
               </div>
 
               {mode === 'deep_research' && (
@@ -767,6 +766,18 @@ export default function App() {
             </div>
           </form>
 
+          {guidedOpen && mode === 'deep_research' && !loading && (
+            <GuidedReview
+              query={query.trim()}
+              domain={domain}
+              config={config}
+              hasLlm={hasLlm}
+              running={loading}
+              onCancel={() => setGuidedOpen(false)}
+              onRun={(protocol) => handleSearch(protocol)}
+            />
+          )}
+
           {/* Live Progress Indicator driven by the backend's reported pipeline stage */}
           {loading && (
             <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-5 shadow-sm space-y-3">
@@ -776,7 +787,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
                       {mode === 'deep_research'
-                        ? 'Deep Research Literature Review Running (Up to 60 Papers)...'
+                        ? 'Guided Review Running (Up to 60 Studies)...'
                         : 'Standard Literature Synthesis Running (Up to 20 Papers)...'}
                     </span>
                     <span className="text-[11px] font-mono text-indigo-600 font-semibold">
