@@ -76,6 +76,9 @@ class SearchRequest(BaseModel):
     # Deep Research review type: how the review is reported, and how its findings section is organised
     review_framework: Literal["narrative", "systematic_prisma", "scoping"] = "narrative"
     organization: Literal["thematic", "chronological", "methodological", "theoretical"] = "thematic"
+    # A review protocol (POST /api/protocol/propose, then edited by the user). When given, it drives the searches
+    # and selection, its review type and years replace the fields above, and no model plans the searches.
+    protocol: Optional["ReviewProtocol"] = None
 
 
 class ExpandNodeRequest(BaseModel):
@@ -154,6 +157,9 @@ class SearchConcept(BaseModel):
     """A concept every search requires, with the other names it goes by."""
     name: str
     synonyms: List[str] = Field(default_factory=list)
+    # Set by a review protocol: True for the concept(s) that are the main topic. None = decided from the question's
+    # wording (concepts listed side by side at the start are the main topic)
+    main: Optional[bool] = None
 
 
 class SearchAspect(BaseModel):
@@ -1719,6 +1725,109 @@ class KnowledgeGapMatrix(BaseModel):
     disclosures: List[str] = Field(default_factory=list)
 
 
+# ============================================================================
+# Review protocol: the user's decisions, recorded before any search runs (services/review_protocol.py)
+# ============================================================================
+SetBy = Literal["default", "user", "suggestion"]
+
+
+class ProtocolConcept(BaseModel):
+    """A part of the question. Concepts are searched for and matched in every study, except comparisons, which
+    are recorded only (studies rarely name the comparator in a searchable way)."""
+    role: Literal["population", "intervention", "exposure", "comparison", "outcome", "topic", "method"] = "topic"
+    name: str
+    synonyms: List[str] = Field(default_factory=list)
+    main: bool = False
+    set_by: SetBy = "default"
+
+
+class ProtocolConstraint(BaseModel):
+    """A population or place every included study must name (in the title or abstract)."""
+    kind: Literal["population", "place"] = "population"
+    name: str
+    spellings: List[str] = Field(default_factory=list)
+    set_by: SetBy = "default"
+
+
+class ProtocolAspect(BaseModel):
+    """An angle of the question that gets its own search (widens the search; not required in studies)."""
+    label: str
+    terms: List[str] = Field(default_factory=list)
+    question: str = ""
+    set_by: SetBy = "default"
+
+
+class EligibilityCriteria(BaseModel):
+    # Study type keys (services/paper_selection.STUDY_TYPE_LABELS); empty = every design
+    study_designs: List[str] = Field(default_factory=list)
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+    # "default": excluded in a systematic-style review, included otherwise
+    reviews: Literal["default", "include", "exclude"] = "default"
+    # Which of the fields above the user changed
+    changed_by_user: List[str] = Field(default_factory=list)
+
+
+class ProtocolSuggestion(BaseModel):
+    """Something the model proposed. Never applied automatically: the user accepts or ignores it."""
+    kind: Literal["synonym", "concept", "aspect"] = "synonym"
+    concept: str = ""
+    value: str = ""
+    terms: List[str] = Field(default_factory=list)
+
+
+class ReviewProtocol(BaseModel):
+    protocol_version: str = "citelume-protocol/1.0"
+    question: str
+    review_type: Literal["narrative", "systematic_prisma", "scoping"] = "narrative"
+    review_type_reason: str = ""
+    organization: Literal["thematic", "chronological", "methodological", "theoretical"] = "thematic"
+    breadth: Literal["focused", "broad"] = "focused"
+    domain: str = ""
+    concepts: List[ProtocolConcept] = Field(default_factory=list)
+    populations_and_places: List[ProtocolConstraint] = Field(default_factory=list)
+    aspects: List[ProtocolAspect] = Field(default_factory=list)
+    eligibility: EligibilityCriteria = Field(default_factory=EligibilityCriteria)
+    # True when the user accepted every default without changing anything
+    accepted_defaults: bool = False
+    suggestions: List[ProtocolSuggestion] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class SearchCount(BaseModel):
+    source: str
+    query: str = ""
+    count: Optional[int] = None
+    note: str = ""
+
+
+class SearchPreview(BaseModel):
+    """The searches a protocol will run, before running them: the strings for every database and, for the core
+    search, how many records each database holds."""
+    facets: List["SearchFacet"] = Field(default_factory=list)
+    core_counts: List[SearchCount] = Field(default_factory=list)
+    concepts_used: List[str] = Field(default_factory=list)
+    populations_and_places: List[str] = Field(default_factory=list)
+
+
+class ProtocolProposeRequest(BaseModel):
+    query: str
+    mode: Literal["standard", "deep_research"] = "standard"
+    review_framework: Literal["narrative", "systematic_prisma", "scoping"] = "narrative"
+    # Optional: "effect", "map", "overview" (what the user wants the review for) -> a recommended review type
+    purpose: Optional[str] = None
+    domain: Optional["DomainCategoryType"] = None
+    # Ask the configured model for extra synonyms and aspects, returned as suggestions
+    suggest: bool = False
+    config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+
+
+class ProtocolPreviewRequest(BaseModel):
+    protocol: ReviewProtocol
+    mode: Literal["standard", "deep_research"] = "standard"
+    config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+
+
 class CorpusCandidate(BaseModel):
     """One eligible record's place in the ranking and the scores that put it there."""
     record_id: str
@@ -1767,6 +1876,8 @@ class Corpus(BaseModel):
     included_ids: List[str] = Field(default_factory=list)
     selection_report: Optional["SelectionReport"] = None
     selection_stats: Dict[str, int] = Field(default_factory=dict)
+    # The review protocol the searches and selection followed (the default one when the user gave none)
+    protocol: Optional[ReviewProtocol] = None
     search_warnings: List[str] = Field(default_factory=list)
 
     # The analysis of the included studies (synthesis, evidence table, gaps, map), once run; not part of the hash
@@ -1977,4 +2088,6 @@ class ResearchResponse(BaseModel):
 SearchRequest.model_rebuild()
 ExportRequest.model_rebuild()
 Corpus.model_rebuild()
+SearchPreview.model_rebuild()
+ProtocolProposeRequest.model_rebuild()
 CorpusSummary.model_rebuild()

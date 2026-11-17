@@ -24,6 +24,10 @@ from models import (
     ApiKeysConfig,
     Corpus,
     CorpusSummary,
+    ProtocolPreviewRequest,
+    ProtocolProposeRequest,
+    ReviewProtocol,
+    SearchPreview,
     ModuleRequest,
     QueryDecompositionPlan,
     SelectionReport,
@@ -49,6 +53,8 @@ from services.ai_screening import screen_and_limit
 from services.paper_selection import label_subquestions
 from services import corpus_store
 from services.corpus import finish_corpus, replay_included, select_for_corpus
+from services.review_protocol import default_protocol, plan_from_protocol, propose_protocol
+from services.search_counts import preview_searches
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
@@ -429,6 +435,33 @@ def _summary(run: "CorpusRun") -> CorpusSummary:
     )
 
 
+@app.post("/api/protocol/propose", response_model=ReviewProtocol)
+async def propose_review_protocol(req: ProtocolProposeRequest) -> ReviewProtocol:
+    """The default review protocol for a question, for the user to confirm or edit before searching. With
+    `suggest`, the configured model's extra synonyms and aspects come back as suggestions (never applied)."""
+    prepared, _note = await _prepare_query(SearchRequest(query=req.query, mode=req.mode))
+    cfg = req.config
+    if demo_mode.demo_enabled() and req.suggest:
+        cfg, _ = demo_mode.apply_demo_config(cfg)
+    if req.suggest:
+        begin_llm_request_health()
+    return await propose_protocol(prepared.query, mode=req.mode, review_framework=req.review_framework,
+                                  purpose=req.purpose, domain_override=req.domain, suggest=req.suggest, config=cfg)
+
+
+@app.post("/api/protocol/preview", response_model=SearchPreview)
+async def preview_review_protocol(req: ProtocolPreviewRequest) -> SearchPreview:
+    """The search strings a protocol will run on every database, and how many records each database holds for
+    the core search, before anything is retrieved."""
+    if not any(c.name.strip() and c.role != "comparison" for c in req.protocol.concepts):
+        raise HTTPException(400, "The protocol needs at least one concept to search for.")
+    cfg = demo_mode.fill_source_keys(req.config) if demo_mode.demo_enabled() else req.config
+    begin_source_health()
+    begin_search_budget()
+    set_openalex_api_key(cfg.openalex_api_key)
+    return await preview_searches(req.protocol, req.mode, cfg)
+
+
 @app.post("/api/corpus", response_model=CorpusSummary)
 async def create_corpus(req: SearchRequest, request: Request) -> CorpusSummary:
     req, note = await _prepare_query(req)
@@ -575,7 +608,21 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     _begin_request_scope(cfg)
     # Stage A, B, C: Universal Question Understanding -> Research Strategy -> 5-API Compilation
     _report_stage(req, 1)
-    plan = await generate_multi_api_decomposition_plan(req.query, req.mode, cfg, domain_override=req.domain)
+    if req.protocol is not None:
+        # The user's review protocol drives the searches and selection; no model plans anything
+        protocol = req.protocol.model_copy(deep=True)
+        req = req.model_copy(update={
+            "review_framework": protocol.review_type if req.mode == "deep_research" else "narrative",
+            "organization": protocol.organization,
+            "year_from": protocol.eligibility.year_from, "year_to": protocol.eligibility.year_to,
+        })
+        plan = plan_from_protocol(protocol, req.mode, domain_override=req.domain)
+    else:
+        plan = await generate_multi_api_decomposition_plan(req.query, req.mode, cfg, domain_override=req.domain)
+        # Every corpus records a protocol: here the one the tool followed on its own (selection reads the
+        # rule-based reading of the question; a model, if configured, may have widened the searches)
+        protocol = default_protocol(plan, req.query, review_type=req.review_framework, organization=req.organization,
+                                    year_from=req.year_from, year_to=req.year_to)
     fallback_entities_str = " ".join(plan.extracted_technical_entities[:3]) or req.query
 
     max_total_papers = 60 if req.mode == "deep_research" else 20
@@ -677,6 +724,7 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
         understanding=selection_understanding,
         method="systematic_prisma" if prisma else "narrative",
         stats=dedup_stats,
+        protocol=protocol,
     )
     if prisma and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")

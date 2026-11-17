@@ -795,12 +795,14 @@ def plan_and_compile_universal_search(
 def compile_deterministic_decomposition_plan(
     query: str, mode: str = "standard", domain_override: Optional[DomainCategoryType] = None,
     model_plan: Optional[Dict[str, Any]] = None,
+    understanding: Optional[UniversalQuestionUnderstanding] = None,
 ) -> QueryDecompositionPlan:
     """
     Question understanding, search planning and query compilation. `model_plan` (validated concepts, aspects and
-    breadth from the model) refines the plan; the search strings are always compiled by rules.
+    breadth from the model, or from a review protocol) refines the plan; the search strings are always compiled by
+    rules. `understanding` replaces the rule-based reading (a review protocol sets its populations and places).
     """
-    understanding = understand_research_question(query, domain_override)
+    understanding = understanding or understand_research_question(query, domain_override)
     search_plan, active_facets, composed = plan_and_compile_universal_search(understanding, mode=mode, model_plan=model_plan)
     concept_names = [c.name for c in understanding.concepts.search_concepts]
 

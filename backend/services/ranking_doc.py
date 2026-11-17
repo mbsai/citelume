@@ -28,6 +28,17 @@ def render() -> str:
         "the question's own words by rule, so the same records give the same included studies with any model or "
         "none.",
         "",
+        "## Step 0. The review protocol",
+        "",
+        "Before searching, the question is turned into a review protocol: the review type and why, the parts of "
+        "the question (concepts) with their synonyms and which of them is the main topic, the populations or places "
+        "every study must name, the aspects that get their own searches, and the eligibility criteria (study "
+        "designs, publication years, whether reviews are included). The tool proposes a default from the question's "
+        "own words; in the guided review the user confirms or edits each part. An AI model may suggest extra "
+        "synonyms or aspects, but they are used only if the user accepts them. The protocol is stored with the "
+        "results, and running a search with the default protocol gives the same studies as running it without "
+        "one. When the user supplies a protocol, no model is involved in steps 1 to 5.",
+        "",
         "## Step 1. Search",
         "",
         "1. **Concepts.** The question is reduced to one to three concepts that every relevant paper must be "
@@ -67,6 +78,13 @@ def render() -> str:
         "",
         f"The first two rules apply only when at least {ps.MIN_CONSTRAINT_MATCHES} records pass them; otherwise "
         "the records are kept but flagged as off topic and left out of the written synthesis.",
+        "",
+        "The review protocol's eligibility criteria then apply, each counted under its own reason:",
+        "",
+        f"- **{ps.REASON_YEARS.lower()}** (when years are set);",
+        f"- **{ps.REASON_DESIGN.lower()}** (when study designs are set; every design is eligible otherwise);",
+        f"- **{ps.REASON_REVIEW_BY_PROTOCOL.lower()}** (when the protocol excludes reviews; in a systematic-style "
+        "review reviews are excluded unless the protocol includes them).",
         "",
         "## Step 4. Score (100 points)",
         "",

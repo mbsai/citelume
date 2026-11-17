@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from models import (
+    EligibilityCriteria,
     ListedRecord,
     PaperRecord,
     SearchAspect,
@@ -39,7 +40,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.1"
+PROTOCOL_VERSION = "citelume-selection/2.2"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)
@@ -152,7 +153,14 @@ REASON_NO_ABSTRACT = "No abstract available to assess"
 REASON_PARTIAL = "Does not address every part of the question"
 REASON_REVIEW = "Review article (secondary research; earlier reviews are cited in the Discussion)"
 REASON_COMMENTARY = "Editorial, commentary or letter (no primary data)"
+# Set by a review protocol's eligibility criteria
+REASON_YEARS = "Published outside the years set in the review protocol"
+REASON_DESIGN = "Study design not among those set in the review protocol"
+REASON_REVIEW_BY_PROTOCOL = "Review article (excluded by the review protocol)"
 EXCLUSION_STAGE = {
+    REASON_YEARS: "screening",
+    REASON_DESIGN: "eligibility",
+    REASON_REVIEW_BY_PROTOCOL: "eligibility",
     REASON_NOT_RESEARCH: "identification",
     REASON_PLACE: "screening",
     REASON_TOPIC: "screening",
@@ -405,6 +413,10 @@ def question_concepts(understanding: Optional[UniversalQuestionUnderstanding]) -
         concepts = [SearchConcept(name=p) for p in (phrases or list(c.concept_phrases or []))[:3]]
     if not concepts:
         return [], 0
+    if any(c.main is not None for c in concepts):
+        # A review protocol says which concepts are the main topic; they are listed first
+        mains = [c for c in concepts if c.main]
+        return mains + [c for c in concepts if not c.main], max(1, len(mains))
     first_block = (concept_blocks(understanding.normalized_query, [x.name for x in concepts]) or [[concepts[0].name]])[0]
     return concepts, max(1, len(first_block))
 
@@ -457,6 +469,7 @@ def select_studies(
     method: str = "narrative",
     details: Optional["SelectionDetails"] = None,
     reference_year: Optional[int] = None,
+    eligibility: Optional[EligibilityCriteria] = None,
 ) -> Tuple[List[PaperRecord], SelectionReport]:
     """Steps 2-4 on de-duplicated records. Returns the included studies (numbered in rank order) and the report.
     `method="systematic_prisma"` applies eligibility criteria instead of the balanced selection of step 4."""
@@ -564,6 +577,27 @@ def select_studies(
         excluded[REASON_NOT_RESEARCH] = len(pool) - len(typed)
         drop([p for p in pool if p.study_type in INELIGIBLE_TYPES], REASON_NOT_RESEARCH)
     pool = typed
+
+    # The review protocol's eligibility criteria (years, study designs, reviews)
+    elig = eligibility or EligibilityCriteria()
+
+    def apply_rule(out: List[PaperRecord], reason: str) -> None:
+        nonlocal pool
+        if out:
+            excluded[reason] = excluded.get(reason, 0) + len(out)
+            drop(out, reason)
+            gone = {p.id for p in out}
+            pool = [p for p in pool if p.id not in gone]
+
+    if elig.year_from or elig.year_to:
+        apply_rule([p for p in pool if p.year and ((elig.year_from and p.year < elig.year_from)
+                                                   or (elig.year_to and p.year > elig.year_to))], REASON_YEARS)
+    if elig.study_designs:
+        allowed = set(elig.study_designs)
+        apply_rule([p for p in pool if p.study_type not in allowed], REASON_DESIGN)
+    if elig.reviews == "exclude" and not prisma:
+        apply_rule([p for p in pool if p.study_type in SECONDARY_TYPES], REASON_REVIEW_BY_PROTOCOL)
+
     with_abstract = [p for p in pool if len((p.abstract or "").strip()) >= 20]
     # A systematic review screens every record on its abstract, so records without one are excluded whenever enough
     # remain; otherwise they are dropped only when there are more than enough studies with abstracts
@@ -646,7 +680,8 @@ def select_studies(
 
     details.candidates = ranked
     if prisma:
-        return _prisma_selection(ranked, max_total, report, sort_key, details)
+        return _prisma_selection(ranked, max_total, report, sort_key, details,
+                                 include_reviews=elig.reviews == "include")
 
     # ---- Step 4: balanced selection ----------------------------------------------------------------------------
     chosen: List[PaperRecord] = []
@@ -720,15 +755,18 @@ def select_studies(
 
 
 def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: SelectionReport, sort_key,
-                      details: "SelectionDetails") -> Tuple[List[PaperRecord], SelectionReport]:
+                      details: "SelectionDetails", include_reviews: bool = False) -> Tuple[List[PaperRecord], SelectionReport]:
     """Step 4 for a systematic-style review: include every study meeting the eligibility criteria (PRISMA_RULES),
-    up to the study limit, in order of score."""
+    up to the study limit, in order of score. `include_reviews` (set by a review protocol) treats reviews like
+    primary studies (an overview of reviews)."""
+    not_eligible_types = ("commentary",) if include_reviews else NOT_PRIMARY_TYPES
+
     def is_primary(p: PaperRecord) -> bool:
-        return p.study_type not in NOT_PRIMARY_TYPES
+        return p.study_type not in not_eligible_types
 
     full_primary = [p for p in ranked if is_primary(p) and p.relevance == "addresses"]
     partial_primary = [p for p in ranked if is_primary(p) and p.relevance == "partly"]
-    reviews = [p for p in ranked if p.study_type in SECONDARY_TYPES and p.relevance != "off_topic"]
+    reviews = [] if include_reviews else [p for p in ranked if p.study_type in SECONDARY_TYPES and p.relevance != "off_topic"]
     commentary = [p for p in ranked if p.study_type == "commentary" and p.relevance != "off_topic"]
     # Off-topic records still in the pool (the screen is not applied when few records match) are excluded here
     off_topic = [p for p in ranked if p.relevance == "off_topic"]

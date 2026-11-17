@@ -1,10 +1,14 @@
 # How CiteLume chooses its studies
 
-Protocol version: `citelume-selection/2.1`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
+Protocol version: `citelume-selection/2.2`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
 
 CiteLume answers a question from at most **20 studies (Standard)** or **60 studies (Deep Research)**. A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and every result shows the counts at each step and the score of each included study.
 
 An AI model, when one is configured, may widen the *searches* in step 1 by proposing synonyms and aspects. Steps 2 to 5 do not read the model's plan: studies are matched against the concepts parsed from the question's own words by rule, so the same records give the same included studies with any model or none.
+
+## Step 0. The review protocol
+
+Before searching, the question is turned into a review protocol: the review type and why, the parts of the question (concepts) with their synonyms and which of them is the main topic, the populations or places every study must name, the aspects that get their own searches, and the eligibility criteria (study designs, publication years, whether reviews are included). The tool proposes a default from the question's own words; in the guided review the user confirms or edits each part. An AI model may suggest extra synonyms or aspects, but they are used only if the user accepts them. The protocol is stored with the results, and running a search with the default protocol gives the same studies as running it without one. When the user supplies a protocol, no model is involved in steps 1 to 5.
 
 ## Step 1. Search
 
@@ -27,6 +31,12 @@ A record is removed, and counted under its reason, if it is:
 - **without an abstract**, when at least as many assessable records remain as are needed.
 
 The first two rules apply only when at least 5 records pass them; otherwise the records are kept but flagged as off topic and left out of the written synthesis.
+
+The review protocol's eligibility criteria then apply, each counted under its own reason:
+
+- **published outside the years set in the review protocol** (when years are set);
+- **study design not among those set in the review protocol** (when study designs are set; every design is eligible otherwise);
+- **review article (excluded by the review protocol)** (when the protocol excludes reviews; in a systematic-style review reviews are excluded unless the protocol includes them).
 
 ## Step 4. Score (100 points)
 

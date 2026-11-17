@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-from models import Corpus, CorpusCandidate, PaperRecord, SelectionReport, UniversalQuestionUnderstanding
+from models import Corpus, CorpusCandidate, PaperRecord, ReviewProtocol, SelectionReport, UniversalQuestionUnderstanding
 
 
 def _normalize_title(title: str) -> str:
@@ -144,6 +144,7 @@ def corpus_hash(corpus: "Corpus") -> str:
         "pool_limit": corpus.pool_limit,
         "reference_year": corpus.reference_year,
         "records": [r.id for r in corpus.records],
+        "protocol": corpus.protocol.model_dump(exclude={"suggestions", "notes"}) if corpus.protocol else None,
         "included": list(corpus.included_ids),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:20]
@@ -158,6 +159,7 @@ def select_for_corpus(
     method: str = "narrative",
     stats: Optional[Dict[str, int]] = None,
     reference_year: Optional[int] = None,
+    protocol: Optional["ReviewProtocol"] = None,
 ) -> Tuple[List[PaperRecord], "SelectionReport", "Corpus"]:
     """
     Merges duplicates and runs selection, keeping what a stored corpus needs. Returns the chosen records (for a
@@ -176,7 +178,8 @@ def select_for_corpus(
     if unique:
         chosen, report = select_studies(unique, ranking_query, pool_limit, understanding, stats,
                                         records_found=len(raw_papers), method=method, details=details,
-                                        reference_year=reference_year)
+                                        reference_year=reference_year,
+                                        eligibility=protocol.eligibility if protocol else None)
     now = datetime.now(timezone.utc)
     corpus = Corpus(
         corpus_id=uuid.uuid4().hex,
@@ -191,6 +194,7 @@ def select_for_corpus(
         reference_year=details.reference_year or now.year,
         records_found=len(raw_papers),
         records=snapshot,
+        protocol=protocol.model_copy(deep=True) if protocol else None,
         candidates=[
             CorpusCandidate(record_id=p.id, rank=p.selection_rank or i, relevance=p.relevance or "",
                             study_type=p.study_type or "", scores=dict(p.selection_breakdown or {}))
@@ -235,7 +239,8 @@ def replay_included(corpus: "Corpus") -> Tuple[List[PaperRecord], Optional["Sele
         return [], None
     chosen, report = select_studies(records, corpus.ranking_query, corpus.pool_limit, understanding,
                                     records_found=corpus.records_found, method=corpus.selection_method,
-                                    reference_year=corpus.reference_year or None)
+                                    reference_year=corpus.reference_year or None,
+                                    eligibility=corpus.protocol.eligibility if corpus.protocol else None)
     if corpus.selection_method == "systematic_prisma" and corpus.selection_report is not None:
         chosen = apply_screening_decisions(chosen, report, corpus.selection_report.screening_decisions,
                                            corpus.study_limit, corpus.selection_report.screening_model)
