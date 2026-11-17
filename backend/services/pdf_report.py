@@ -44,7 +44,10 @@ from services.export_service import (
     gap_status_label,
     protocol_lines,
     review_protocol_lines,
+    ROB_NOTE,
     risk_of_bias_domains,
+    risk_of_bias_not_assessed,
+    risk_of_bias_quotes,
     risk_of_bias_rows,
     selection_report_lines,
 )
@@ -542,8 +545,14 @@ def _risk_of_bias_tables(req: ExportRequest, st: dict) -> list:
         out += [Spacer(1, 4), Paragraph(f"<b>{_clean(tool)}</b> ({len(rows)} studies)", st["small"]), t,
                 Paragraph("; ".join(f"D{i + 1} {_clean(d)}" for i, d in enumerate(domains)), st["note"])]
     if out:
-        out.append(Paragraph("+ Low; ! Some concerns; - High; ? No information. AI-assessed from the abstract or full "
-                             "text; not a substitute for dual independent review.", st["note"]))
+        out.append(Paragraph("+ Low; ! Some concerns; - High; ? No information. " + ROB_NOTE, st["note"]))
+    quotes = risk_of_bias_quotes(req.papers)
+    if quotes:
+        out.append(Paragraph("<b>Supporting quotes</b>", st["small"]))
+        out += [Paragraph(_clean(q), st["bullet"], bulletText="•") for q in quotes]
+    missing = risk_of_bias_not_assessed(req.papers)
+    if missing:
+        out.append(Paragraph(_clean(missing), st["note"]))
     return out
 
 

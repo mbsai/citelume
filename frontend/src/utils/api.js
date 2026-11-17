@@ -81,6 +81,11 @@ export function overrideScreening(corpusId, overrides) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/screening-overrides`, { overrides }, 'Saving your decisions');
 }
 
+// The reviewer's change to one risk-of-bias judgement: { record_id, domain, judgement, reason }
+export function editRiskOfBias(corpusId, payload) {
+  return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/risk-of-bias`, payload, 'Saving the change');
+}
+
 export function analyseCorpus(corpusId, payload) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/analyse`, payload, 'Analysis');
 }

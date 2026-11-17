@@ -123,13 +123,41 @@ def risk_of_bias_rows(papers) -> List[Tuple[str, List[Tuple[str, List[str], str,
     groups: dict = {}
     for p in papers:
         rob = p.elicit.risk_of_bias
-        if not rob:
+        if not rob or rob.overall == "Not assessed":
             continue
         who = (p.authors[0].split()[-1] if p.authors else p.source) or ""
+        status = "; changed by the reviewer" if rob.status == "edited by the user" else ""
         groups.setdefault(rob.tool, []).append((
             f"[{p.citation_index}] {who} {p.year or ''}".strip(),
-            [d.judgement for d in rob.domains], rob.overall, f"{rob.reason} ({rob.basis})".strip()))
+            [d.judgement for d in rob.domains], rob.overall, f"{rob.reason} ({rob.basis}{status})".strip()))
     return list(groups.items())
+
+
+ROB_NOTE = ("Suggested judgements for the reviewer to confirm. Each was made by an AI model from the full text and "
+            "is supported by a quote that code found in the study's text; an answer without such a quote counts as "
+            "no information.")
+
+
+def risk_of_bias_quotes(papers) -> List[str]:
+    """One line per supporting quote, and per reviewer change, for the studies that were assessed."""
+    out = []
+    for p in papers:
+        rob = p.elicit.risk_of_bias
+        if not rob or rob.overall == "Not assessed":
+            continue
+        for i, d in enumerate(rob.domains, 1):
+            if d.quote and d.quote_verified:
+                out.append(f"[{p.citation_index}] D{i} {d.domain} ({d.judgement}): \"{d.quote[:240]}\"")
+        for e in rob.edits:
+            out.append(f"[{p.citation_index}] {e.domain}: changed by the reviewer from {e.before} to {e.after} "
+                       f"({e.reason})")
+    return out
+
+
+def risk_of_bias_not_assessed(papers) -> str:
+    refs = [f"[{p.citation_index}]" for p in papers
+            if p.elicit.risk_of_bias and p.elicit.risk_of_bias.overall == "Not assessed"]
+    return (f"Not assessed (only the abstract was available): {', '.join(refs)}." if refs else "")
 
 
 def risk_of_bias_domains(papers, tool: str) -> List[str]:
@@ -146,6 +174,7 @@ def _section_figure_lines(sec, req, markdown: bool) -> List[str]:
         out += ["", "PRISMA 2020 flow of records:" if not markdown else "**PRISMA 2020 flow of records**", ""]
         out += [f"- {ln}" for ln in prisma_flow_lines(req.review_protocol.flow)]
     if sec.figure == "risk_of_bias":
+        out += ["", f"_{ROB_NOTE}_" if markdown else ROB_NOTE]
         for tool, rows in risk_of_bias_rows(req.papers):
             domains = risk_of_bias_domains(req.papers, tool)
             out += ["", f"**{tool}**" if markdown else tool]
@@ -160,6 +189,14 @@ def _section_figure_lines(sec, req, markdown: bool) -> List[str]:
                                + f"; overall {overall}. {reason}")
             out.append(("Domains: " if not markdown else "_Domains: ")
                        + "; ".join(f"D{i + 1} {d}" for i, d in enumerate(domains)) + ("" if not markdown else "_"))
+        if sec.figure == "risk_of_bias":
+            quotes = risk_of_bias_quotes(req.papers)
+            if quotes:
+                out += ["", "**Supporting quotes**" if markdown else "Supporting quotes:"]
+                out += [f"- {q}" for q in quotes]
+            missing = risk_of_bias_not_assessed(req.papers)
+            if missing:
+                out += ["", missing]
     return out
 
 

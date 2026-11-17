@@ -12,6 +12,7 @@ sections (methods, results, discussion, limitations, conclusion) and cached on d
 download it again.
 """
 import asyncio
+import os
 import hashlib
 import io
 import json
@@ -302,7 +303,27 @@ async def _open_pdf(client: httpx.AsyncClient, p: PaperRecord) -> Optional[Tuple
     return ("Open-access PDF", sections) if sections else None
 
 
-FETCHERS = (_europe_pmc, _biorxiv, _arxiv, _open_pdf)
+async def _unpaywall(client: httpx.AsyncClient, p: PaperRecord) -> Optional[Tuple[str, Dict[str, str]]]:
+    """The open-access PDF Unpaywall knows for this DOI. Unpaywall asks every request to carry a contact email, so
+    this runs only when UNPAYWALL_EMAIL is set for the install (no address is sent otherwise)."""
+    email = os.environ.get("UNPAYWALL_EMAIL", "").strip()
+    if not email or not p.doi:
+        return None
+    r = await client.get(f"https://api.unpaywall.org/v2/{p.doi}", params={"email": email})
+    if r.status_code != 200:
+        return None
+    loc = (r.json() or {}).get("best_oa_location") or {}
+    url = loc.get("url_for_pdf") or ""
+    if not url.startswith("http"):
+        return None
+    pdf = await client.get(url)
+    if pdf.status_code != 200 or not pdf.headers.get("content-type", "").startswith("application/pdf"):
+        return None
+    sections = parse_pdf_text(_pdf_to_text(pdf.content))
+    return ("Open-access PDF (via Unpaywall)", sections) if sections else None
+
+
+FETCHERS = (_europe_pmc, _biorxiv, _arxiv, _open_pdf, _unpaywall)
 
 
 # --------------------------------------------------------------------------------------------- cache + driver

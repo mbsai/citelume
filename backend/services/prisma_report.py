@@ -92,9 +92,15 @@ def _methods(protocol: ReviewProtocolReport, sel: SelectionReport, papers: Seque
                   "results reported for them, the authors' stated limitations, and the direction of the finding "
                   "relative to the question (supporting, mixed, contradicting or neutral)."),
         _labelled("Study risk of bias assessment (item 11)",
-                  "Each study was judged by the model on the domains of a tool matched to its design: "
-                  + "; ".join(TOOLS[t].label for t in tools_used) + ". Each domain was rated Low, Some concerns, "
-                  "High or No information from what the study reports. " + OVERALL_RULE),
+                  "Risk of bias was assessed only for studies whose full text was available (open access or "
+                  "supplied by the user); the others are reported as not assessed. A tool matched to each study's "
+                  "design was used (" + "; ".join(TOOLS[t].label for t in tools_used) + "). For randomised trials "
+                  f"the model ({model}) answered the RoB 2 signalling questions and each domain judgement was "
+                  "computed from those answers by the RoB 2 algorithm; for other designs the model judged each "
+                  "domain. Every answer needed a quote from the study, which was checked by code against the "
+                  "study's text; an answer whose quote was not found counted as no information. These are "
+                  "suggested judgements for the reviewer to confirm; changes by the reviewer are recorded. "
+                  + OVERALL_RULE),
         _labelled("Effect measures (item 12)",
                   "Effect measures are reported as each study gave them (for example risk ratios, odds ratios, "
                   "hazard ratios or mean differences); none were recalculated."),
@@ -161,10 +167,13 @@ def _characteristics(papers: Sequence[PaperRecord]) -> str:
 
 
 def _risk_of_bias_summary(papers: Sequence[PaperRecord]) -> str:
-    judged = [p for p in papers if p.elicit.risk_of_bias]
+    assessed = [p for p in papers if p.elicit.risk_of_bias]
+    judged = [p for p in assessed if p.elicit.risk_of_bias.overall != "Not assessed"]
+    not_assessed = len(assessed) - len(judged)
     if not judged:
-        return ("Risk of bias could not be judged for the included studies in this run (the model did not return "
-                "the judgements); see the Evidence Table for each study's reported limitations.")
+        return (f"Risk of bias was not assessed for any of the {_n(len(papers), 'study', 'studies')}: it needs the full "
+                "text, which was not available (or no AI model was configured). Each study's reported limitations "
+                "are in the Evidence Table.")
     overall = Counter(p.elicit.risk_of_bias.overall for p in judged)
     domain_concerns = Counter(d.domain for p in judged for d in p.elicit.risk_of_bias.domains
                               if d.judgement in ("High", "Some concerns"))
@@ -178,11 +187,14 @@ def _risk_of_bias_summary(papers: Sequence[PaperRecord]) -> str:
     high = [p for p in judged if p.elicit.risk_of_bias.overall == "High"]
     if high:
         text += " Studies at high risk: " + ", ".join(f"[{p.citation_index}]" for p in high) + "."
-    no_info = overall.get("No information", 0)
-    if no_info:
-        text += (f" For {no_info} studies most domains could not be judged because the abstract does not report "
-                 "them; this reflects reporting, not necessarily bias.")
-    return text + " Judgements for each study and domain are in the table."
+    if not_assessed:
+        text += (f" {_n(not_assessed, 'study was', 'studies were')} not assessed because only the abstract was "
+                 "available.")
+    edited = sum(1 for p in judged if p.elicit.risk_of_bias.status == "edited by the user")
+    if edited:
+        text += f" The reviewer changed judgements for {_n(edited, 'study', 'studies')}."
+    return text + (" These are suggested judgements, each supported by a quote checked against the study's text; "
+                   "the table shows them for each study and domain.")
 
 
 def _reporting_biases(papers: Sequence[PaperRecord]) -> str:

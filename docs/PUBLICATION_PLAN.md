@@ -12,8 +12,14 @@ again). Session 3d done 17 Nov 2026: Scopus / Web of Science strings, imports (R
 and PubMed text) and user PDFs (attach or add; include regardless with a recorded reason). Decision: imports and PDFs
 are disabled on the public demo. Session 3e done 17 Nov 2026: the model answers each protocol criterion (yes / no /
 unclear); a fixed rule decides (any "no" excludes, the reason named in the order design, population, intervention,
-outcome); answers stored with model, prompt version and date; user overrides with reasons. Not done: the optional
-second-model screening. Next: Session 3f (checkable risk of bias).
+outcome); answers stored with model, prompt version and date; user overrides with reasons. Second-model screening:
+decided by Session 6 (if one model keeps fewer than 95% of the benchmark reviews' included studies, add a second
+model, keeping a record if either includes it and flagging disagreements; otherwise report single-model sensitivity
+and two-model agreement measured offline; check the threshold against the screening-automation literature first). Session 3f done 17 Nov 2026: risk of bias from the full text only (others "Not assessed"), every answer backed
+by a quote checked by code, RoB 2 domains computed from signalling answers (frameworks/rob2.py: check the encoded
+algorithms against the official RoB 2 tool before publication), reviewer edits recorded, Unpaywall when
+UNPAYWALL_EMAIL is set. First real run: 4 of 18 studies had full text; 34 of 36 trial quotes verified; many
+domains High because of missing information, as RoB 2's rules require. Next: Session 4 (headless runner).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

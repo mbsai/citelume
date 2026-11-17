@@ -28,6 +28,8 @@ from models import (
     CorpusSummary,
     ReselectRequest,
     ScreeningOverridesRequest,
+    RiskOfBiasEditRequest,
+    StudyRiskOfBias,
     ImportRequest,
     ImportResult,
     ImportSummary,
@@ -60,6 +62,7 @@ from services.llm_service import (
 from frameworks.reporting import build_review_protocol_report
 from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit, screening_criteria
+from services.risk_of_bias_assessment import apply_edit as apply_rob_edit, assess_risk_of_bias
 from services.paper_selection import label_subquestions
 from services import corpus_store
 from services.corpus import (
@@ -637,6 +640,26 @@ async def override_screening(corpus_id: str, body: ScreeningOverridesRequest) ->
     return _summary(_run_from_corpus(derived, ApiKeysConfig()))
 
 
+@app.post("/api/corpus/{corpus_id}/risk-of-bias", response_model=StudyRiskOfBias)
+async def edit_risk_of_bias(corpus_id: str, body: RiskOfBiasEditRequest) -> StudyRiskOfBias:
+    """The reviewer's change to one risk-of-bias judgement, with a reason; recorded in the stored analysis."""
+    corpus = _corpus_or_404(corpus_id)
+    if corpus.analysis is None:
+        raise HTTPException(400, "This corpus has not been analysed yet.")
+    if not body.reason.strip():
+        raise HTTPException(400, "Give a reason for the change.")
+    paper = next((p for p in corpus.analysis.papers if p.id == body.record_id), None)
+    rob = paper.elicit.risk_of_bias if paper else None
+    if rob is None or rob.overall == "Not assessed":
+        raise HTTPException(400, "This study has no risk-of-bias judgement to change.")
+    try:
+        apply_rob_edit(rob, body.domain, body.judgement, body.reason)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    corpus_store.save(corpus)
+    return rob
+
+
 @app.get("/api/corpus/{corpus_id}", response_model=Corpus)
 async def get_corpus(corpus_id: str) -> Corpus:
     return _corpus_or_404(corpus_id)
@@ -988,6 +1011,10 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
             all_candidate_pool=corpus.records,
         )
 
+    # Systematic-style review: risk of bias from the full text, alongside the synthesis
+    rob_task = (asyncio.create_task(assess_risk_of_bias(ranked_papers, cfg))
+                if req.mode == "deep_research" and req.review_framework == "systematic_prisma" and ranked_papers else None)
+
     exec_answer, sections, consensus, warnings = await generate_synthesis_and_extractions(
         query=req.query,
         mode=req.mode,
@@ -1001,6 +1028,12 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         organization=req.organization,
         previous_reviews=selection_report.excluded_reviews if selection_report else (),
     )
+
+    if rob_task is not None:
+        judgements = await rob_task
+        for p in ranked_papers:
+            if p.id in judgements:
+                p.elicit.risk_of_bias = judgements[p.id]
 
     # Sync updated stances onto graph nodes
     stance_by_id = {p.id: p.stance for p in ranked_papers}

@@ -505,19 +505,50 @@ class TaskJNarrativeSynthesisOutput(BaseModel):
     sections: List[TaskJSynthesisSectionItem] = Field(default_factory=list)
 
 
+RobJudgement = Literal["Low", "Some concerns", "High", "No information", "Not assessed"]
+
+
 class RiskOfBiasDomain(BaseModel):
     domain: str
-    judgement: Literal["Low", "Some concerns", "High", "No information"] = "No information"
+    judgement: RobJudgement = "No information"
+    # The sentence from the study that supports the judgement, and whether code found it in the study's text
+    quote: str = ""
+    quote_verified: bool = False
+
+
+class SignallingAnswer(BaseModel):
+    """One RoB 2 signalling question: the model's answer and its supporting quote (randomised trials)."""
+    id: str
+    question: str = ""
+    answer: Literal["Y", "PY", "PN", "N", "NI", "NA"] = "NI"
+    quote: str = ""
+    quote_verified: bool = False
+
+
+class RiskOfBiasEdit(BaseModel):
+    domain: str
+    before: str
+    after: str
+    reason: str
+    at: str = ""
 
 
 class StudyRiskOfBias(BaseModel):
-    """A design-matched risk-of-bias judgement for one study (frameworks/risk_of_bias.py), made by the model from the
-    abstract or full text; the overall judgement is computed from the domains by a fixed rule."""
+    """A suggested risk-of-bias judgement for one study, for the reviewer to confirm (services/risk_of_bias_assessment.py).
+    Made only from the full text; every judgement needs a quote that code finds in the study's text. For randomised
+    trials the domains follow from RoB 2 signalling answers by the coded algorithm (frameworks/rob2.py)."""
     tool: str = ""
     domains: List[RiskOfBiasDomain] = Field(default_factory=list)
-    overall: Literal["Low", "Some concerns", "High", "No information"] = "No information"
+    overall: RobJudgement = "No information"
     reason: str = ""
     basis: Literal["abstract", "full text"] = "abstract"
+    signalling: List[SignallingAnswer] = Field(default_factory=list)
+    assessed_by: str = ""
+    prompt_version: str = ""
+    assessed_on: str = ""
+    # "suggested" until the reviewer changes a judgement
+    status: Literal["suggested", "edited by the user"] = "suggested"
+    edits: List[RiskOfBiasEdit] = Field(default_factory=list)
 
 
 class ElicitExtraction(BaseModel):
@@ -2018,6 +2049,13 @@ class ScreeningOverride(BaseModel):
 class ScreeningOverridesRequest(BaseModel):
     """The user's decisions after reviewing the model's screening (no new search; no model)."""
     overrides: List[ScreeningOverride] = Field(default_factory=list)
+
+
+class RiskOfBiasEditRequest(BaseModel):
+    record_id: str
+    domain: str
+    judgement: Literal["Low", "Some concerns", "High", "No information"]
+    reason: str
 
 
 class ReselectRequest(BaseModel):

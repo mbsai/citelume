@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { downloadReportFromServer } from '../utils/api';
 import ProtocolCard from './ProtocolCard';
 import SourceCheck from './SourceCheck';
+import RiskOfBiasTable from './RiskOfBiasTable';
 
 // Each citation button passes the sentence it sits in, so the claim can be checked against the cited study
 function renderCitationsOnly(text, onCitationClick, keyPrefix) {
@@ -146,106 +147,6 @@ function PrismaFlowFull({ flow }) {
   );
 }
 
-const ROB_STYLE = {
-  Low: 'bg-emerald-500 text-white',
-  'Some concerns': 'bg-amber-400 text-slate-900',
-  High: 'bg-rose-600 text-white',
-  'No information': 'bg-slate-300 text-slate-700',
-};
-const ROB_SYMBOL = { Low: '+', 'Some concerns': '!', High: '−', 'No information': '?' };
-
-function RobDot({ judgement, title }) {
-  return (
-    <span
-      title={title ? `${title}: ${judgement}` : judgement}
-      className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-xs font-bold ${ROB_STYLE[judgement] || ROB_STYLE['No information']}`}
-    >
-      {ROB_SYMBOL[judgement] || '?'}
-    </span>
-  );
-}
-
-// Traffic-light table of risk-of-bias judgements, grouped by tool (each tool has its own domains)
-export function RiskOfBiasTable({ papers, onCitationClick }) {
-  const judged = (papers || []).filter((p) => p.elicit?.risk_of_bias);
-  if (!judged.length) return null;
-  const groups = {};
-  judged.forEach((p) => {
-    const t = p.elicit.risk_of_bias.tool;
-    (groups[t] = groups[t] || []).push(p);
-  });
-  return (
-    <div className="my-3 space-y-4">
-      {Object.entries(groups).map(([tool, ps]) => {
-        const domains = ps[0].elicit.risk_of_bias.domains.map((d) => d.domain);
-        return (
-          <div key={tool} className="overflow-x-auto border border-slate-200 rounded-lg">
-            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700">
-              {tool} · {ps.length} {ps.length === 1 ? 'study' : 'studies'}
-            </div>
-            <table className="text-xs w-full">
-              <thead>
-                <tr className="text-slate-600">
-                  <th className="text-left px-2 py-1.5 font-semibold">Study</th>
-                  {domains.map((d, i) => (
-                    <th key={d} className="px-1 py-1.5 font-semibold text-center" title={d}>
-                      D{i + 1}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1.5 font-semibold text-center">Overall</th>
-                  <th className="text-left px-2 py-1.5 font-semibold">Main concern</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ps.map((p) => {
-                  const rob = p.elicit.risk_of_bias;
-                  return (
-                    <tr key={p.citation_index} className="border-t border-slate-100 align-top">
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => onCitationClick && onCitationClick(p.citation_index)}
-                          className="font-mono text-indigo-700 font-semibold mr-1"
-                        >
-                          [{p.citation_index}]
-                        </button>
-                        {(p.authors?.[0] || p.source || '').split(' ').slice(-1)[0]} {p.year || ''}
-                      </td>
-                      {rob.domains.map((d) => (
-                        <td key={d.domain} className="px-1 py-1.5 text-center">
-                          <RobDot judgement={d.judgement} title={d.domain} />
-                        </td>
-                      ))}
-                      <td className="px-2 py-1.5 text-center">
-                        <RobDot judgement={rob.overall} title="Overall" />
-                      </td>
-                      <td className="px-2 py-1.5 text-slate-600 min-w-[14rem]">
-                        {rob.reason}
-                        <span className="text-slate-400"> ({rob.basis})</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="px-3 py-1.5 border-t border-slate-100 text-[11px] text-slate-500">
-              {domains.map((d, i) => `D${i + 1} ${d}`).join(' · ')}
-            </div>
-          </div>
-        );
-      })}
-      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
-        {Object.keys(ROB_STYLE).map((j) => (
-          <span key={j} className="inline-flex items-center gap-1">
-            <RobDot judgement={j} /> {j}
-          </span>
-        ))}
-        <span>AI-assessed from the abstract or full text; not a substitute for dual independent review.</span>
-      </div>
-    </div>
-  );
-}
-
 // PRISMA 2020-style flow of records, built from the pipeline's real counts
 function PrismaFlow({ flow }) {
   if (flow.assessed_for_eligibility || flow.eligible) return <PrismaFlowFull flow={flow} />;
@@ -370,7 +271,7 @@ function ReviewProtocolPanel({ protocol }) {
   );
 }
 
-export default function SynthesisPanel({ data, onSelectPaper }) {
+export default function SynthesisPanel({ data, onSelectPaper, onRobChange }) {
   const [bibStyle, setBibStyle] = useState('apa');
   const [exportingFormat, setExportingFormat] = useState('');
   const [highlightedRef, setHighlightedRef] = useState(null);
@@ -615,7 +516,12 @@ export default function SynthesisPanel({ data, onSelectPaper }) {
               <PrismaFlow flow={data.review_protocol.flow} />
             )}
             {sec.figure === 'risk_of_bias' && (
-              <RiskOfBiasTable papers={data.papers} onCitationClick={handleCitationClick} />
+              <RiskOfBiasTable
+                papers={data.papers}
+                corpusId={data.corpus_id}
+                onCitationClick={handleCitationClick}
+                onRobChange={onRobChange}
+              />
             )}
           </div>
         ))}

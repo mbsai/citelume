@@ -908,7 +908,19 @@ export default function App() {
           {result && (
             <>
               {/* Active Tab View */}
-              {activeTab === 'synthesis' && <SynthesisPanel data={result} />}
+              {activeTab === 'synthesis' && (
+                <SynthesisPanel
+                  data={result}
+                  onRobChange={(recordId, rob) =>
+                    setResult((prev) => ({
+                      ...prev,
+                      papers: prev.papers.map((p) =>
+                        p.id === recordId ? { ...p, elicit: { ...p.elicit, risk_of_bias: rob } } : p
+                      ),
+                    }))
+                  }
+                />
+              )}
               {activeTab === 'evidence' && (
                 <EvidenceTable
                   papers={result.papers}

@@ -136,6 +136,8 @@ Rules are applied as framework-informed screening from titles and abstracts. The
 - **QUADAS-3**: Whiting PF, et al. QUADAS-3: a revised tool for the quality assessment of diagnostic accuracy studies. Ann Intern Med 2026;179(4). <https://doi.org/10.7326/ANNALS-25-02104>
 - **SYRCLE RoB**: Hooijmans CR, et al. SYRCLE's risk of bias tool for animal studies. BMC Med Res Methodol 2014;14:43. <https://doi.org/10.1186/1471-2288-14-43>
 - **AMSTAR 2**: Shea BJ, et al. AMSTAR 2: a critical appraisal tool for systematic reviews that include randomised or non-randomised studies of healthcare interventions, or both. BMJ 2017;358:j4008. <https://pmc.ncbi.nlm.nih.gov/articles/5833365>
+- **JBI critical appraisal checklists**: Moola S, Munn Z, Tufanaru C, et al. Chapter 7: Systematic reviews of etiology and risk. In: Aromataris E, Munn Z (Editors). JBI Manual for Evidence Synthesis. JBI, 2020 (checklists for analytical cross-sectional studies and case reports). <https://jbi.global/critical-appraisal-tools>
+- **CASP Qualitative Checklist**: Critical Appraisal Skills Programme. CASP Qualitative Studies Checklist. 2018. <https://casp-uk.net/casp-tools-checklists/>
 - **ML leakage taxonomy**: Kapoor S, Narayanan A. Leakage and the reproducibility crisis in machine-learning-based science. Patterns 2023;4(9):100804. <https://doi.org/10.1016/j.patter.2023.100804>
 
 ### Reporting

@@ -4,8 +4,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Tuple, Optional, Callable, Awaitable, Sequence
 from models import (
-    RiskOfBiasDomain,
-    StudyRiskOfBias,
     PaperRecord,
     HFResourceRecord,
     ApiKeysConfig,
@@ -59,9 +57,6 @@ from services.verification_gates import (
 )
 from frameworks.appraisal_routes import detect_biomedical_design
 from frameworks.review_types import resolve_review_type
-from frameworks.risk_of_bias import normalise_judgement as normalise_rob_judgement
-from frameworks.risk_of_bias import overall_judgement as overall_rob_judgement
-from frameworks.risk_of_bias import tool_for as rob_tool_for
 from frameworks.rules import render_rules_for_prompt, select_rules
 from services.extraction_patterns import study_sample_size
 from services.review_composition import finalize_llm_sections, organized_groups
@@ -140,7 +135,6 @@ STANDARD_EXEC_MAX_TOKENS = 900
 # Answer tokens budgeted per study (9 short fields) plus fixed JSON overhead; measured ≈150-200 per study
 TASK_C_TOKENS_PER_STUDY = 220
 TASK_C_OUTPUT_OVERHEAD = 200
-TASK_C_ROB_TOKENS_PER_STUDY = 90  # risk-of-bias judgements and reason (systematic-style reviews only)
 # Abstract characters sent per study, chosen by _key_result_sentences rather than a blind cut
 TASK_C_ABSTRACT_CHARS = 480
 # Characters of open-access full text sent per study, by section (≈300 tokens in all; keeps small models in budget)
@@ -557,11 +551,10 @@ async def _run_task_c_batched_study_extraction(
     config: ApiKeysConfig,
     audit_trail: List[TaskExecutionRecord],
     descriptive_question: bool = False,
-    assess_risk_of_bias: bool = False,
 ) -> None:
     """
-    `assess_risk_of_bias` (systematic-style reviews) also asks for a judgement on each domain of the study's
-    design-matched risk-of-bias tool (frameworks/risk_of_bias.py); the overall judgement is computed from them.
+    Risk of bias is not judged here: a separate step reads each study's full text and needs a quote for every
+    judgement (services/risk_of_bias_assessment.py).
 
     Section 4 & 9 — Task C: Extract factual findings from studies in context-window-sized batches.
     - First computes deterministic source-grounded extraction (`abstract_derived` / `metadata_only`) on all papers.
@@ -572,18 +565,17 @@ async def _run_task_c_batched_study_extraction(
     cap = resolve_model_capabilities(config)
     # Batch size is bounded by the context window (recommended size) and by how many study answers fit the output limit
     per_call = TASK_C_STUDIES_PER_CALL["local" if config.llm_provider in ("ollama", "custom") else "hosted"]
-    tokens_per_study = TASK_C_TOKENS_PER_STUDY + (TASK_C_ROB_TOKENS_PER_STUDY if assess_risk_of_bias else 0)
+    tokens_per_study = TASK_C_TOKENS_PER_STUDY
     batch_size = max(
         1,
         min(per_call, cap.recommended_study_batch_size,
             (cap.max_output_tokens - TASK_C_OUTPUT_OVERHEAD) // tokens_per_study),
     )
-    rob_key = ":rob" if assess_risk_of_bias else ""
 
     uncached_papers: List[PaperRecord] = []
     for p in papers:
         _extract_domain_adaptive_study_fields(p, hf_resources, primary_domain=prim_domain, sample_policy=sample_policy)
-        ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}{rob_key}"
+        ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}"
         if ckey in _STUDY_EXTRACTION_CACHE:
             cached_elicit, cached_stance, cached_relevance, cached_note = _STUDY_EXTRACTION_CACHE[ckey]
             if p.relevance != "off_topic":
@@ -612,17 +604,11 @@ async def _run_task_c_batched_study_extraction(
         batch_lines = []
         for p in batch:
             abs_text = _key_result_sentences(p.abstract, TASK_C_ABSTRACT_CHARS) or "Metadata only (no abstract provided by source)"
-            rob_line = ""
-            if assess_risk_of_bias:
-                tool = rob_tool_for(p.study_type)
-                rob_line = (f"\n    Risk-of-bias tool: {tool.label}. Domains in order: "
-                            + "; ".join(f"{k}) {d}" for k, d in enumerate(tool.domains, 1)))
             batch_lines.append(
                 f"[{p.citation_index}] Title: {p.title} ({p.year or 'n.d.'}, {p.source}, Status: {p.version_status})\n"
                 f"    Deterministic Baseline Design: {p.elicit.study_design} | Sample/Scale: {p.elicit.sample_or_scale} ({p.elicit.sample_reporting_status})\n"
                 f"    Abstract: {abs_text}"
                 + _full_text_excerpt(p)
-                + rob_line
             )
 
         sys_prompt = (
@@ -643,17 +629,8 @@ async def _run_task_c_batched_study_extraction(
                 "5. stance is relative to the query: 'supporting' if the findings support it, 'contradicting' if they go "
                 "against it, 'mixed' if conditional, 'neutral' if the study does not take a position.\n"
             )
-            + (
-                "6. Risk of bias: for each study, judge every domain of its risk-of-bias tool, in the order listed, as "
-                "'Low', 'Some concerns', 'High' or 'No information', using only what its record reports. Use 'No "
-                "information' when the abstract or full text does not say (do not assume). Give risk_of_bias_reason in "
-                "under 25 words, naming the main concern.\n"
-                if assess_risk_of_bias else ""
-            )
             + "Return ONLY valid JSON matching:\n"
-            + ('{"study_extractions": [{"citation_index": 1, "addresses_question": "yes|partly|no", "relevance_reason": "...", "stance": "supporting|mixed|contradicting|neutral", "study_design": "...", "methodology": "...", "dataset_or_system": "...", "sample_or_scale": "...", "sample_reporting_status": "Reported|Not reported|Not applicable|Unavailable", "quantitative_result": "...", "key_findings": "...", "limitations": "..."'
-               + (', "risk_of_bias": ["Low|Some concerns|High|No information", "..."], "risk_of_bias_reason": "..."' if assess_risk_of_bias else "")
-               + '}]}')
+            + '{"study_extractions": [{"citation_index": 1, "addresses_question": "yes|partly|no", "relevance_reason": "...", "stance": "supporting|mixed|contradicting|neutral", "study_design": "...", "methodology": "...", "dataset_or_system": "...", "sample_or_scale": "...", "sample_reporting_status": "Reported|Not reported|Not applicable|Unavailable", "quantitative_result": "...", "key_findings": "...", "limitations": "..."}]}'
         )
         user_prompt = f"Query: {query}\nExtract factual study fields for batch [{batch[0].citation_index}..{batch[-1].citation_index}]:\n" + "\n".join(batch_lines)
 
@@ -724,21 +701,13 @@ async def _run_task_c_batched_study_extraction(
                         tp.elicit.key_findings = item.key_findings[:250]
                     if item.limitations:
                         tp.elicit.limitations = item.limitations[:220]
-                    if assess_risk_of_bias and item.risk_of_bias:
-                        tool = rob_tool_for(tp.study_type)
-                        judged = [normalise_rob_judgement(j) for j in item.risk_of_bias[:len(tool.domains)]]
-                        judged += ["No information"] * (len(tool.domains) - len(judged))
-                        tp.elicit.risk_of_bias = StudyRiskOfBias(
-                            tool=tool.label,
-                            domains=[RiskOfBiasDomain(domain=d, judgement=j) for d, j in zip(tool.domains, judged)],
-                            overall=overall_rob_judgement(judged),
-                            reason=(item.risk_of_bias_reason or "")[:220],
-                            basis="full text" if tp.full_text_sections else "abstract",
-                        )
 
-        for p in batch:
-            ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}{rob_key}"
-            _STUDY_EXTRACTION_CACHE[ckey] = (p.elicit.model_copy(deep=True), p.stance, p.relevance, p.relevance_note)
+        # Only the model's extractions are cached: a cache hit is reported as the model's work, and rule-based
+        # extraction is cheap to redo
+        if validated_batch and not rec.degraded_to_deterministic:
+            for p in batch:
+                ckey = f"{p.canonical_study_id or p.id}:{query.strip().lower()}:{prim_domain}:{cap.provider}:{cap.model_id}"
+                _STUDY_EXTRACTION_CACHE[ckey] = (p.elicit.model_copy(deep=True), p.stance, p.relevance, p.relevance_note)
         return [rec]
 
     # Batches cover disjoint papers, so run them concurrently (bounded to stay under free-tier rate limits)
@@ -1188,7 +1157,6 @@ async def generate_synthesis_and_extractions(
             decomposition_plan and decomposition_plan.question_understanding
             and decomposition_plan.question_understanding.primary_intent == "descriptive"
         ),
-        assess_risk_of_bias=(mode == "deep_research" and review_framework == "systematic_prisma"),
     )
 
     # Studies screened as not addressing the question (constraint mismatch or the model's judgement) keep their
