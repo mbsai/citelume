@@ -57,7 +57,10 @@ Found by reading the code, most important first.
 | 7 | Gap verification never searches (it checks 10 leftover records by word overlap); gaps come from 20 or 60 studies | Indefensible if described as "verified gaps" | Paper 1 labels gaps exploratory; rebuilt in Session 11 |
 | 8 | Literature map has no stated purpose | Reviewers will ask what it is for | Wording fixed in Session 1; rebuilt around citation chasing in Session 4b |
 | 9 | No release hygiene: no CI, unpinned dependencies, no `CITATION.cff`, no tagged release or DOI | Required or expected for software papers | Session 13 |
-| 10 | Matching is by words, English only, mostly abstracts; weights (50/20/15/10/5) are judgement calls | Must be stated as limitations and tested for sensitivity | Sessions 7, 14 |
+| 10 | Matching is by words, English only, mostly abstracts; weights (50/20/15/10/5) are judgement calls | Must be stated as limitations and tested for sensitivity | Sessions 5d, 7, 14 |
+| 11 | Searches fetch the first 50-100 records per database; a Cochrane review screens thousands | Low recall is the biggest risk to acceptance | Sessions 5b, 5c, 4b, 3d |
+| 12 | PRISMA screening is one yes/no model call per record, not stored | The repeatability claim stops at that step | Session 3e |
+| 13 | Risk of bias is rated from abstracts with no supporting quote and never validated | Indefensible as presented | Sessions 3f, 9 |
 
 Assumed answers to the open questions (change these here if you decide otherwise):
 
@@ -144,6 +147,32 @@ Assumed answers to the open questions (change these here if you decide otherwise
 - Done when: a Scopus RIS export and a Web of Science export import correctly with duplicates merged against PubMed
   records; an uploaded PDF attaches to the right study; replay of the corpus still reproduces the included IDs.
 
+**Session 3e. Screening by criterion, stored and confirmed.** (Replaces the single yes/no model screening in
+`services/ai_screening.py`. It cannot be made deterministic, so it is made auditable, replayable and measured.)
+- For each record the model answers each protocol criterion separately (population, intervention or exposure,
+  outcome, study design) as yes, no or unclear, with a short reason. A fixed rule computes the decision; "unclear"
+  counts as include. Every exclusion names the criterion that failed.
+- Every answer is stored in the corpus with the model, prompt version and date. Replay uses the stored answers, so a
+  review is reproduced exactly even though a fresh run might differ.
+- The page lists the model's exclusions for the user to confirm or overturn; overrides are recorded. Optional
+  second model: disagreements between the two go to the user.
+- Without a model the rule-based eligibility stands, as now.
+- Done when: replay reproduces the screened set; each exclusion shows its failed criterion; an override changes the
+  included set and appears in the flow diagram.
+
+**Session 3f. Risk of bias that can be checked.**
+- Judge only when full text is available (open access or a user PDF); otherwise "Not assessed (abstract only)",
+  which replaces most of today's "No information". Add Unpaywall and PubMed Central lookups to raise coverage.
+- Each domain judgement needs a supporting quote; code checks the quote exists in the source text (as figures are
+  checked now) and the table shows it. A judgement without a verifiable quote becomes "No information".
+- For randomised trials, ask the RoB 2 signalling questions and compute each domain by the tool's published
+  algorithm, in code. Other designs keep the domain-level judgement.
+- Choose the tool from PubMed publication types first, then wording; let the user correct the design.
+- Users can edit any judgement; edits are recorded. The page and exports call these "suggested judgements for the
+  reviewer to confirm".
+- Done when: every shown judgement has a quote found in the source; abstract-only studies are "Not assessed"; a
+  trial's domain ratings follow from its signalling answers by the coded algorithm (unit-tested).
+
 **Session 4. Headless runner.**
 - `python -m services.batch run questions.jsonl --mode standard --out runs/` saving the corpus, outputs, timings and
   the model used for each question; resumable; respects source rate limits; uses your own keys, never the demo key.
@@ -171,7 +200,40 @@ chasing adds to the candidate pool and so affects the recall measured in Session
 - Script that turns each review into: the question, the search date limit, and the list of included study IDs.
 - Pre-register the analysis in a short file (`eval/PROTOCOL.md`): questions, metrics, exclusions. Commit it before
   running anything.
-- Done when: 40-50 reviews are loaded with their included studies resolved to PubMed IDs or DOIs.
+- Split the reviews into a development set (about a third) and a held-out test set, fixed by a seeded shuffle and
+  committed. Sessions 5b-5d may look only at the development set; Session 6 reports on the test set. Without this
+  split, improving recall on the benchmark and then reporting recall on it would overstate the result.
+- Done when: 40-50 reviews are loaded with their included studies resolved to PubMed IDs or DOIs, and the split is
+  committed.
+
+**Session 5b. Where studies are lost (development set only).**
+- For each development review, count its included studies still present after each stage: found by the searches,
+  after duplicate merging, after eligibility, in the top 60, after screening. One table, losses by stage.
+- Check how many of the missed studies are indexed in the searched databases at all (the ceiling for any fix).
+- Done when: the table exists and names the stage with the largest loss. Sessions 5c and 5d are sized by it: if the
+  search stage loses most, do 5c first; if eligibility or ranking does, do 5d first.
+
+**Session 5c. Finding more: deeper and more sensitive searching.**
+- Page through all matching records in PubMed and Europe PMC (metadata only, up to a stated cap) instead of the
+  first 50-100; show "retrieved N of M" for each search. Local installs and evaluation only; the demo keeps a cap.
+- Add MeSH headings to the PubMed strings, and published search filters where the protocol asks for a design (for
+  example the Cochrane sensitive filter for randomised trials). Cite each filter.
+- Harvest the reference lists of the reviews excluded at eligibility: their cited studies enter the pool as
+  "identified from reference lists of reviews", with their own count in the flow diagram.
+- Optional source: ClinicalTrials.gov.
+- Done when: the loss-by-stage table is re-run on the development set and shows the change at the search stage;
+  source allowances are respected; the golden test passes at default depth.
+
+**Session 5d. Matching on meaning, by rule.**
+- Match concepts on MeSH headings as well as text where records carry them (for example the heading "Aged" for
+  older adults); text matching stays for records without headings.
+- Concept position: a concept in the title, objective or conclusion counts as the study's subject; one only in the
+  background counts as a mention and no longer satisfies eligibility on its own.
+- Optional, behind a switch: a small pinned embedding model run locally replaces the word-overlap part of the
+  relevance score (same version, same score); word overlap stays the default and the fallback.
+- Bump the selection protocol version; regenerate `docs/RANKING.md`.
+- Done when: on the development set, fewer eligible-by-words records are rejected by screening (precision up)
+  without losing included studies (recall not down); replay tests pass under the new version.
 
 **Session 6. Recall experiment (E1).**
 - For each review question, build a corpus (Standard, Deep Research, PRISMA) and measure: share of the review's
@@ -179,6 +241,9 @@ chasing adds to the candidate pool and so affects the recall measured in Session
   model screening against the review's decisions.
 - Run each review twice: with the automatic default protocol, and with a protocol written from the review's own
   stated question and eligibility criteria. The difference measures what the guided protocol adds.
+- Run on the held-out test set only. Report the loss-by-stage table for it.
+- Screening (Session 3e): sensitivity against the reviews' included studies, which matters more than precision;
+  agreement between three fresh runs and between models; share of exclusions per failed criterion.
 - Report recall with and without citation chasing (Session 4b), as its own number.
 - Use only the open sources for these runs; imports (Session 3d) are described as a feature, not measured.
 - Baselines on the same pools: BM25 only, citations only, random.
@@ -200,6 +265,10 @@ chasing adds to the candidate pool and so affects the recall measured in Session
 **Session 9. Component checks.**
 - Study-type classifier against PubMed publication types (free gold labels) on a few thousand records.
 - Duplicate merging: precision on a hand-checked sample of merged pairs.
+- Risk of bias (Session 3f): for trials in the benchmark reviews that have published Cochrane judgements, compare
+  per domain and report agreement. Find and cite the published agreement between human reviewers to use as the
+  yardstick (to be confirmed with a citation; do not state a figure from memory). If agreement is poor, the paper
+  describes the judgements as exploratory.
 - Optional: ScholarQABench run for comparability, reported without claiming superiority.
 - Optional user study of the guided review (needed before the paper can call it easier or more intuitive): 10-15
   participants, novices and experienced reviewers, the same task with and without guidance; measure time, a standard
@@ -255,9 +324,9 @@ letter, preprint.
 
 ## 6. Order
 
-Sessions 1-3, 3b, 3c, 3d, 4, 4b, then 5-9, then 13-15. Sessions 11-12 (count-based gaps and their validation) can
-wait until paper 1 is submitted, provided the manuscript describes gaps as exploratory. Rough size: 16 sessions to
-submission, plus the time the evaluation runs
+Sessions 1-3, 3b-3f, 4, 4b, then 5, 5b-5d, 6-9, then 13-15. Sessions 11-12 (count-based gaps and their validation)
+can wait until paper 1 is submitted, provided the manuscript describes gaps as exploratory. Rough size: 21 sessions
+to submission, plus the time the evaluation runs
 take under free-tier rate limits (plan on several days of unattended running for Session 6).
 
 ## Sources
