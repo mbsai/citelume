@@ -5,6 +5,11 @@ tools and benchmarks. It follows `docs/HANDOFF.md` and the decision to build the
 session below is sized for one working session and ends with a "done when" check. Start a session by reading this
 file and `docs/HANDOFF.md`.
 
+**Progress:** Sessions 1-3 done 17 Nov 2026 (commits `d36ad87`, `a3060ee` and the Session 3 commit). Next: Session 3b.
+Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
+on the extraction and claims the synthesis run produces; the map can be built from a corpus alone. The evidence-table
+endpoint does not yet accept a user-supplied list of studies.
+
 Standing rules: do not push or deploy without asking; do not hand-edit `docs/RANKING.md` or `docs/FRAMEWORKS.md`
 (regenerate them); the tool must still run with no model and with small local models; keep `._*` files out of commits.
 

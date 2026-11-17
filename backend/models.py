@@ -1766,6 +1766,41 @@ class Corpus(BaseModel):
     excluded: Dict[str, str] = Field(default_factory=dict)   # record id -> reason
     included_ids: List[str] = Field(default_factory=list)
     selection_report: Optional["SelectionReport"] = None
+    selection_stats: Dict[str, int] = Field(default_factory=dict)
+    search_warnings: List[str] = Field(default_factory=list)
+
+    # The analysis of the included studies (synthesis, evidence table, gaps, map), once run; not part of the hash
+    analysis: Optional["ResearchResponse"] = None
+    analysis_model: str = ""
+    analysed_at: str = ""
+    analysis_runs: int = 0
+
+
+class ModuleRequest(BaseModel):
+    """Body of the per-module corpus endpoints."""
+    config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+    # Run the analysis again even though one is stored (for example with a different model)
+    rerun: bool = False
+    progress_id: Optional[str] = None
+
+
+class CorpusSummary(BaseModel):
+    """What POST /api/corpus returns: the selection, without the full record list (GET /api/corpus/{id} has it)."""
+    corpus_id: str
+    corpus_hash: str
+    created_at: str = ""
+    protocol_version: str = ""
+    query: str = ""
+    mode: str = "standard"
+    review_framework: str = "narrative"
+    records_found: int = 0
+    unique_records: int = 0
+    candidates: int = 0
+    source_stats: Dict[str, int] = Field(default_factory=dict)
+    included: List[PaperRecord] = Field(default_factory=list)
+    selection_report: Optional["SelectionReport"] = None
+    warnings: List[str] = Field(default_factory=list)
+    analysed: bool = False
 
 
 class ExportRequest(BaseModel):
@@ -1942,3 +1977,4 @@ class ResearchResponse(BaseModel):
 SearchRequest.model_rebuild()
 ExportRequest.model_rebuild()
 Corpus.model_rebuild()
+CorpusSummary.model_rebuild()

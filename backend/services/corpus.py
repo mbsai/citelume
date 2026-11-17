@@ -218,6 +218,12 @@ def replay_selection(corpus: "Corpus") -> List[str]:
     Re-runs selection from the stored records and inputs and returns the included record IDs, in order. No model
     and no network are used: a systematic-style review's screening is re-applied from its stored decisions.
     """
+    return [p.id for p in replay_included(corpus)[0]]
+
+
+def replay_included(corpus: "Corpus") -> Tuple[List[PaperRecord], Optional["SelectionReport"]]:
+    """The included studies as selection produces them from the stored records (numbered, scored and typed), and
+    the replayed selection report."""
     from services.ai_screening import apply_screening_decisions
     from services.paper_selection import select_studies
 
@@ -226,11 +232,11 @@ def replay_selection(corpus: "Corpus") -> List[str]:
         understanding = corpus.plan.selection_understanding or corpus.plan.question_understanding
     records = [p.model_copy(deep=True) for p in corpus.records]
     if not records:
-        return []
+        return [], None
     chosen, report = select_studies(records, corpus.ranking_query, corpus.pool_limit, understanding,
                                     records_found=corpus.records_found, method=corpus.selection_method,
                                     reference_year=corpus.reference_year or None)
     if corpus.selection_method == "systematic_prisma" and corpus.selection_report is not None:
         chosen = apply_screening_decisions(chosen, report, corpus.selection_report.screening_decisions,
                                            corpus.study_limit, corpus.selection_report.screening_model)
-    return [p.id for p in chosen]
+    return chosen, report

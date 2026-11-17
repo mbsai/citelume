@@ -1,8 +1,10 @@
 import time
 import re
 import asyncio
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +21,12 @@ from models import (
     TestSourceKeyRequest,
     SearchFacet,
     FacetApiQueries,
+    ApiKeysConfig,
+    Corpus,
+    CorpusSummary,
+    ModuleRequest,
+    QueryDecompositionPlan,
+    SelectionReport,
 )
 from services.pubmed_client import search_pubmed
 from services.arxiv_client import search_arxiv
@@ -40,7 +48,7 @@ from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit
 from services.paper_selection import label_subquestions
 from services import corpus_store
-from services.corpus import finish_corpus, select_for_corpus
+from services.corpus import finish_corpus, replay_included, select_for_corpus
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
@@ -340,48 +348,231 @@ def _with_note(result: ResearchResponse, note: str) -> ResearchResponse:
 
 @app.post("/api/search", response_model=ResearchResponse)
 async def execute_research_search(req: SearchRequest, request: Request) -> ResearchResponse:
+    """The whole pipeline in one call (kept for the page): build the corpus, then analyse it."""
     req, note = await _prepare_query(req)
-    if not demo_mode.demo_enabled():
-        try:
-            return _with_note(await _run_research_search(req), note)
-        finally:
-            if req.progress_id:
-                _SEARCH_PROGRESS.pop(req.progress_id, None)
-
-    # Public demo: shared NVIDIA free models with per-address daily limits; visitors' own keys are not limited
-    ip = demo_mode.client_ip(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
     try:
-        cfg, uses_server_key = demo_mode.apply_demo_config(req.config)
-        bucket = demo_mode.bucket_for(req.mode, uses_server_key)
-        demo_mode.take_quota(ip, bucket)
-    except demo_mode.DemoLimitError as exc:
-        raise HTTPException(exc.status, str(exc))
-    slots = demo_mode.search_slots()
-    if slots.locked():
-        demo_mode.USAGE.give_back(ip, bucket)
-        raise HTTPException(503, "The demo is busy with other searches. Please try again in a minute.")
-    completed = False
-    try:
-        async with slots:
-            run_req = req.model_copy(update={"config": cfg})
-            result = await _run_research_search(run_req)
-            completed = True
-            return _with_note(result, note)
+        result = await _with_demo_limits(
+            request, req.mode, req.config, lambda cfg: _run_research_search(req.model_copy(update={"config": cfg})))
+        return _with_note(result, note)
     finally:
-        if not completed:
-            demo_mode.USAGE.give_back(ip, bucket)  # a crashed run does not use up the visitor's allowance
         if req.progress_id:
             _SEARCH_PROGRESS.pop(req.progress_id, None)
 
 
-async def _run_research_search(req: SearchRequest) -> ResearchResponse:
-    cfg = req.config
-    # Isolate per-search LLM health (circuit breaker) and claim/audit state from concurrent searches
+async def _with_demo_limits(request: Request, mode: str, config: ApiKeysConfig, work, charge: bool = True):
+    """Runs `work(config)`. On the public demo: shared NVIDIA free models, a per-address daily allowance (charged
+    when `charge`; given back if the run fails) and a limit on concurrent runs. Elsewhere it simply runs."""
+    if not demo_mode.demo_enabled():
+        return await work(config)
+    ip = demo_mode.client_ip(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
+    try:
+        cfg, uses_server_key = demo_mode.apply_demo_config(config)
+        bucket = demo_mode.bucket_for(mode, uses_server_key)
+        if charge:
+            demo_mode.take_quota(ip, bucket)
+    except demo_mode.DemoLimitError as exc:
+        raise HTTPException(exc.status, str(exc))
+    slots = demo_mode.search_slots()
+    if slots.locked():
+        if charge:
+            demo_mode.USAGE.give_back(ip, bucket)
+        raise HTTPException(503, "The demo is busy with other searches. Please try again in a minute.")
+    completed = False
+    try:
+        async with slots:
+            result = await work(cfg)
+            completed = True
+            return result
+    finally:
+        if charge and not completed:
+            demo_mode.USAGE.give_back(ip, bucket)  # a crashed run does not use up the visitor's allowance
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The corpus and its modules
+#
+#   POST /api/corpus                    plan, search and select; store the corpus (charged like a search on the demo)
+#   GET  /api/corpus/{id}               the stored corpus: records, inputs, decisions (for audit and replay)
+#   POST /api/corpus/{id}/analyse       extraction, synthesis, evidence table, gaps and map (run once, then stored)
+#   POST /api/corpus/{id}/synthesis | evidence-table | gaps     that module's part of the analysis
+#   POST /api/corpus/{id}/map           the map; built from the included studies alone if no analysis exists yet
+#
+# The evidence table and the gaps still depend on the per-study extraction and claims that the synthesis run
+# produces, so the three share one stored analysis. Separating them is later work (docs/PUBLICATION_PLAN.md).
+# ---------------------------------------------------------------------------------------------------------------
+MODULE_FIELDS: Dict[str, Tuple[str, ...]] = {
+    "synthesis": ("executive_answer", "sections", "consensus", "bibliography", "review_protocol", "quality_report",
+                  "warnings"),
+    "evidence-table": ("papers", "evidence_matrix", "synthesis_evidence"),
+    "gaps": ("gap_matrix",),
+    "map": ("graph",),
+}
+# On the demo with the shared key, each corpus may be analysed once; a re-run needs a visitor's own key
+DEMO_ANALYSES_PER_CORPUS = 1
+
+
+def _corpus_or_404(corpus_id: str) -> Corpus:
+    corpus = corpus_store.load(corpus_id)
+    if corpus is None:
+        raise HTTPException(404, "No stored corpus with this id. Corpora expire; run the search again.")
+    return corpus
+
+
+def _summary(run: "CorpusRun") -> CorpusSummary:
+    c = run.corpus
+    return CorpusSummary(
+        corpus_id=c.corpus_id, corpus_hash=c.content_hash, created_at=c.created_at,
+        protocol_version=c.protocol_version, query=c.query, mode=c.mode, review_framework=c.review_framework,
+        records_found=c.records_found, unique_records=len(c.records), candidates=len(c.candidates),
+        source_stats={k: v for k, v in c.source_stats.items() if v}, included=run.papers,
+        selection_report=run.selection_report, warnings=list(c.search_warnings), analysed=c.analysis is not None,
+    )
+
+
+@app.post("/api/corpus", response_model=CorpusSummary)
+async def create_corpus(req: SearchRequest, request: Request) -> CorpusSummary:
+    req, note = await _prepare_query(req)
+    try:
+        run = await _with_demo_limits(
+            request, req.mode, req.config, lambda cfg: _build_corpus(req.model_copy(update={"config": cfg})))
+    finally:
+        if req.progress_id:
+            _SEARCH_PROGRESS.pop(req.progress_id, None)
+    summary = _summary(run)
+    if note:
+        summary.warnings.insert(0, note)
+    return summary
+
+
+@app.get("/api/corpus/{corpus_id}", response_model=Corpus)
+async def get_corpus(corpus_id: str) -> Corpus:
+    return _corpus_or_404(corpus_id)
+
+
+def _run_from_corpus(corpus: Corpus, cfg: ApiKeysConfig, progress_id: Optional[str] = None) -> "CorpusRun":
+    """Rebuilds the included studies from the stored records by replaying selection (no model, no network) and
+    refuses if the replay does not reproduce the stored selection."""
+    _begin_request_scope(cfg)
+    papers, replayed_report = replay_included(corpus)
+    if [p.id for p in papers] != list(corpus.included_ids):
+        raise HTTPException(409, (
+            f"This corpus was selected with {corpus.protocol_version}; replaying it here gives a different set of "
+            "studies, so it cannot be analysed reproducibly. Run the search again."))
+    plan = corpus.plan.model_copy(deep=True) if corpus.plan else QueryDecompositionPlan()
+    req = SearchRequest(query=corpus.query, mode=corpus.mode, review_framework=corpus.review_framework,
+                        organization=corpus.organization, year_from=corpus.year_from, year_to=corpus.year_to,
+                        config=cfg, progress_id=progress_id)
+    return CorpusRun(
+        req=req, plan=plan, corpus=corpus, papers=papers,
+        selection_report=corpus.selection_report.model_copy(deep=True) if corpus.selection_report else replayed_report,
+        source_stats=dict(corpus.source_stats), dedup_stats=dict(corpus.selection_stats),
+        sub_queries=[f"[{f.facet_name}] {f.queries.semantic_scholar}" for f in plan.search_facets],
+        fallback_entities=" ".join(plan.extracted_technical_entities[:3]) or corpus.query,
+    )
+
+
+async def _stored_analysis(corpus_id: str, mreq: ModuleRequest, request: Request) -> ResearchResponse:
+    """The corpus's stored analysis, running it first if there is none (or if a re-run is asked for)."""
+    corpus = _corpus_or_404(corpus_id)
+    if corpus.analysis is not None and not mreq.rerun:
+        return corpus.analysis
+    if demo_mode.demo_enabled():
+        _, uses_server_key = demo_mode.apply_demo_config(mreq.config)
+        if uses_server_key and corpus.analysis_runs >= DEMO_ANALYSES_PER_CORPUS:
+            raise HTTPException(429, "This corpus has already been analysed with the demo's shared model. "
+                                     "Add your own API key to analyse it again with another model.")
+    # The first analysis of a corpus is covered by the allowance charged when the corpus was built
+    charge = corpus.analysis_runs > 0
+    corpus.analysis_runs += 1
+    try:
+        return await _with_demo_limits(
+            request, corpus.mode, mreq.config,
+            lambda cfg: _analyse(_run_from_corpus(corpus, cfg, mreq.progress_id)), charge=charge)
+    except Exception:
+        corpus.analysis_runs -= 1
+        raise
+    finally:
+        if mreq.progress_id:
+            _SEARCH_PROGRESS.pop(mreq.progress_id, None)
+
+
+@app.post("/api/corpus/{corpus_id}/analyse", response_model=ResearchResponse)
+async def analyse_corpus(corpus_id: str, mreq: ModuleRequest, request: Request) -> ResearchResponse:
+    return await _stored_analysis(corpus_id, mreq, request)
+
+
+def _module_payload(corpus: Corpus, result: ResearchResponse, module: str) -> Dict[str, Any]:
+    payload = result.model_dump(include=set(MODULE_FIELDS[module]))
+    payload.update(corpus_id=corpus.corpus_id, corpus_hash=corpus.content_hash, module=module,
+                   analysis_model=corpus.analysis_model, analysed_at=corpus.analysed_at)
+    return payload
+
+
+@app.post("/api/corpus/{corpus_id}/synthesis")
+async def corpus_synthesis(corpus_id: str, mreq: ModuleRequest, request: Request) -> Dict[str, Any]:
+    result = await _stored_analysis(corpus_id, mreq, request)
+    return _module_payload(_corpus_or_404(corpus_id), result, "synthesis")
+
+
+@app.post("/api/corpus/{corpus_id}/evidence-table")
+async def corpus_evidence_table(corpus_id: str, mreq: ModuleRequest, request: Request) -> Dict[str, Any]:
+    result = await _stored_analysis(corpus_id, mreq, request)
+    return _module_payload(_corpus_or_404(corpus_id), result, "evidence-table")
+
+
+@app.post("/api/corpus/{corpus_id}/gaps")
+async def corpus_gaps(corpus_id: str, mreq: ModuleRequest, request: Request) -> Dict[str, Any]:
+    result = await _stored_analysis(corpus_id, mreq, request)
+    return _module_payload(_corpus_or_404(corpus_id), result, "gaps")
+
+
+@app.post("/api/corpus/{corpus_id}/map")
+async def corpus_map(corpus_id: str, mreq: ModuleRequest) -> Dict[str, Any]:
+    """The analysed map when an analysis exists; otherwise the map of the included studies alone (citation and
+    wording links), which needs no model."""
+    corpus = _corpus_or_404(corpus_id)
+    if corpus.analysis is not None and not mreq.rerun:
+        return _module_payload(corpus, corpus.analysis, "map")
+    run = _run_from_corpus(corpus, mreq.config)
+    graph = build_literature_graph(papers=run.papers, hf_resources=[], query=corpus.query, mode=corpus.mode,
+                                   decomposition_plan=run.plan)
+    return {"graph": graph.model_dump(), "corpus_id": corpus.corpus_id, "corpus_hash": corpus.content_hash,
+            "module": "map", "analysis_model": "", "analysed_at": ""}
+
+
+@dataclass
+class CorpusRun:
+    """A built corpus and what the analysis stage needs from the search that built it."""
+    req: SearchRequest
+    plan: QueryDecompositionPlan
+    corpus: Corpus
+    papers: List[PaperRecord]                 # the included studies, numbered
+    selection_report: Optional[SelectionReport]
+    source_stats: Dict[str, int]
+    dedup_stats: Dict[str, int]
+    sub_queries: List[str]
+    fallback_entities: str
+
+
+def _begin_request_scope(cfg: ApiKeysConfig) -> None:
+    # Isolate per-search LLM health (circuit breaker), claim/audit state and source budgets from concurrent searches
     begin_llm_request_health()
     begin_synthesis_scope()
     begin_source_health()
     begin_search_budget()
     set_openalex_api_key(cfg.openalex_api_key)
+
+
+async def _run_research_search(req: SearchRequest) -> ResearchResponse:
+    """The whole search: build and store the corpus, then analyse its included studies."""
+    return await _analyse(await _build_corpus(req))
+
+
+async def _build_corpus(req: SearchRequest) -> CorpusRun:
+    """Stages 1-3: plan the searches, run them, merge duplicates, select (and in PRISMA mode screen) the
+    studies, and store the corpus. No study is read or summarised here."""
+    cfg = req.config
+    _begin_request_scope(cfg)
     # Stage A, B, C: Universal Question Understanding -> Research Strategy -> 5-API Compilation
     _report_stage(req, 1)
     plan = await generate_multi_api_decomposition_plan(req.query, req.mode, cfg, domain_override=req.domain)
@@ -495,8 +686,23 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     corpus.year_from, corpus.year_to = req.year_from, req.year_to
     corpus.plan = plan.model_copy(deep=True)
     corpus.source_stats = dict(source_stats)
+    corpus.selection_stats = dict(dedup_stats)
+    corpus.search_warnings = source_failure_warnings()
     finish_corpus(corpus, ranked_papers, selection_report)
     corpus_store.save(corpus)
+    return CorpusRun(req=req, plan=plan, corpus=corpus, papers=ranked_papers, selection_report=selection_report,
+                     source_stats=source_stats, dedup_stats=dedup_stats, sub_queries=sub_queries,
+                     fallback_entities=fallback_entities_str)
+
+
+async def _analyse(run: CorpusRun) -> ResearchResponse:
+    """Stages 3-6 on a corpus's included studies: full text, extraction, synthesis, evidence table, gaps and map.
+    The result is stored with the corpus, so the per-module endpoints can return their part of it."""
+    req, plan, corpus = run.req, run.plan, run.corpus
+    cfg = req.config
+    ranked_papers, selection_report = run.papers, run.selection_report
+    source_stats, dedup_stats = dict(run.source_stats), run.dedup_stats
+    sub_queries, fallback_entities_str = run.sub_queries, run.fallback_entities
 
     # Which sub-questions of the search plan each included study bears on (labelling only, after selection)
     label_subquestions(ranked_papers, plan.question_understanding)
@@ -555,7 +761,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
             decomposition_plan=plan,
             synthesis_package=claim_evidence_pkg,
             evidence_matrix=downstream["evidence_matrix"],
-            all_candidate_pool=all_raw_papers,
+            all_candidate_pool=corpus.records,
         )
 
     exec_answer, sections, consensus, warnings = await generate_synthesis_and_extractions(
@@ -622,7 +828,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
     )
 
     # Sources that still failed after retries are named in the results instead of silently returning fewer papers
-    warnings = source_failure_warnings() + warnings
+    warnings = list(dict.fromkeys(corpus.search_warnings + source_failure_warnings())) + warnings
     if req.mode == "deep_research":
         tier, reason = classify_model_scale(cfg.llm_provider, cfg.llm_model)
         if tier == "small":
@@ -643,7 +849,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         plan=plan,
         included_papers=ranked_papers,
         identified_by_source=source_stats,
-        identified_total=len(all_raw_papers),
+        identified_total=corpus.records_found,
         unique_records=dedup_stats.get("unique_records", len(ranked_papers)),
         enabled_sources=enabled_sources,
         year_from=req.year_from,
@@ -660,7 +866,7 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
             organization_id=req.organization,
         )
 
-    return ResearchResponse(
+    result = ResearchResponse(
         query=req.query,
         mode=req.mode,
         sub_queries=sub_queries,
@@ -684,6 +890,13 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         corpus_id=corpus.corpus_id,
         corpus_hash=corpus.content_hash,
     )
+    # Kept with the corpus so the module endpoints can return their part without running the models again
+    corpus.analysis = result.model_copy(deep=True)
+    corpus.analysis_model = f"{cfg.llm_provider}:{cfg.llm_model}" if (cfg.llm_api_key or cfg.llm_provider in ("ollama", "custom")) else "none (rule-based)"
+    corpus.analysed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    corpus_store.save(corpus)
+    return result
+
 
 
 @app.post("/api/expand-node")
