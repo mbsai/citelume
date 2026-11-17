@@ -5,7 +5,94 @@ import React, { useState } from 'react';
 
 const minutes = (n) => Math.round((1.5 + n / 20) * 2) / 2;
 
-export default function AnalysisChoice({ summary, running, onAnalyse, onBack }) {
+// The model's screening decisions, for the user to confirm or overturn (each change needs a reason)
+function ScreeningReview({ report, onApply, busy }) {
+  const decisions = (report?.screening_decisions || []).filter((d) => d.screened);
+  const [changes, setChanges] = useState({});
+  const [show, setShow] = useState('excluded');
+  if (!decisions.length) return null;
+  const excluded = decisions.filter((d) => !(d.user_override ?? d.include));
+  const included = decisions.filter((d) => d.user_override ?? d.include);
+  const list = show === 'excluded' ? excluded : included;
+  const pending = Object.entries(changes).filter(([, c]) => c.on);
+  const ready = pending.length > 0 && pending.every(([, c]) => c.reason.trim());
+  return (
+    <div className="border-t border-emerald-200 pt-3 space-y-2">
+      <h3 className="text-sm font-bold text-slate-800">Review the model&apos;s screening</h3>
+      <p className="text-xs text-slate-600">
+        The model ({report.screening_model}) answered each criterion for {decisions.length} records:{' '}
+        {(report.screening_criteria || []).join('; ')}. A record is excluded if any criterion is clearly not met;
+        &quot;unclear&quot; never excludes. Change any decision you disagree with; each change needs a reason and is recorded.
+      </p>
+      <div className="flex gap-2 text-xs">
+        {[
+          ['excluded', `Excluded by the model (${excluded.length})`],
+          ['included', `Kept by the model (${included.length})`],
+        ].map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setShow(k)}
+            className={`px-2.5 py-1 rounded-lg border font-semibold ${show === k ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-300 text-slate-700'}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+      <div className="max-h-80 overflow-auto space-y-1.5">
+        {list.map((d) => {
+          const c = changes[d.record_id] || { on: false, reason: '' };
+          const set = (patch) => setChanges((prev) => ({ ...prev, [d.record_id]: { ...c, ...patch } }));
+          return (
+            <div key={d.record_id} className="text-xs border border-slate-200 rounded-lg p-2 bg-white space-y-1">
+              <div className="font-medium text-slate-800">{d.title}</div>
+              <div className="text-slate-600">
+                {d.failed_criterion ? (
+                  <>
+                    <span className="text-rose-700 font-semibold">Not met: {d.failed_criterion}.</span> {d.reason}
+                  </>
+                ) : (
+                  <>Meets the criteria (answers: {(d.answers || []).join(', ')}). {d.reason}</>
+                )}
+                {d.user_override != null && <span className="ml-1 text-indigo-700">(you changed this: {d.override_reason})</span>}
+              </div>
+              <label className="inline-flex items-center gap-1.5 text-slate-700">
+                <input type="checkbox" checked={c.on} onChange={(e) => set({ on: e.target.checked })} />
+                {show === 'excluded' ? 'Include it' : 'Exclude it'}
+              </label>
+              {c.on && (
+                <input
+                  value={c.reason}
+                  onChange={(e) => set({ reason: e.target.value })}
+                  placeholder="reason (recorded)"
+                  className="ml-2 bg-white border border-slate-300 rounded px-2 py-0.5 text-xs w-72"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        disabled={!ready || busy}
+        onClick={() =>
+          onApply(
+            pending.map(([record_id, c]) => ({
+              record_id,
+              include: !(decisions.find((d) => d.record_id === record_id)?.user_override ?? decisions.find((d) => d.record_id === record_id)?.include),
+              reason: c.reason.trim(),
+            }))
+          )
+        }
+        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white disabled:opacity-40"
+      >
+        Apply my {pending.length || ''} change{pending.length === 1 ? '' : 's'}
+      </button>
+    </div>
+  );
+}
+
+export default function AnalysisChoice({ summary, running, onAnalyse, onBack, onOverride }) {
   const included = summary.included.length;
   const eligibleBased = summary.selection_method !== 'narrative';
   // An eligibility-based review can only go down (only screened studies can be chosen without the model); a
@@ -66,6 +153,7 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack }) 
             : `${notAnalysed} eligible ${notAnalysed === 1 ? 'study is' : 'studies are'} not chosen by the ranking; they are counted under "How the studies were chosen".`}
         </p>
       )}
+      <ScreeningReview report={summary.selection_report} onApply={onOverride} busy={running} />
       <div className="flex gap-2">
         <button type="button" onClick={onBack} className="px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">
           Back to the set-up

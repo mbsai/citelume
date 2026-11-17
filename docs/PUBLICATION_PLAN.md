@@ -10,7 +10,10 @@ quick answer 20; narrative 60 by default; systematic-style and scoping reviews t
 ceiling of 150 / 200 locally and 60 on the demo; the number can be lowered after the search without searching
 again). Session 3d done 17 Nov 2026: Scopus / Web of Science strings, imports (RIS, BibTeX, CSV, Web of Science
 and PubMed text) and user PDFs (attach or add; include regardless with a recorded reason). Decision: imports and PDFs
-are disabled on the public demo. Next: Session 3e (screening by criterion).
+are disabled on the public demo. Session 3e done 17 Nov 2026: the model answers each protocol criterion (yes / no /
+unclear); a fixed rule decides (any "no" excludes, the reason named in the order design, population, intervention,
+outcome); answers stored with model, prompt version and date; user overrides with reasons. Not done: the optional
+second-model screening. Next: Session 3f (checkable risk of bias).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

@@ -10,6 +10,7 @@ import SelectionPanel from './components/SelectionPanel';
 import {
   analyseCorpus,
   createCorpus,
+  overrideScreening,
   fetchDemoStatus,
   fetchModelScale,
   fetchSearchProgress,
@@ -437,6 +438,17 @@ export default function App() {
     }
   };
 
+  // The user's changes to the model's screening give a new corpus from the same records (no search, no model)
+  const handleOverride = async (overrides) => {
+    if (!pendingCorpus) return;
+    setError('');
+    try {
+      setPendingCorpus(await overrideScreening(pendingCorpus.corpus_id, overrides));
+    } catch (err) {
+      setError(err.message || 'Could not save your decisions');
+    }
+  };
+
   const handleAnalyse = async (studyCount) => {
     if (!pendingCorpus) return;
     const pid = startRun();
@@ -828,9 +840,11 @@ export default function App() {
 
           {pendingCorpus && !loading && (
             <AnalysisChoice
+              key={pendingCorpus.corpus_id}
               summary={pendingCorpus}
               running={loading}
               onAnalyse={handleAnalyse}
+              onOverride={handleOverride}
               onBack={() => {
                 setPendingCorpus(null);
                 setGuidedOpen(true);

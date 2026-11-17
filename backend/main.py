@@ -27,6 +27,7 @@ from models import (
     Corpus,
     CorpusSummary,
     ReselectRequest,
+    ScreeningOverridesRequest,
     ImportRequest,
     ImportResult,
     ImportSummary,
@@ -58,7 +59,7 @@ from services.llm_service import (
 )
 from frameworks.reporting import build_review_protocol_report
 from services.prisma_report import compose_prisma_report
-from services.ai_screening import screen_and_limit
+from services.ai_screening import screen_and_limit, screening_criteria
 from services.paper_selection import label_subquestions
 from services import corpus_store
 from services.corpus import (
@@ -620,6 +621,22 @@ async def reselect_corpus(corpus_id: str, body: ReselectRequest) -> CorpusSummar
     return _summary(_run_from_corpus(derived, ApiKeysConfig()))
 
 
+@app.post("/api/corpus/{corpus_id}/screening-overrides", response_model=CorpusSummary)
+async def override_screening(corpus_id: str, body: ScreeningOverridesRequest) -> CorpusSummary:
+    """The user's decisions after reviewing the model's screening, each with a reason. Returns a new corpus from
+    the same records (no search, no model) with the decisions applied; the original is unchanged."""
+    corpus = _corpus_or_404(corpus_id)
+    decided = {d.record_id for d in (corpus.selection_report.screening_decisions if corpus.selection_report else [])}
+    for o in body.overrides:
+        if o.record_id not in decided:
+            raise HTTPException(400, "Only records the model screened can be overridden.")
+        if not o.reason.strip():
+            raise HTTPException(400, "Give a reason for each change to the model's screening.")
+    derived = derive_corpus(corpus, corpus.study_limit, overrides=body.overrides)
+    corpus_store.save(derived)
+    return _summary(_run_from_corpus(derived, ApiKeysConfig()))
+
+
 @app.get("/api/corpus/{corpus_id}", response_model=Corpus)
 async def get_corpus(corpus_id: str) -> Corpus:
     return _corpus_or_404(corpus_id)
@@ -881,7 +898,8 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     )
     if method != "narrative" and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
-        ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
+        ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers,
+                                               criteria=screening_criteria(protocol, method))
     # The user's material: which merged study each PDF became, its full text, and studies included by the user
     corpus.imports = imports
     _record_user_pdfs(corpus, pdf_records, pdf_summaries, forced_keys)

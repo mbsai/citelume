@@ -76,6 +76,11 @@ export function reselectCorpus(corpusId, studyLimit) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/reselect`, { study_limit: studyLimit }, 'Choosing studies');
 }
 
+// The user's decisions after reviewing the model's screening: [{record_id, include, reason}]
+export function overrideScreening(corpusId, overrides) {
+  return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/screening-overrides`, { overrides }, 'Saving your decisions');
+}
+
 export function analyseCorpus(corpusId, payload) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/analyse`, payload, 'Analysis');
 }

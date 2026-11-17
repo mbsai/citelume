@@ -253,7 +253,7 @@ def replay_included(corpus: "Corpus") -> Tuple[List[PaperRecord], Optional["Sele
     return chosen, report
 
 
-def derive_corpus(corpus: "Corpus", study_limit: int) -> "Corpus":
+def derive_corpus(corpus: "Corpus", study_limit: int, overrides=None) -> "Corpus":
     """
     A corpus with the same records, protocol and decisions but a different study limit. Selection is re-run on the
     stored records (no search, no model); a systematic-style or scoping review re-applies its stored screening.
@@ -271,12 +271,25 @@ def derive_corpus(corpus: "Corpus", study_limit: int) -> "Corpus":
         derived.protocol.notes.append(
             f"After the search, the user chose to analyse {study_limit} studies (the search had included "
             f"{len(corpus.included_ids)}).")
-    derived.analysis, derived.analysis_model, derived.analysed_at, derived.analysis_runs = None, "", "", 0
+    derived.analysis, derived.analysis_model, derived.analysis_runs = None, "", 0
+    derived.analysed_at = ""
+    if overrides and derived.selection_report is not None:
+        # The user's decisions after reviewing the model's screening (each with a reason)
+        by_id = {o.record_id: o for o in overrides}
+        for d in derived.selection_report.screening_decisions:
+            if d.record_id in by_id:
+                d.user_override, d.override_reason = by_id[d.record_id].include, by_id[d.record_id].reason.strip()
+        if derived.protocol is not None:
+            derived.protocol.notes.append(
+                f"After the search, the user reviewed the model's screening and changed {len(overrides)} decision(s).")
     papers, report = replay_included(derived)
-    if report is not None and corpus.selection_report is not None:
+    if report is not None and derived.selection_report is not None:
         # Keep what the first selection recorded that a replay does not recompute
-        report.screening_decisions = list(corpus.selection_report.screening_decisions)
-        report.screening_model = corpus.selection_report.screening_model
+        report.screening_decisions = list(derived.selection_report.screening_decisions)
+        report.screening_model = derived.selection_report.screening_model
+        report.screening_criteria = list(derived.selection_report.screening_criteria)
+        report.screening_prompt_version = derived.selection_report.screening_prompt_version
+        report.screening_date = derived.selection_report.screening_date
     return finish_corpus(derived, papers, report)
 
 

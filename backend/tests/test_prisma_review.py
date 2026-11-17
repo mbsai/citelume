@@ -196,19 +196,21 @@ class TestAiScreening(unittest.TestCase):
 
     def test_excluded_records_are_counted_and_the_limit_filled(self):
         async def fake(**kw):
-            # Excludes every even-numbered record in each batch
-            lines = [ln for ln in kw["user_prompt"].split("\n") if ln[:1].isdigit()]
+            # Answers "no" to the (single, default) criterion for every even-numbered record in each batch
+            records = kw["user_prompt"].split("Records:")[1]
+            lines = [ln for ln in records.split("\n") if ln[:1].isdigit()]
             from services.ai_screening import ScreeningBatchOutput, ScreeningDecision
             from models import TaskExecutionRecord
-            out = ScreeningBatchOutput(decisions=[ScreeningDecision(n=i, include="no" if i % 2 == 0 else "yes",
+            out = ScreeningBatchOutput(decisions=[ScreeningDecision(n=i, answers=["no" if i % 2 == 0 else "yes"],
                                                                     reason="different outcome")
                                                   for i in range(1, len(lines) + 1)])
             return out, TaskExecutionRecord(task_id="Task_S", task_name="t", model_used="fake")
         out, rep, scr = self._run(fake)
         self.assertEqual(len(out), 5)
         self.assertEqual([p.citation_index for p in out], [1, 2, 3, 4, 5])
-        self.assertEqual(rep.excluded[scr.REASON_AI_SCREEN], 6)
-        self.assertEqual(rep.exclusion_stage[scr.REASON_AI_SCREEN], "eligibility")
+        reason = scr.criterion_reason("Question")
+        self.assertEqual(rep.excluded[reason], 6)
+        self.assertEqual(rep.exclusion_stage[reason], "eligibility")
         self.assertEqual(rep.eligible, 6)
         self.assertEqual(len(rep.eligible_over_limit), 1)
         self.assertTrue(any("screened 12" in n for n in rep.notes))

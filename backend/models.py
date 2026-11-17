@@ -2009,6 +2009,17 @@ class CorpusSummary(BaseModel):
     user_pdfs: List["UserPdfSummary"] = Field(default_factory=list)
 
 
+class ScreeningOverride(BaseModel):
+    record_id: str
+    include: bool
+    reason: str
+
+
+class ScreeningOverridesRequest(BaseModel):
+    """The user's decisions after reviewing the model's screening (no new search; no model)."""
+    overrides: List[ScreeningOverride] = Field(default_factory=list)
+
+
 class ReselectRequest(BaseModel):
     """Choose a different number of studies from a stored corpus (no new search; no model)."""
     study_limit: int
@@ -2078,10 +2089,22 @@ class ListedRecord(BaseModel):
 class ScreeningDecisionRecord(BaseModel):
     record_id: str
     title: str = ""
+    # The model's decision, computed from its answers by a fixed rule (any "no" excludes; "unclear" includes)
     include: bool = True
     reason: str = ""
     # False when the model gave no usable answer for this record's batch and the rule-based decision stood
     screened: bool = True
+    # The model's answer to each screening criterion, in the order of SelectionReport.screening_criteria
+    answers: List[str] = Field(default_factory=list)
+    # The first criterion answered "no" (empty when included)
+    failed_criterion: str = ""
+    # The user's decision after reviewing the model's (None = not reviewed); it overrides `include`
+    user_override: Optional[bool] = None
+    override_reason: str = ""
+
+    @property
+    def effective_include(self) -> bool:
+        return self.include if self.user_override is None else self.user_override
 
 
 class SelectionReport(BaseModel):
@@ -2107,6 +2130,10 @@ class SelectionReport(BaseModel):
     # after the rule-based selection; see services/ai_screening.py)
     screening_model: str = ""
     screening_decisions: List["ScreeningDecisionRecord"] = Field(default_factory=list)
+    # The criteria the model answered for each record, the prompt version and the date it screened
+    screening_criteria: List[str] = Field(default_factory=list)
+    screening_prompt_version: str = ""
+    screening_date: str = ""
     # PRISMA mode: existing reviews excluded from the synthesis (cited in the Discussion), and eligible studies
     # beyond the study limit (listed so nothing eligible disappears silently)
     excluded_reviews: List["ListedRecord"] = Field(default_factory=list)
