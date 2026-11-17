@@ -6,10 +6,14 @@ output. Selection (services/paper_selection.py) then runs on the merged records.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from typing import Dict, List
+import uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple
 
-from models import PaperRecord
+from models import Corpus, CorpusCandidate, PaperRecord, SelectionReport, UniversalQuestionUnderstanding
 
 
 def _normalize_title(title: str) -> str:
@@ -119,3 +123,114 @@ def merge_duplicates(raw_papers: List[PaperRecord]) -> List[PaperRecord]:
                 s2_to_key[clean_s2] = key
 
     return list(merged_by_key.values())
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The stored corpus: selection with everything needed to audit and replay it
+# ---------------------------------------------------------------------------------------------------------------
+# A systematic-style review keeps every word-eligible record so the model can screen them before the limit applies
+PRISMA_CANDIDATE_POOL = 400
+
+
+def corpus_hash(corpus: "Corpus") -> str:
+    """Identifies a selection: the protocol version, the inputs, the records it ran on and the studies it chose.
+    Two corpora with the same hash made the same selection from the same records."""
+    payload = {
+        "protocol_version": corpus.protocol_version,
+        "query": corpus.query,
+        "ranking_query": corpus.ranking_query,
+        "method": corpus.selection_method,
+        "study_limit": corpus.study_limit,
+        "pool_limit": corpus.pool_limit,
+        "reference_year": corpus.reference_year,
+        "records": [r.id for r in corpus.records],
+        "included": list(corpus.included_ids),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:20]
+
+
+def select_for_corpus(
+    raw_papers: List[PaperRecord],
+    query: str,
+    ranking_query: str,
+    study_limit: int,
+    understanding: Optional["UniversalQuestionUnderstanding"],
+    method: str = "narrative",
+    stats: Optional[Dict[str, int]] = None,
+    reference_year: Optional[int] = None,
+) -> Tuple[List[PaperRecord], "SelectionReport", "Corpus"]:
+    """
+    Merges duplicates and runs selection, keeping what a stored corpus needs. Returns the chosen records (for a
+    systematic-style review: the eligible candidates, to be screened before the limit applies), the selection
+    report, and a draft corpus to complete with `finish_corpus` once the included studies are final.
+    """
+    from services.paper_selection import PROTOCOL_VERSION, SelectionDetails, select_studies
+
+    unique = merge_duplicates(raw_papers)
+    snapshot = [p.model_copy(deep=True) for p in unique]
+    if stats is not None:
+        stats["unique_records"] = len(unique)
+    pool_limit = PRISMA_CANDIDATE_POOL if method == "systematic_prisma" else study_limit
+    details = SelectionDetails()
+    chosen, report = ([], None)
+    if unique:
+        chosen, report = select_studies(unique, ranking_query, pool_limit, understanding, stats,
+                                        records_found=len(raw_papers), method=method, details=details,
+                                        reference_year=reference_year)
+    now = datetime.now(timezone.utc)
+    corpus = Corpus(
+        corpus_id=uuid.uuid4().hex,
+        created_at=now.isoformat(timespec="seconds"),
+        search_date=now.strftime("%Y-%m-%d"),
+        protocol_version=PROTOCOL_VERSION,
+        query=query,
+        ranking_query=ranking_query,
+        selection_method=method,
+        study_limit=study_limit,
+        pool_limit=pool_limit,
+        reference_year=details.reference_year or now.year,
+        records_found=len(raw_papers),
+        records=snapshot,
+        candidates=[
+            CorpusCandidate(record_id=p.id, rank=p.selection_rank or i, relevance=p.relevance or "",
+                            study_type=p.study_type or "", scores=dict(p.selection_breakdown or {}))
+            for i, p in enumerate(details.candidates, start=1)
+        ],
+        excluded=dict(details.excluded),
+    )
+    return chosen, report, corpus
+
+
+def finish_corpus(corpus: "Corpus", included: List[PaperRecord], report: Optional["SelectionReport"]) -> "Corpus":
+    """Records the final included studies (after any screening) and the report, and stamps the content hash."""
+    corpus.included_ids = [p.id for p in included]
+    corpus.selection_report = report.model_copy(deep=True) if report is not None else None
+    if report is not None:
+        screened_out = {d.record_id for d in report.screening_decisions if not d.include}
+        for rid in screened_out:
+            corpus.excluded.setdefault(rid, "Not about the question on title and abstract screening (judged by the model)")
+    corpus.content_hash = corpus_hash(corpus)
+    return corpus
+
+
+def replay_selection(corpus: "Corpus") -> List[str]:
+    """
+    Re-runs selection from the stored records and inputs and returns the included record IDs, in order. No model
+    and no network are used: a systematic-style review's screening is re-applied from its stored decisions.
+    """
+    from services.ai_screening import apply_screening_decisions
+    from services.paper_selection import select_studies
+
+    understanding = None
+    if corpus.plan is not None:
+        understanding = corpus.plan.selection_understanding or corpus.plan.question_understanding
+    records = [p.model_copy(deep=True) for p in corpus.records]
+    if not records:
+        return []
+    chosen, report = select_studies(records, corpus.ranking_query, corpus.pool_limit, understanding,
+                                    records_found=corpus.records_found, method=corpus.selection_method,
+                                    reference_year=corpus.reference_year or None)
+    if corpus.selection_method == "systematic_prisma" and corpus.selection_report is not None:
+        chosen = apply_screening_decisions(chosen, report, corpus.selection_report.screening_decisions,
+                                           corpus.study_limit, corpus.selection_report.screening_model)
+    return [p.id for p in chosen]

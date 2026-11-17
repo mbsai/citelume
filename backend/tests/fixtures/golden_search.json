@@ -107,6 +107,8 @@
   "response_fields": [
    "bibliography",
    "consensus",
+   "corpus_hash",
+   "corpus_id",
    "decomposition_plan",
    "evidence_base",
    "evidence_matrix",
@@ -252,6 +254,8 @@
   "response_fields": [
    "bibliography",
    "consensus",
+   "corpus_hash",
+   "corpus_id",
    "decomposition_plan",
    "evidence_base",
    "evidence_matrix",
@@ -381,6 +385,8 @@
   "response_fields": [
    "bibliography",
    "consensus",
+   "corpus_hash",
+   "corpus_id",
    "decomposition_plan",
    "evidence_base",
    "evidence_matrix",

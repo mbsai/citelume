@@ -39,9 +39,8 @@ from frameworks.reporting import build_review_protocol_report
 from services.prisma_report import compose_prisma_report
 from services.ai_screening import screen_and_limit
 from services.paper_selection import label_subquestions
-
-# PRISMA reviews: word-eligible records kept for title/abstract screening by the model
-PRISMA_CANDIDATE_POOL = 400
+from services import corpus_store
+from services.corpus import finish_corpus, select_for_corpus
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services.query_planning import results_per_search, searches_arxiv
@@ -473,25 +472,31 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
 
     # ROUND 3: Verification, Deduplication & Multi-Criteria Study Selection
     _report_stage(req, 3, f"{len(all_raw_papers)} candidate records harvested")
-    ranking_query = f"{req.query} {' '.join(plan.extracted_technical_entities)}"
+    # Scored against the question plus the rule-based parse's key terms (not the model's plan)
+    ranking_query = f"{req.query} {' '.join(plan.selection_entities or plan.extracted_technical_entities)}"
     dedup_stats: Dict[str, int] = {}
-    selection_reports: list = []
     await enrich_citation_counts(all_raw_papers)  # records added by citation links
     prisma = req.mode == "deep_research" and req.review_framework == "systematic_prisma"
-    ranked_papers = deduplicate_and_rank_papers(
+    # A PRISMA review keeps every word-eligible record, so the model can screen them before the limit applies
+    ranked_papers, selection_report, corpus = select_for_corpus(
         all_raw_papers,
-        ranking_query,
-        # A PRISMA review keeps every word-eligible record, so the model can screen them before the limit applies
-        max_total=PRISMA_CANDIDATE_POOL if prisma else max_total_papers,
+        query=req.query,
+        ranking_query=ranking_query,
+        study_limit=max_total_papers,
         understanding=selection_understanding,
-        stats=dedup_stats,
-        report_out=selection_reports,
         method="systematic_prisma" if prisma else "narrative",
+        stats=dedup_stats,
     )
-    selection_report = selection_reports[0] if selection_reports else None
     if prisma and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
         ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers)
+    # The corpus: the records, the inputs and the decisions, so the selection can be audited and replayed
+    corpus.mode, corpus.review_framework, corpus.organization = req.mode, req.review_framework, req.organization
+    corpus.year_from, corpus.year_to = req.year_from, req.year_to
+    corpus.plan = plan.model_copy(deep=True)
+    corpus.source_stats = dict(source_stats)
+    finish_corpus(corpus, ranked_papers, selection_report)
+    corpus_store.save(corpus)
 
     # Which sub-questions of the search plan each included study bears on (labelling only, after selection)
     label_subquestions(ranked_papers, plan.question_understanding)
@@ -676,6 +681,8 @@ async def _run_research_search(req: SearchRequest) -> ResearchResponse:
         warnings=warnings,
         review_protocol=review_protocol,
         selection_report=selection_report,
+        corpus_id=corpus.corpus_id,
+        corpus_hash=corpus.content_hash,
     )
 
 

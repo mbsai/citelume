@@ -276,6 +276,8 @@ class QueryDecompositionPlan(BaseModel):
     # on which model (if any) planned the searches; `question_understanding` drives the searches and may come from
     # the model.
     selection_understanding: Optional[UniversalQuestionUnderstanding] = None
+    # The rule-based parse's key terms, added to the question when studies are scored for wording overlap
+    selection_entities: List[str] = Field(default_factory=list)
     search_plan: Optional[UniversalSearchPlan] = None
     active_profile_summary: Dict[str, Any] = Field(default_factory=dict)
 
@@ -1717,6 +1719,55 @@ class KnowledgeGapMatrix(BaseModel):
     disclosures: List[str] = Field(default_factory=list)
 
 
+class CorpusCandidate(BaseModel):
+    """One eligible record's place in the ranking and the scores that put it there."""
+    record_id: str
+    rank: int = 0
+    relevance: str = ""
+    study_type: str = ""
+    scores: Dict[str, float] = Field(default_factory=dict)
+
+
+class Corpus(BaseModel):
+    """
+    Everything needed to audit and re-run a selection: the records found (one per study, as they were before
+    selection), the question and how it was parsed, the selection inputs, and what selection decided. Stored by
+    services/corpus_store.py and replayed by services/replay.py.
+    """
+    corpus_id: str = ""
+    created_at: str = ""
+    search_date: str = ""
+    protocol_version: str = ""
+    content_hash: str = ""
+
+    # The request
+    query: str = ""
+    mode: str = "standard"
+    review_framework: str = "narrative"
+    organization: str = "thematic"
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+
+    # Selection inputs
+    ranking_query: str = ""
+    selection_method: str = "narrative"
+    study_limit: int = 20
+    pool_limit: int = 20          # the limit passed to selection (larger than study_limit when screening follows)
+    reference_year: int = 0       # recency and citations per year are measured from this year
+    plan: Optional[QueryDecompositionPlan] = None
+
+    # What the searches returned
+    source_stats: Dict[str, int] = Field(default_factory=dict)
+    records_found: int = 0
+    records: List[PaperRecord] = Field(default_factory=list)
+
+    # What selection decided
+    candidates: List[CorpusCandidate] = Field(default_factory=list)
+    excluded: Dict[str, str] = Field(default_factory=dict)   # record id -> reason
+    included_ids: List[str] = Field(default_factory=list)
+    selection_report: Optional["SelectionReport"] = None
+
+
 class ExportRequest(BaseModel):
     format: Literal[
         "txt",
@@ -1882,8 +1933,12 @@ class ResearchResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     review_protocol: Optional[ReviewProtocolReport] = None
     selection_report: Optional["SelectionReport"] = None
+    # The stored corpus this result was built from (GET /api/corpus/{id}); empty if it was not stored
+    corpus_id: str = ""
+    corpus_hash: str = ""
 
 
 # SearchRequest refers to DomainCategoryType, which is defined further down this module
 SearchRequest.model_rebuild()
 ExportRequest.model_rebuild()
+Corpus.model_rebuild()

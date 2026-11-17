@@ -21,6 +21,11 @@ from services import query_utils, synthesis_engine
 from services.gap_matrix_engine import clear_gap_verification_cache
 from services.llm_service import set_test_llm_responder
 
+import tempfile
+
+# Corpora written by these runs go to a temporary folder, not the real cache
+os.environ["CORPUS_DIR"] = tempfile.mkdtemp(prefix="citelume_test_corpora_")
+
 GOLDEN = Path(__file__).parent / "fixtures" / "golden_search.json"
 QUERY = "Does vitamin D supplementation reduce fractures in older adults?"
 YEAR = datetime.now(timezone.utc).year
@@ -206,9 +211,28 @@ class TestGoldenSearch(unittest.TestCase):
         self.assertLess(len(merged), len(raw))
         self.assertEqual([m.id for m in merge_duplicates(raw)], [m.id for m in merged])
 
+    def test_stored_corpus_replays_to_the_same_selection(self):
+        from services import corpus_store
+        from services.replay import check
+        for name, kw in CASES.items():
+            result = run_search(**kw)
+            corpus_store._MEMORY.clear()  # force the read from disk
+            corpus = corpus_store.load(result.corpus_id)
+            self.assertIsNotNone(corpus, name)
+            self.assertEqual(corpus.included_ids, [p.id for p in result.papers], name)
+            self.assertEqual(corpus.content_hash, result.corpus_hash, name)
+            # every record is accounted for: a ranked candidate or excluded with a reason
+            accounted = {c.record_id for c in corpus.candidates} | set(corpus.excluded)
+            self.assertEqual(accounted, {r.id for r in corpus.records}, name)
+            ok, lines = check(corpus)
+            self.assertTrue(ok, f"{name}: " + " | ".join(lines))
+        self.assertIsNone(corpus_store.load("../../etc/passwd"))
+
     def test_a_search_is_repeatable(self):
-        first, second = snapshot(run_search()), snapshot(run_search())
-        self.assertEqual(first, second)
+        a, b = run_search(), run_search()
+        self.assertEqual(snapshot(a), snapshot(b))
+        self.assertEqual(a.corpus_hash, b.corpus_hash)  # same records and inputs, same selection
+        self.assertNotEqual(a.corpus_id, b.corpus_id)
 
 
 if __name__ == "__main__":

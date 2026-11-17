@@ -121,22 +121,41 @@ async def screen_and_limit(
             for p in batch:
                 keep, reason = decisions.get(p.id, (True, ""))
                 log.append(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=keep, reason=reason))
-                if keep:
-                    included.append(p)
-                else:
-                    p.relevance, p.relevance_note = "off_topic", f"Excluded at screening: {reason}".strip(": ")
-                    excluded.append(p)
+                (included if keep else excluded).append(p)
         if failed_batches and failed_batches == len(wave) and not excluded:
             break  # no model available: keep the word-based eligibility for the rest
-    unscreened = candidates[pos:]
+    model = f"{config.llm_provider}:{config.llm_model}" if any(d.screened for d in log) else ""
+    return apply_screening_decisions(candidates, report, log, limit, model)
+
+
+def apply_screening_decisions(
+    candidates: List[PaperRecord],
+    report: SelectionReport,
+    log: List[ScreeningDecisionRecord],
+    limit: int,
+    model: str = "",
+) -> List[PaperRecord]:
+    """
+    Applies recorded screening decisions to the candidates (in score order): numbers the included studies up to
+    `limit`, lists the rest, and updates the report. It calls no model, so a stored corpus replays its screening
+    exactly from the decisions it kept.
+    """
+    by_id = {d.record_id: d for d in log}
+    included = [p for p in candidates if p.id in by_id and by_id[p.id].include]
+    excluded = [p for p in candidates if p.id in by_id and not by_id[p.id].include]
+    unscreened = [p for p in candidates if p.id not in by_id]
+    not_answered = sum(1 for d in log if not d.screened)
+    for p in excluded:
+        p.relevance = "off_topic"
+        p.relevance_note = f"Excluded at screening: {by_id[p.id].reason}".strip(": ")
 
     chosen = included[:limit]
     over = included[limit:] + unscreened
     for i, p in enumerate(chosen, start=1):
         p.citation_index = i
         p.selection_reason = "Meets the eligibility criteria and passed title/abstract screening"
-    report.screening_decisions = log
-    report.screening_model = f"{config.llm_provider}:{config.llm_model}" if any(d.screened for d in log) else ""
+    report.screening_decisions = list(log)
+    report.screening_model = model
     report.included = len(chosen)
     report.target_count = limit
     report.eligible = len(included) + len(unscreened)
@@ -147,11 +166,11 @@ async def screen_and_limit(
     report.included_by_reason = {"Meets the eligibility criteria": len(chosen)}
     # The selection step's notes about the limit are replaced by the ones below
     report.notes = [n for n in report.notes if not n.startswith("All ") and "met the eligibility criteria;" not in n]
-    if screened and failed_batches < max(1, -(-screened // SCREEN_BATCH)):
+    if any(d.screened for d in log):
         report.notes.append(
-            f"The model screened {screened} word-eligible records on title and abstract and excluded {len(excluded)} "
-            "that did not address the question" + (f"; {failed_batches} batch(es) could not be screened and were "
-                                                   "kept" if failed_batches else "") + ".")
+            f"The model screened {len(log)} word-eligible records on title and abstract and excluded {len(excluded)} "
+            "that did not address the question" + (f"; {not_answered} record(s) could not be screened and were kept"
+                                                   if not_answered else "") + ".")
     else:
         report.notes.append("Title/abstract screening by the model was not available, so eligibility rests on the "
                             "word-based criteria alone.")

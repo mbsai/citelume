@@ -875,6 +875,7 @@ async def generate_multi_api_decomposition_plan(
     # Selection always reads the rule-based parse, whatever planned the searches
     if base_plan.question_understanding is not None:
         final_plan.selection_understanding = base_plan.question_understanding.model_copy(deep=True)
+    final_plan.selection_entities = list(base_plan.extracted_technical_entities)
 
     if len(_DECOMPOSITION_CACHE) > 64:
         _DECOMPOSITION_CACHE.clear()

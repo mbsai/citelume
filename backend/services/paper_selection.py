@@ -181,6 +181,16 @@ PRISMA_RULES: List[str] = [
 ]
 
 
+class SelectionDetails:
+    """What selection decided for every record, for the stored corpus: the eligible records in rank order (each
+    carrying its score breakdown) and the reason each other record was excluded."""
+
+    def __init__(self) -> None:
+        self.candidates: List[PaperRecord] = []
+        self.excluded: Dict[str, str] = {}
+        self.reference_year: int = 0
+
+
 def _listed(p: PaperRecord, label: str = "") -> "ListedRecord":
     authors = ", ".join(p.authors[:3]) + (" et al." if len(p.authors) > 3 else "")
     return ListedRecord(label=label, title=p.title or "", authors=authors, year=p.year, venue=p.venue or p.source or "",
@@ -445,11 +455,20 @@ def select_studies(
     stats: Optional[Dict[str, int]] = None,
     records_found: Optional[int] = None,
     method: str = "narrative",
+    details: Optional["SelectionDetails"] = None,
+    reference_year: Optional[int] = None,
 ) -> Tuple[List[PaperRecord], SelectionReport]:
     """Steps 2-4 on de-duplicated records. Returns the included studies (numbered in rank order) and the report.
     `method="systematic_prisma"` applies eligibility criteria instead of the balanced selection of step 4."""
     prisma = method == "systematic_prisma"
-    now_year = datetime.now(timezone.utc).year
+    # Recency and citations per year are measured from this year; a stored corpus is replayed with its own year
+    now_year = reference_year or datetime.now(timezone.utc).year
+    details = details if details is not None else SelectionDetails()
+    details.reference_year = now_year
+
+    def drop(records: Sequence[PaperRecord], reason: str) -> None:
+        for r in records:
+            details.excluded[r.id] = reason
     breadth = understanding.breadth if understanding else "focused"
     domain = understanding.primary_domain if understanding else "biomedical_clinical"
     profile = "technical" if domain in TECHNICAL_DOMAINS else "empirical"
@@ -532,6 +551,8 @@ def select_studies(
         n_topic = len(pool) - len(matching) - n_constraint
         if n_topic > 0:
             excluded[REASON_TOPIC] = n_topic
+        drop([p for p in pool if misses_constraint(p)], REASON_PLACE)
+        drop([p for p in pool if p.relevance == "off_topic" and not misses_constraint(p)], REASON_TOPIC)
         pool = matching
     elif len(matching) < len(unique_papers):
         report.notes.append(
@@ -541,6 +562,7 @@ def select_studies(
     typed = [p for p in pool if p.study_type not in INELIGIBLE_TYPES]
     if len(typed) < len(pool):
         excluded[REASON_NOT_RESEARCH] = len(pool) - len(typed)
+        drop([p for p in pool if p.study_type in INELIGIBLE_TYPES], REASON_NOT_RESEARCH)
     pool = typed
     with_abstract = [p for p in pool if len((p.abstract or "").strip()) >= 20]
     # A systematic review screens every record on its abstract, so records without one are excluded whenever enough
@@ -548,6 +570,7 @@ def select_studies(
     enough = MIN_PRISMA_STUDIES if prisma else max_total
     if len(with_abstract) >= enough and len(with_abstract) < len(pool):
         excluded[REASON_NO_ABSTRACT] = len(pool) - len(with_abstract)
+        drop([p for p in pool if len((p.abstract or "").strip()) < 20], REASON_NO_ABSTRACT)
         pool = with_abstract
     report.excluded = excluded
     report.exclusion_stage = {r: EXCLUSION_STAGE.get(r, "screening") for r in excluded}
@@ -621,8 +644,9 @@ def select_studies(
         p.selection_rank = rank
         p.matched_subquestion_ids = [f"SQ{j + 2}" for j, a in enumerate(aspects) if _aspect_members(a, p)] or ["SQ1"]
 
+    details.candidates = ranked
     if prisma:
-        return _prisma_selection(ranked, max_total, report, sort_key)
+        return _prisma_selection(ranked, max_total, report, sort_key, details)
 
     # ---- Step 4: balanced selection ----------------------------------------------------------------------------
     chosen: List[PaperRecord] = []
@@ -695,8 +719,8 @@ def select_studies(
     return chosen, report
 
 
-def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: SelectionReport, sort_key) -> Tuple[
-        List[PaperRecord], SelectionReport]:
+def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: SelectionReport, sort_key,
+                      details: "SelectionDetails") -> Tuple[List[PaperRecord], SelectionReport]:
     """Step 4 for a systematic-style review: include every study meeting the eligibility criteria (PRISMA_RULES),
     up to the study limit, in order of score."""
     def is_primary(p: PaperRecord) -> bool:
@@ -726,13 +750,19 @@ def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: Selecti
     excluded = dict(report.excluded)
     if off_topic:
         excluded[REASON_TOPIC] = excluded.get(REASON_TOPIC, 0) + len(off_topic)
+        details.excluded.update({p.id: REASON_TOPIC for p in off_topic})
     partial_out = len(partial_primary) if not relaxed else 0
     if partial_out:
         excluded[REASON_PARTIAL] = partial_out
+        details.excluded.update({p.id: REASON_PARTIAL for p in partial_primary})
     if reviews and not reviews_admitted:
         excluded[REASON_REVIEW] = len(reviews)
+        details.excluded.update({p.id: REASON_REVIEW for p in reviews})
     if commentary:
         excluded[REASON_COMMENTARY] = len(commentary)
+        details.excluded.update({p.id: REASON_COMMENTARY for p in commentary})
+    # In a systematic-style review the candidates are the records that met the eligibility criteria
+    details.candidates = eligible
     report.excluded = excluded
     report.exclusion_stage = {r: EXCLUSION_STAGE.get(r, "screening") for r in excluded}
     if relaxed:
