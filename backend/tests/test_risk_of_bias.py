@@ -89,6 +89,86 @@ class TestRob2Algorithm(unittest.TestCase):
         self.assertEqual(rob2.judge({**low, "5.1": "NI"})[1], "Some concerns")
 
 
+class TestRob2Cribsheet(unittest.TestCase):
+    """Every arrow of the decision figures in the RoB 2 cribsheet for parallel-group trials (22 August 2019),
+    effect of assignment to intervention. Each case is (answers, expected judgement)."""
+
+    def check(self, rule, cases):
+        for answers, expected in cases:
+            with self.subTest(answers=answers):
+                self.assertEqual(rule(answers), expected)
+
+    def test_domain_1_figure(self):
+        cases = []
+        for q2 in ("Y", "PY"):
+            for q1 in ("Y", "PY", "NI"):
+                cases += [({"1.1": q1, "1.2": q2, "1.3": q3}, "Low") for q3 in ("N", "PN", "NI")]
+                cases += [({"1.1": q1, "1.2": q2, "1.3": q3}, "Some concerns") for q3 in ("Y", "PY")]
+            cases += [({"1.1": q1, "1.2": q2, "1.3": "N"}, "Some concerns") for q1 in ("N", "PN")]
+        cases += [({"1.2": "NI", "1.3": q3}, "Some concerns") for q3 in ("N", "PN", "NI")]
+        cases += [({"1.2": "NI", "1.3": q3}, "High") for q3 in ("Y", "PY")]
+        cases += [({"1.1": "Y", "1.2": q2, "1.3": "N"}, "High") for q2 in ("N", "PN")]
+        self.check(rob2.domain_1, cases)
+
+    def test_domain_2_figure(self):
+        itt = {"2.6": "Y"}
+        cases = [({"2.1": "N", "2.2": "PN", **itt}, "Low")]
+        for aware in ({"2.1": "Y", "2.2": "N"}, {"2.1": "N", "2.2": "PY"}, {"2.1": "NI", "2.2": "N"}):
+            cases += [({**aware, "2.3": q, **itt}, "Low") for q in ("N", "PN")]
+            cases.append(({**aware, "2.3": "NI", **itt}, "Some concerns"))
+            cases += [({**aware, "2.3": "Y", "2.4": q, **itt}, "Some concerns") for q in ("N", "PN")]
+            for q4 in ("Y", "PY", "NI"):
+                cases += [({**aware, "2.3": "PY", "2.4": q4, "2.5": q, **itt}, "Some concerns") for q in ("Y", "PY")]
+                cases += [({**aware, "2.3": "PY", "2.4": q4, "2.5": q, **itt}, "High") for q in ("N", "PN", "NI")]
+        blinded = {"2.1": "N", "2.2": "N"}
+        cases += [({**blinded, "2.6": "PY"}, "Low")]
+        for q6 in ("N", "PN", "NI"):
+            cases += [({**blinded, "2.6": q6, "2.7": q}, "Some concerns") for q in ("N", "PN")]
+            cases += [({**blinded, "2.6": q6, "2.7": q}, "High") for q in ("Y", "PY", "NI")]
+        # The domain takes the worse of the two parts
+        cases.append(({"2.1": "Y", "2.3": "NI", "2.6": "N", "2.7": "Y"}, "High"))
+        cases.append(({"2.1": "Y", "2.3": "NI", "2.6": "N", "2.7": "N"}, "Some concerns"))
+        self.check(rob2.domain_2, cases)
+
+    def test_domain_3_figure(self):
+        cases = [({"3.1": q}, "Low") for q in ("Y", "PY")]
+        for q1 in ("N", "PN", "NI"):
+            cases += [({"3.1": q1, "3.2": q}, "Low") for q in ("Y", "PY")]
+            cases += [({"3.1": q1, "3.2": "N", "3.3": q}, "Low") for q in ("N", "PN")]
+            for q3 in ("Y", "PY", "NI"):
+                cases += [({"3.1": q1, "3.2": "PN", "3.3": q3, "3.4": q}, "Some concerns") for q in ("N", "PN")]
+                cases += [({"3.1": q1, "3.2": "PN", "3.3": q3, "3.4": q}, "High") for q in ("Y", "PY", "NI")]
+        self.check(rob2.domain_3, cases)
+
+    def test_domain_4_figure(self):
+        cases = [({"4.1": q}, "High") for q in ("Y", "PY")]
+        for q1 in ("N", "PN", "NI"):  # 4.1 NI does not change the path
+            cases += [({"4.1": q1, "4.2": q}, "High") for q in ("Y", "PY")]
+            for q2, best in (("N", "Low"), ("PN", "Low"), ("NI", "Some concerns")):
+                base = {"4.1": q1, "4.2": q2}
+                cases += [({**base, "4.3": q}, best) for q in ("N", "PN")]
+                for q3 in ("Y", "PY", "NI"):
+                    cases += [({**base, "4.3": q3, "4.4": q}, best) for q in ("N", "PN")]
+                    for q4 in ("Y", "PY", "NI"):
+                        cases += [({**base, "4.3": q3, "4.4": q4, "4.5": q}, "Some concerns") for q in ("N", "PN")]
+                        cases += [({**base, "4.3": q3, "4.4": q4, "4.5": q}, "High") for q in ("Y", "PY", "NI")]
+        self.check(rob2.domain_4, cases)
+
+    def test_domain_5_figure(self):
+        cases = []
+        for q2 in ("N", "PN"):
+            for q3 in ("N", "PN"):
+                cases += [({"5.1": q, "5.2": q2, "5.3": q3}, "Low") for q in ("Y", "PY")]
+                cases += [({"5.1": q, "5.2": q2, "5.3": q3}, "Some concerns") for q in ("N", "PN", "NI")]
+        cases += [({"5.1": "Y", "5.2": "NI", "5.3": "N"}, "Some concerns"), ({"5.1": "Y", "5.2": "NI", "5.3": "NI"}, "Some concerns")]
+        cases += [({"5.1": "Y", "5.2": a, "5.3": b}, "High") for a, b in (("Y", "N"), ("N", "PY"), ("NI", "Y"))]
+        self.check(rob2.domain_5, cases)
+
+    def test_not_applicable_on_a_reached_question_counts_as_no_information(self):
+        self.assertEqual(rob2.domain_2({"2.1": "Y", "2.3": "NA", "2.6": "Y"}), "Some concerns")
+        self.assertEqual(rob2.domain_4({"4.1": "N", "4.2": "N", "4.3": "NA", "4.4": "NA", "4.5": "NA"}), "High")
+
+
 class TestQuotes(unittest.TestCase):
     def test_quote_checking(self):
         src = "Older  adults were randomly\nassigned to vitamin D supplementa-\ntion. The eﬃcacy was 0·70."

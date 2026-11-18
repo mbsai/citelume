@@ -16,8 +16,10 @@ outcome); answers stored with model, prompt version and date; user overrides wit
 decided by Session 6 (if one model keeps fewer than 95% of the benchmark reviews' included studies, add a second
 model, keeping a record if either includes it and flagging disagreements; otherwise report single-model sensitivity
 and two-model agreement measured offline; check the threshold against the screening-automation literature first). Session 3f done 17 Nov 2026: risk of bias from the full text only (others "Not assessed"), every answer backed
-by a quote checked by code, RoB 2 domains computed from signalling answers (frameworks/rob2.py: check the encoded
-algorithms against the official RoB 2 tool before publication), reviewer edits recorded, Unpaywall when
+by a quote checked by code, RoB 2 domains computed from signalling answers (frameworks/rob2.py; checked 18 Nov 2026
+against every branch of the decision figures in the official RoB 2 cribsheet of 22 Aug 2019, which corrected two
+branches: 2.5 NI now gives High, and 4.1 NI no longer lowers the measurement domain; the adhering-to-intervention
+variant is not covered), reviewer edits recorded, Unpaywall when
 UNPAYWALL_EMAIL is set. First real run: 4 of 18 studies had full text; 34 of 36 trial quotes verified; many
 domains High because of missing information, as RoB 2's rules require. Next: Session 4 (headless runner).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is

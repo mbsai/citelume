@@ -3,9 +3,10 @@ RoB 2 for randomised trials (effect of assignment to the intervention): the sign
 algorithms that turn their answers into a judgement for each domain and overall.
 
 Source: Sterne JAC, et al. RoB 2: a revised tool for assessing risk of bias in randomised trials. BMJ
-2019;366:l4898, and the RoB 2 full guidance document (Higgins JPT, et al., 2019). The questions are abridged here.
-The algorithms follow the guidance's decision figures; they should be checked against the official RoB 2 tool
-(riskofbias.info) before results are published, and any difference reported.
+2019;366:l4898, and the RoB 2 cribsheet and full guidance for parallel-group trials (Higgins JPT, Savovic J, Page MJ,
+Sterne JAC, version of 22 August 2019). The questions are abridged here. Each domain function follows the
+cribsheet's decision figure for that domain (checked branch by branch against it; see tests/test_risk_of_bias.py).
+Only the effect of assignment to intervention (intention to treat) is covered, not the effect of adhering to it.
 
 Answers: Y (yes), PY (probably yes), PN (probably no), N (no), NI (no information), NA (not applicable).
 """
@@ -69,6 +70,12 @@ def _a(answers: Dict[str, str], qid: str) -> str:
     return v if v in ANSWERS else "NI"
 
 
+def _asked(answers: Dict[str, str], qid: str) -> str:
+    """The answer to a question the algorithm reaches: 'not applicable' there means the information is missing."""
+    v = _a(answers, qid)
+    return "NI" if v == "NA" else v
+
+
 def domain_1(a: Dict[str, str]) -> str:
     q1, q2, q3 = _a(a, "1.1"), _a(a, "1.2"), _a(a, "1.3")
     if q2 in NO:
@@ -82,60 +89,52 @@ def domain_1(a: Dict[str, str]) -> str:
 
 
 def domain_2(a: Dict[str, str]) -> str:
-    q1, q2, q3, q4, q5 = (_a(a, q) for q in ("2.1", "2.2", "2.3", "2.4", "2.5"))
-    q6, q7 = _a(a, "2.6"), _a(a, "2.7")
-    # Part 1: deviations from intended interventions
+    q1, q2 = _a(a, "2.1"), _a(a, "2.2")
+    # Part 1 (2.1 to 2.5): deviations from intended interventions that arose because of the trial context
     if q1 in NO and q2 in NO:
         part1 = LOW
-    elif q3 in NO or q3 == "NA":
-        part1 = LOW
-    elif q3 == "NI":
-        part1 = SOME
-    elif q4 in NO or q4 == "NA":
-        part1 = SOME
-    elif q5 in NO:
-        part1 = HIGH
     else:
-        part1 = SOME
-    # Part 2: analysis used to estimate the effect of assignment
-    if q6 in YES:
+        q3 = _asked(a, "2.3")
+        if q3 in NO:
+            part1 = LOW
+        elif q3 == "NI":
+            part1 = SOME
+        elif _asked(a, "2.4") in NO:
+            part1 = SOME
+        else:  # 2.4 Y/PY/NI
+            part1 = SOME if _asked(a, "2.5") in YES else HIGH  # 2.5 N/PN/NI gives High
+    # Part 2 (2.6 and 2.7): the analysis used to estimate the effect of assignment
+    if _a(a, "2.6") in YES:
         part2 = LOW
-    elif q7 in NO:
-        part2 = SOME
     else:
-        part2 = HIGH
+        part2 = SOME if _asked(a, "2.7") in NO else HIGH  # 2.7 Y/PY/NI gives High
     return max(part1, part2, key=_ORDER.get)
 
 
 def domain_3(a: Dict[str, str]) -> str:
-    q1, q2, q3, q4 = (_a(a, q) for q in ("3.1", "3.2", "3.3", "3.4"))
-    if q1 in YES:
+    if _a(a, "3.1") in YES:
         return LOW
-    if q2 in YES:
+    if _asked(a, "3.2") in YES:  # 3.2 has no NI option; anything else follows the N/PN path
         return LOW
-    if q3 in NO:
+    if _asked(a, "3.3") in NO:
         return LOW
-    if q4 in NO:
-        return SOME
-    return HIGH
+    return SOME if _asked(a, "3.4") in NO else HIGH  # 3.4 Y/PY/NI gives High
 
 
 def domain_4(a: Dict[str, str]) -> str:
-    q1, q2, q3, q4, q5 = (_a(a, q) for q in ("4.1", "4.2", "4.3", "4.4", "4.5"))
-    if q1 in YES or q2 in YES:
+    # 4.1 Y/PY gives High; N/PN/NI moves on to 4.2
+    if _a(a, "4.1") in YES:
         return HIGH
-    if q3 in NO:
-        result = LOW
-    elif q4 in NO:
-        result = LOW
-    elif q5 in NO:
-        result = SOME
-    else:
-        result = HIGH
-    # Without information on whether measurement could differ between groups, the domain is at least some concerns
-    if result == LOW and (q1 == "NI" or q2 == "NI"):
-        result = SOME
-    return result
+    q2 = _a(a, "4.2")
+    if q2 in YES:
+        return HIGH
+    # 4.2 N/PN follows the upper path (best case Low); 4.2 NI follows the lower path (best case Some concerns)
+    best = LOW if q2 in NO else SOME
+    if _asked(a, "4.3") in NO:
+        return best
+    if _asked(a, "4.4") in NO:
+        return best
+    return SOME if _asked(a, "4.5") in NO else HIGH  # 4.5 Y/PY/NI gives High on both paths
 
 
 def domain_5(a: Dict[str, str]) -> str:
