@@ -215,9 +215,11 @@ def finish_corpus(corpus: "Corpus", included: List[PaperRecord], report: Optiona
     corpus.included_ids = [p.id for p in included]
     corpus.selection_report = report.model_copy(deep=True) if report is not None else None
     if report is not None:
-        screened_out = {d.record_id for d in report.screening_decisions if not d.include}
-        for rid in screened_out:
-            corpus.excluded.setdefault(rid, "Not about the question on title and abstract screening (judged by the model)")
+        from services.paper_selection import REASON_PARTIAL
+        for d in report.screening_decisions:
+            if not d.include:
+                corpus.excluded.setdefault(d.record_id, REASON_PARTIAL if not d.screened else
+                                           "Not about the question on title and abstract screening (judged by the model)")
     corpus.content_hash = corpus_hash(corpus)
     return corpus
 

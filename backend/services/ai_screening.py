@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from models import ApiKeysConfig, PaperRecord, ReviewProtocol, ScreeningDecisionRecord, SelectionReport
 from services.llm_service import execute_validated_llm_task
-from services.paper_selection import EXCLUSION_STAGE, STUDY_TYPE_LABELS, _listed
+from services.paper_selection import EXCLUSION_STAGE, REASON_PARTIAL, STUDY_TYPE_LABELS, _listed
 
 SCREENING_PROMPT_VERSION = "citelume-screening/2.0"
 # Used when a decision names no criterion (decisions stored before criteria were answered separately)
@@ -203,8 +203,18 @@ async def screen_and_limit(
     studies and updates the report. Returns them.
     """
     criteria = criteria or [("Question", f"The study addresses the question: {query}")]
+
+    def unscreened(p: PaperRecord, why: str) -> ScreeningDecisionRecord:
+        # Without the model's answer the word-based decision stands: a study matching only part of the question is
+        # admitted for screening, not on its own (paper_selection, systematic-style rules)
+        keep = p.relevance != "partly"
+        return ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=keep, screened=False,
+                                       reason=f"Not screened: {why}" + ("" if keep else
+                                       "; it matches only part of the question, so the word-based exclusion stands"))
+
     included: List[PaperRecord] = []
     excluded: List[PaperRecord] = []
+    word_excluded: List[PaperRecord] = []
     log: List[ScreeningDecisionRecord] = []
     screened = 0
     failed_batches = 0
@@ -221,23 +231,22 @@ async def screen_and_limit(
             screened += len(batch)
             if decisions is None:
                 failed_batches += 1
-                included.extend(batch)  # the word-based decision stands for this batch
-                log.extend(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=True, screened=False,
-                                                   reason="Not screened: the model gave no usable answer")
-                           for p in batch)
+                # The word-based decision stands for this batch
+                for p in batch:
+                    d = unscreened(p, "the model gave no usable answer")
+                    log.append(d)
+                    (included if d.include else word_excluded).append(p)
                 continue
             for p in batch:
-                d = decisions.get(p.id) or ScreeningDecisionRecord(
-                    record_id=p.id, title=p.title or "", include=True, screened=False,
-                    reason="Not screened: the model left this record out of its answer")
+                d = decisions.get(p.id) or unscreened(p, "the model left this record out of its answer")
                 log.append(d)
-                (included if d.include else excluded).append(p)
+                (included if d.include else (excluded if d.screened else word_excluded)).append(p)
         if failed_batches and failed_batches == len(wave) and not excluded:
             # No model available: the word-based eligibility stands for every remaining candidate too
-            rest = candidates[pos:]
-            included.extend(rest)
-            log.extend(ScreeningDecisionRecord(record_id=p.id, title=p.title or "", include=True, screened=False,
-                                               reason="Not screened: no model available") for p in rest)
+            for p in candidates[pos:]:
+                d = unscreened(p, "no model available")
+                log.append(d)
+                (included if d.include else word_excluded).append(p)
             pos = len(candidates)
             break
     model = f"{config.llm_provider}:{config.llm_model}" if any(d.screened for d in log) else ""
@@ -270,6 +279,7 @@ def apply_screening_decisions(
         d = by_id[p.id]
         p.relevance = "off_topic"
         p.relevance_note = (f"Excluded by the user: {d.override_reason}" if d.user_override is False
+                            else d.reason if not d.screened
                             else f"Excluded at screening ({d.failed_criterion or 'the question'}): {d.reason}")
 
     chosen = included[:limit]
@@ -286,6 +296,7 @@ def apply_screening_decisions(
     for p in excluded:
         d = by_id[p.id]
         reason = (REASON_USER_EXCLUDED if d.user_override is False
+                  else REASON_PARTIAL if not d.screened
                   else criterion_reason(d.failed_criterion) if d.failed_criterion else REASON_AI_SCREEN)
         report.excluded[reason] = report.excluded.get(reason, 0) + 1
         report.exclusion_stage[reason] = "eligibility"

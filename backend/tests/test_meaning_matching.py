@@ -82,3 +82,17 @@ class TestTitleOnlyRecords(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestUnscreenedPartialMatches(unittest.TestCase):
+    def test_without_a_model_partial_matches_stay_excluded(self):
+        from models import ApiKeysConfig, SelectionReport
+        from services.ai_screening import screen_and_limit
+        from services.paper_selection import REASON_PARTIAL
+        full = [PaperRecord(id=f"f{i}", title="t", relevance="addresses") for i in range(3)]
+        part = [PaperRecord(id=f"p{i}", title="t", relevance="partly") for i in range(2)]
+        rep = SelectionReport()
+        chosen = asyncio.run(screen_and_limit(full + part, rep, "q", ApiKeysConfig(llm_api_key=""), limit=10))
+        self.assertEqual([p.id for p in chosen], ["f0", "f1", "f2"])
+        self.assertEqual(rep.excluded.get(REASON_PARTIAL), 2)
+        self.assertFalse(any(d.screened for d in rep.screening_decisions))

@@ -184,7 +184,7 @@
   "unique_records": 50
  },
  "prisma": {
-  "bibliography_count": 29,
+  "bibliography_count": 23,
   "citation_indices": [
    1,
    2,
@@ -208,17 +208,12 @@
    20,
    21,
    22,
-   23,
-   24,
-   25,
-   26,
-   27,
-   28,
-   29
+   23
   ],
-  "eligible": 29,
-  "evidence_rows": 29,
+  "eligible": 23,
+  "evidence_rows": 23,
   "excluded": {
+   "Does not address every part of the question": 6,
    "Not a research report (correction, retraction, protocol or meeting abstract)": 1,
    "Not about the topic of the question": 4,
    "Outside the place or population asked about": 5,
@@ -227,7 +222,7 @@
   "gap_ids": [
    "GAP-1"
   ],
-  "graph_paper_nodes": 29,
+  "graph_paper_nodes": 23,
   "included_by_study_type": {
    "Cohort / case-control / controlled study": 8,
    "Primary research article": 6,
@@ -256,13 +251,7 @@
    "pu21",
    "pu15",
    "pu16",
-   "pu17",
-   "pu33",
-   "pu34",
-   "pu35",
-   "pu36",
-   "pu37",
-   "pu38"
+   "pu17"
   ],
   "records_found": 440,
   "response_fields": [
@@ -331,13 +320,7 @@
    "controlled_observational",
    "controlled_observational",
    "controlled_observational",
-   "controlled_observational",
-   "primary_other",
-   "primary_other",
-   "primary_other",
-   "primary_other",
-   "primary_other",
-   "primary_other"
+   "controlled_observational"
   ],
   "unique_records": 50
  },
