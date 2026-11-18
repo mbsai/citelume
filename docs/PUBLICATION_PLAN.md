@@ -40,7 +40,13 @@ amendment before any run (review-version date rule; recorded in the protocol). e
 studies to corpus records and refuses test reviews before Session 6; `python -m eval.scoring questions
 development` writes a batch-runner file. Short of the 40-50 target (CLEF 2019 has only 38 intervention topics); decision 18 Nov 2026: keep the 33 reviews,
 SYNERGY+ stays an exploratory second set for Session 6 only.
-Next: Session 5b (where studies are lost, development set).
+Session 5b done 18 Nov 2026 (eval/results/5b_findings.md): on the 11
+development reviews CiteLume selected 8 of 141 included studies (6%); search lost 72%, eligibility 21% (76% of the
+studies found), merging and screening 1% each. Search depth explains only 10 of the 102 search losses; the rest is
+query sensitivity (question words only, no MeSH or drug-class terms; a slash-parsing defect). So 5c goes first,
+reordered: MeSH / pharmacological-action terms, synonyms and the slash fix before deeper paging. Then 5d: MeSH and
+synonym matching in eligibility, outcome phrases not required, title-only records assessed on their titles.
+Next: Session 5c.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
