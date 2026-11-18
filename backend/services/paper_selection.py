@@ -40,7 +40,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.3"
+PROTOCOL_VERSION = "citelume-selection/2.4"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)
@@ -173,33 +173,36 @@ EXCLUSION_STAGE = {
 SCOPING_RULES: List[str] = [
     "Eligibility criteria: any study, primary research or review, whose title or abstract addresses every part of "
     "the question, including any place or population it names.",
-    "Excluded at eligibility: studies addressing only part of the question; editorials, commentaries and letters; "
-    "reviews only if the review protocol excludes them.",
+    "Studies matching the question's main concepts but not every part of it are ranked after those matching every "
+    "part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: editorials, "
+    "commentaries and letters; reviews only if the review protocol excludes them.",
     "Every eligible study is included, up to the study limit (a cost limit: each included study is read by the "
     "model). When more studies are eligible than the limit, they are taken in order of score and the rest are "
     "listed as eligible but not analysed.",
-    f"If fewer than {MIN_PRISMA_STUDIES} studies meet the criteria, studies addressing part of the question are "
-    "admitted, and the report says so.",
-    "Screening is in two passes: word matching of the question's concepts in the title and abstract, then the "
-    "model screens the remaining records on title and abstract, in order of score, until the limit is filled.",
+    "Screening is in two passes: matching of the question's concepts in the title and abstract, or in the record's "
+    "MeSH indexing, then the model screens the remaining records on title and abstract, in order of score, until "
+    "the limit is filled. A record without an abstract is kept when its title or indexing matches, and is marked as "
+    "assessed on title only.",
 ]
 
 PRISMA_RULES: List[str] = [
     "Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, "
     "case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title "
     "or abstract addresses every part of the question, including any place or population it names.",
-    "Excluded at eligibility: studies addressing only part of the question; reviews of all kinds (narrative, "
-    "systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, "
-    "commentaries and letters.",
+    "Studies matching the question's main concepts but not every part of it are ranked after those matching every "
+    "part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: reviews of "
+    "all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion "
+    "instead; editorials, commentaries and letters.",
     "Every eligible study is included, up to the study limit. When more studies are eligible than the limit, they "
     "are taken in order of score (the 100-point score above) and the rest are listed as eligible but not "
     "synthesised.",
-    f"If fewer than {MIN_PRISMA_STUDIES} studies meet the criteria, studies addressing part of the question, and "
-    "then reviews, are admitted, and the report says so.",
+    f"If fewer than {MIN_PRISMA_STUDIES} studies meet the criteria, reviews are admitted, and the report says so.",
     "No coverage quotas, author limits or caps on study types are applied: inclusion depends only on the criteria.",
-    "Screening is in two passes: word matching of the question's concepts in the title and abstract, then the "
-    "model screens the remaining records on title and abstract, in order of score, until the limit is filled; "
-    "each included study is checked once more during data extraction. There is no independent dual screening.",
+    "Screening is in two passes: matching of the question's concepts in the title and abstract, or in the record's "
+    "MeSH indexing (headings expanded to narrower ones), then the model screens the remaining records on title and "
+    "abstract, in order of score, until the limit is filled; each included study is checked once more during data "
+    "extraction. There is no independent dual screening. A record without an abstract is kept when its title or "
+    "indexing matches, and is marked as assessed on title only.",
 ]
 
 
@@ -395,9 +398,13 @@ def _is_abbreviation(term: str) -> bool:
     return len(term) <= 5 and " " not in term and term.upper() == term and any(ch.isalpha() for ch in term)
 
 
-def _concept_level(concept: SearchConcept, title: str, abstract: str) -> float:
+def _concept_level(concept: SearchConcept, title: str, abstract: str, mesh_concepts: Sequence[str] = ()) -> float:
     """1.0 in the title, 0.7 for two or more abstract mentions, 0.4 for one. An abbreviation offered as a synonym
-    (CHD for coronary heart disease) can mean other things, so on its own it counts as the weakest match."""
+    (CHD for coronary heart disease) can mean other things, so on its own it counts as the weakest match. A record
+    PubMed indexes under the concept's MeSH headings (services/mesh_terms.py) counts at least 0.7: indexers assign
+    headings for what a study is about, whatever words it uses ("goserelin" for a GnRH analogue)."""
+    if concept.name in mesh_concepts:
+        return max(0.7, _concept_level(concept, title, abstract))
     names = [concept.name] + list(concept.synonyms)
     full = [n for n in names if n == concept.name or not _is_abbreviation(n)]
     # Abbreviations given as synonyms, and the initials of the full names (BCAA, CHD)
@@ -521,7 +528,8 @@ def select_studies(
     for p in unique_papers:
         p.study_type = classify_study_type(p)
     concept_levels: Dict[str, List[float]] = {
-        p.id: [_concept_level(c, p.title or "", p.abstract or "") for c in concepts] for p in unique_papers
+        p.id: [_concept_level(c, p.title or "", p.abstract or "", p.mesh_concepts) for c in concepts]
+        for p in unique_papers
     }
 
     def misses_constraint(p: PaperRecord) -> List[str]:
@@ -615,10 +623,15 @@ def select_studies(
         apply_rule([p for p in pool if p.study_type in SECONDARY_TYPES], REASON_REVIEW_BY_PROTOCOL)
 
     with_abstract = [p for p in pool if len((p.abstract or "").strip()) >= 20]
-    # A systematic review screens every record on its abstract, so records without one are excluded whenever enough
-    # remain; otherwise they are dropped only when there are more than enough studies with abstracts
-    enough = MIN_PRISMA_STUDIES if prisma else max_total
-    if len(with_abstract) >= enough and len(with_abstract) < len(pool):
+    # A systematic-style review keeps a record without an abstract when its title (or its MeSH indexing) matches
+    # the question, as a reviewer screening on titles would, and says it was judged on its title only. Otherwise
+    # records without one are dropped only when there are more than enough studies with abstracts.
+    if prisma:
+        for p in pool:
+            if len((p.abstract or "").strip()) < 20:
+                p.relevance_note = (p.relevance_note + "; " if p.relevance_note else "") + "assessed on title only"
+    enough = max_total
+    if not prisma and len(with_abstract) >= enough and len(with_abstract) < len(pool):
         excluded[REASON_NO_ABSTRACT] = len(pool) - len(with_abstract)
         drop([p for p in pool if len((p.abstract or "").strip()) < 20], REASON_NO_ABSTRACT)
         pool = with_abstract
@@ -790,25 +803,23 @@ def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: Selecti
     # Off-topic records still in the pool (the screen is not applied when few records match) are excluded here
     off_topic = [p for p in ranked if p.relevance == "off_topic"]
 
-    eligible = list(full_primary)
+    # Studies matching the main concepts but not the others go on to the model's screening, after those matching
+    # every part (word matching misses outcomes reported in other words: "visual function" for "macular health")
+    eligible = list(full_primary) + list(partial_primary)
     relaxed = []
-    if len(eligible) < MIN_PRISMA_STUDIES and partial_primary:
-        eligible += partial_primary
-        relaxed.append(f"only {len(full_primary)} primary studies addressed every part of the question, so "
-                       f"{len(partial_primary)} addressing part of it were admitted")
     reviews_admitted = False
     if len(eligible) < MIN_PRISMA_STUDIES and reviews:
         eligible += reviews
         reviews_admitted = True
         relaxed.append(f"fewer than {MIN_PRISMA_STUDIES} primary studies were eligible, so {len(reviews)} review(s) "
                        "were admitted")
-    eligible.sort(key=sort_key, reverse=True)
+    eligible.sort(key=lambda p: (p.relevance == "addresses", sort_key(p)), reverse=True)
 
     excluded = dict(report.excluded)
     if off_topic:
         excluded[REASON_TOPIC] = excluded.get(REASON_TOPIC, 0) + len(off_topic)
         details.excluded.update({p.id: REASON_TOPIC for p in off_topic})
-    partial_out = len(partial_primary) if not relaxed else 0
+    partial_out = 0  # studies addressing part of the question are screened, not excluded by words
     if partial_out:
         excluded[REASON_PARTIAL] = partial_out
         details.excluded.update({p.id: REASON_PARTIAL for p in partial_primary})

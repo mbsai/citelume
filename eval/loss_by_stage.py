@@ -222,6 +222,9 @@ def markdown(res: dict, runs: Path) -> str:
     t = res["reached"]
     lines.append(f"| **All** | **{n}** | " + " | ".join(f"**{pct(t[s], n)}**" for s in STAGES)
                  + f" | {pct(res['top20'], n)} | {pct(res['top60'], n)} | |")
+    total_selected = sum(r["selected"] for r in done)
+    lines += ["", f"Studies selected in all: {total_selected}; of these, {t['included']} are included by the reviews "
+                  f"(precision {100 * t['included'] / total_selected:.0f}%)." if total_selected else ""]
     lines += ["", "## Losses by stage", "", "| Stage | Included studies lost | Share of all included |", "|---|---|---|"]
     for stage, lost in res["losses"].items():
         lines.append(f"| {stage} | {lost} | {100 * lost / n:.0f}% |" if n else f"| {stage} | {lost} | |")

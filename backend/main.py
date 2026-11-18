@@ -86,7 +86,7 @@ from services.paper_selection import REASON_REVIEW, REASON_REVIEW_BY_PROTOCOL
 REVIEW_REASONS = (REASON_REVIEW, REASON_REVIEW_BY_PROTOCOL)
 from services.pool_map import pool_map_for
 from services.search_log import retrieval_lines, begin_search_log, entries as search_log_entries, matched_for, record as record_search
-from services.mesh_terms import MESH_LOOKUP_VERSION, add_mesh_headings
+from services.mesh_terms import MESH_LOOKUP_VERSION, add_mesh_headings, mark_mesh_concepts
 from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
@@ -924,6 +924,11 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
                                 stats=stats, protocol=protocol)
         return out, stats
 
+    # Eligibility also reads PubMed's MeSH indexing: which records are indexed under each selection concept's headings
+    sel_concepts = (selection_understanding.concepts.search_concepts if selection_understanding else []) or []
+    if cfg.enable_pubmed and sel_concepts:
+        await add_mesh_headings(sel_concepts, [], cfg.pubmed_api_key)
+        await mark_mesh_concepts(all_raw_papers, sel_concepts, cfg.pubmed_api_key)
     (ranked_papers, selection_report, corpus), dedup_stats = _select()
     # Citation chasing (identification via other methods): papers that cite, or are cited by, several selected
     # studies and are not in the pool join it, and selection runs again over the enlarged pool, so chased records
@@ -948,6 +953,8 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
             review_refs = ref_chase.report
         if chase.added:
             await enrich_citation_counts(chase.added)
+            if cfg.enable_pubmed and sel_concepts:
+                await mark_mesh_concepts(chase.added, sel_concepts, cfg.pubmed_api_key)
             all_raw_papers.extend(chase.added)
         (ranked_papers, selection_report, corpus), dedup_stats = _select()
         chasing = chase.report

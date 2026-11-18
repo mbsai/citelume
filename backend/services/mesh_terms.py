@@ -106,3 +106,39 @@ async def add_mesh_headings(concepts: List[SearchConcept], facets: List[SearchFa
     except Exception as exc:
         report_source_failure("PubMed (MeSH lookup)", exc)
     return added
+
+
+async def mark_mesh_concepts(records: List, concepts: Sequence[SearchConcept], api_key: str = "",
+                             batch: int = 200) -> int:
+    """Asks PubMed which of the records (by PubMed ID) are indexed under each concept's MeSH alternative(s), with
+    PubMed's explosion to narrower headings (goserelin under gonadotropin-releasing hormone), and adds the concept's
+    name to those records' `mesh_concepts`. One request per concept per 200 records. Returns the number of records
+    marked. Never raises: without an answer, records are judged on their words alone."""
+    by_pmid: Dict[str, List] = {}
+    for r in records:
+        if r.pmid and str(r.pmid).strip().isdigit():
+            by_pmid.setdefault(str(r.pmid).strip(), []).append(r)
+    pmids = sorted(by_pmid)
+    marked = set()
+    try:
+        async with httpx.AsyncClient(transport=retrying_transport(max_retries=1), timeout=30.0) as client:
+            for c in concepts:
+                if not c.mesh or not pmids:
+                    continue
+                alt = " OR ".join(c.mesh)
+                for i in range(0, len(pmids), batch):
+                    chunk = pmids[i:i + batch]
+                    data = {"db": "pubmed", "retmode": "json", "retmax": str(len(chunk)),
+                            "term": f"({alt}) AND ({' OR '.join(p + '[uid]' for p in chunk)})"}
+                    if api_key:
+                        data["api_key"] = api_key
+                    resp = await client.post(ESEARCH, data=data)
+                    resp.raise_for_status()
+                    for pmid in (resp.json().get("esearchresult") or {}).get("idlist") or []:
+                        for r in by_pmid.get(pmid, []):
+                            if c.name not in r.mesh_concepts:
+                                r.mesh_concepts.append(c.name)
+                                marked.add(id(r))
+    except Exception as exc:
+        report_source_failure("PubMed (MeSH indexing of records)", exc)
+    return len(marked)

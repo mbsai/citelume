@@ -638,6 +638,9 @@ class PaperRecord(BaseModel):
     selection_reason: str = ""
     url: str = ""
     pdf_url: Optional[str] = None
+    # Search concepts this record is indexed under in PubMed, by the concept's MeSH headings (exploded); set by
+    # services/mesh_terms.py before selection and stored with the record, so selection replays without PubMed
+    mesh_concepts: List[str] = Field(default_factory=list)
     references: List[str] = Field(default_factory=list)
     cited_by: List[str] = Field(default_factory=list)
     sub_query: Optional[str] = None

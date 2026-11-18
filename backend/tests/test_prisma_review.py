@@ -57,13 +57,15 @@ class TestPrismaSelection(unittest.TestCase):
         papers = [trial(i) for i in range(1, 13)] + [review(i) for i in range(20, 24)] + [partial(i) for i in range(30, 36)]
         chosen, rep, _, _ = select(papers)
         self.assertEqual(rep.selection_method, "systematic_prisma")
-        self.assertEqual(len(chosen), 12)  # all eligible trials, no reviews, no partial matches
-        self.assertTrue(all("trial" in p.title for p in chosen))
+        # Every trial, then the 6 partial matches ranked after them (left to the model's screening); no reviews
+        self.assertEqual(len(chosen), 18)
+        self.assertTrue(all("trial" in p.title for p in chosen[:12]))
+        self.assertTrue(all(p.relevance == "partly" for p in chosen[12:]))
         self.assertEqual(rep.excluded.get(REASON_REVIEW), 4)
-        self.assertEqual(rep.excluded.get(REASON_PARTIAL), 6)
+        self.assertIsNone(rep.excluded.get(REASON_PARTIAL))
         self.assertEqual(rep.exclusion_stage[REASON_REVIEW], "eligibility")
         self.assertEqual([r.label for r in rep.excluded_reviews], ["R1", "R2", "R3", "R4"])
-        self.assertEqual(sorted(p.citation_index for p in chosen), list(range(1, 13)))
+        self.assertEqual(sorted(p.citation_index for p in chosen), list(range(1, 19)))
 
     def test_eligible_studies_beyond_the_limit_are_listed(self):
         chosen, rep, _, _ = select([trial(i) for i in range(1, 16)], n=10)
@@ -73,15 +75,15 @@ class TestPrismaSelection(unittest.TestCase):
         self.assertTrue(any("15 studies met the eligibility criteria" in n for n in rep.notes))
 
     def test_criteria_are_relaxed_and_reported_when_too_few_studies(self):
-        # 2 full matches are too few, so the 4 partial matches are admitted; that makes 6, so the review stays out
+        # Partial matches are always eligible now (screened by the model); 6 primary studies, so the review stays out
         chosen, rep, _, _ = select([trial(1), trial(2)] + [partial(i) for i in range(30, 34)] + [review(40)])
         self.assertEqual(len(chosen), 6)
-        self.assertTrue(any(n.startswith("Eligibility criteria relaxed") for n in rep.notes))
         self.assertEqual(len(rep.excluded_reviews), 1)
         # With only 2 primary studies in all, reviews are admitted as well
         chosen, rep, _, _ = select([trial(1), trial(2), review(40)])
         self.assertEqual(len(chosen), 3)
         self.assertFalse(rep.excluded_reviews)
+        self.assertTrue(any(n.startswith("Eligibility criteria relaxed") for n in rep.notes))
 
     def test_narrative_selection_is_unchanged(self):
         papers = [trial(i) for i in range(1, 13)] + [review(i) for i in range(20, 24)]

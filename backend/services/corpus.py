@@ -101,6 +101,7 @@ def merge_duplicates(raw_papers: List[PaperRecord]) -> List[PaperRecord]:
                 curr.pdf_url = p.pdf_url
             curr.references = list(dict.fromkeys(curr.references + p.references))
             curr.cited_by = list(dict.fromkeys(curr.cited_by + p.cited_by))
+            curr.mesh_concepts = list(dict.fromkeys(curr.mesh_concepts + p.mesh_concepts))
 
             # Track preprint + published linkage for the same underlying study
             if (curr_was_prep and not is_prep) or (not curr_was_prep and is_prep):
