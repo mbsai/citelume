@@ -56,8 +56,11 @@ Eligibility now loses 53 of the 78 found. Session 5d built 18 Nov 2026 (selectio
 mesh_concepts); in systematic-style reviews partial matches go to the model's screening (and stay excluded when no
 model answers); title-only records kept when the title or indexing matches. Concept position and the embedding
 option were not built: the development data show recall, not precision, is the loss. Development re-run
-incomplete: OpenRouter's free daily quota ran out after 2 of 11 reviews (screening load rose to 100-300 decisions
-per review); early signal CD008018 0 -> 5 of 13 selected. Next: finish the 5d development re-run, then Session 6.
+completed with the paid endpoint of the same model after the free daily quota ran out (1.63 USD for 9 reviews;
+eval/results/5d_findings.md): included studies selected 17% -> 39% (55 of 141), eligibility losses 53 -> 10,
+precision of the selection unchanged at 6%. New bottleneck after search: the screening cap (300 records; 17
+eligible included studies never screened; only 29 of 77 in the top 60). Next: Session 6 (test set), optionally a
+short ranking / screening-cap session on the development set first.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
