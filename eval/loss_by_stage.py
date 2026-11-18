@@ -6,7 +6,8 @@ Session 5b: where each development review's included studies are lost in the Cit
 Reads, for each development review, the batch runner's raw.json.gz (records before duplicates were merged) and
 corpus.json.gz, and follows every included study through the stages, in order:
 
-    found         in any record the searches returned (database searches; citation chasing counted apart)
+    found         in any record the searches returned (database searches; citation chasing and review reference
+                  lists, "other methods", counted apart)
     merged        still present after duplicates were merged (a wrong merge can drop a study's identifiers)
     eligible      passed the eligibility rules (otherwise: the rule that excluded it)
     screened in   kept by the model's title-and-abstract screening (or never screened because the limit filled)
@@ -39,7 +40,7 @@ sys.path.insert(0, str(ROOT.parent / "backend"))
 from eval.scoring import match, review_split  # noqa: E402
 from models import Corpus, PaperRecord  # noqa: E402
 
-CHASED = "Citation searching"
+CHASED = {"Citation searching", "Reference lists of reviews"}   # identified by other methods
 STAGES = ("found", "merged", "eligible", "screened_in", "included")
 RESULTS = ROOT / "results"
 CACHE = ROOT / ".cache" / "pubmed_queries"
@@ -57,8 +58,8 @@ def _load(folder: Path):
 
 def follow(included: List[dict], corpus: Corpus, raw: List[PaperRecord]) -> List[dict]:
     """One row per included study: the last stage it reached and why it went no further."""
-    db_raw = [r for r in raw if r.source != CHASED]
-    chased_raw = [r for r in raw if r.source == CHASED]
+    db_raw = [r for r in raw if r.source not in CHASED]
+    chased_raw = [r for r in raw if r.source in CHASED]
     found_db = {s["pmid"] for s in match(included, db_raw).found}
     found_chase = {s["pmid"] for s in match(included, chased_raw).found}
     in_records = {s["pmid"]: s["record_id"] for s in match(included, corpus.records).found}
@@ -228,8 +229,8 @@ def markdown(res: dict, runs: Path) -> str:
     lines.append(f"Of the {missed} included studies no search returned, {res['missed_matched_by_a_query']} are matched "
                  "by at least one of CiteLume's own PubMed queries when it is run without a result limit (a "
                  "search-depth loss); the rest are matched by none of them (a query-sensitivity loss).")
-    lines.append(f"Citation chasing found {res['found_only_by_chasing']} included studies that no database search "
-                 "returned.")
+    lines.append(f"Other methods (citation chasing, reference lists of reviews) found {res['found_only_by_chasing']} "
+                 "included studies that no database search returned.")
     reasons: Counter = Counter()
     for r in done:
         reasons.update(r["loss_reasons"])

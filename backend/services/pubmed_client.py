@@ -6,6 +6,7 @@ import httpx
 from models import PaperRecord
 from services.query_utils import build_concise_search_phrase
 from services.europepmc_client import search_europe_pmc_medline
+from services.search_log import note_matched
 from services.source_health import report_source_failure, retrying_transport
 
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -60,12 +61,13 @@ async def search_pubmed(
 
     papers: List[PaperRecord] = []
     async with _pubmed_slot(bool(api_key and api_key.strip())), \
-            httpx.AsyncClient(transport=retrying_transport(), timeout=18.0, follow_redirects=True) as client:
+            httpx.AsyncClient(transport=retrying_transport(), timeout=18.0 + max_results / 50, follow_redirects=True) as client:
         try:
             resp = await client.get(f"{EUTILS_BASE}/esearch.fcgi", params=params)
             resp.raise_for_status()
             data = resp.json()
             id_list = data.get("esearchresult", {}).get("idlist", [])
+            note_matched("PubMed", query, int(data.get("esearchresult", {}).get("count") or 0))
             backend_error = data.get("esearchresult", {}).get("ERROR")
             if backend_error and not id_list:
                 # NCBI reports backend outages inside an HTTP 200 body; treat as a failure, not as "no results"
@@ -81,19 +83,17 @@ async def search_pubmed(
             if not id_list:
                 return []
 
-            fetch_params = {
-                "db": "pubmed",
-                "id": ",".join(id_list),
-                "retmode": "xml",
-            }
-            if api_key and api_key.strip():
-                fetch_params["api_key"] = api_key.strip()
+            # Records in batches of 200 (POST), so a deep search does not build an overlong request
+            articles = []
+            for i in range(0, len(id_list), 200):
+                fetch_params = {"db": "pubmed", "id": ",".join(id_list[i:i + 200]), "retmode": "xml"}
+                if api_key and api_key.strip():
+                    fetch_params["api_key"] = api_key.strip()
+                fetch_resp = await client.post(f"{EUTILS_BASE}/efetch.fcgi", data=fetch_params)
+                fetch_resp.raise_for_status()
+                articles += ET.fromstring(fetch_resp.text).findall(".//PubmedArticle")
 
-            fetch_resp = await client.get(f"{EUTILS_BASE}/efetch.fcgi", params=fetch_params)
-            fetch_resp.raise_for_status()
-            root = ET.fromstring(fetch_resp.text)
-
-            for article in root.findall(".//PubmedArticle"):
+            for article in articles:
                 pmid_el = article.find(".//MedlineCitation/PMID")
                 pmid = pmid_el.text.strip() if pmid_el is not None and pmid_el.text else ""
                 if not pmid:

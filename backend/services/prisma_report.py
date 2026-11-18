@@ -62,7 +62,9 @@ def _methods(protocol: ReviewProtocolReport, sel: SelectionReport, papers: Seque
              organization_id: str, search_date: str) -> str:
     flow = protocol.flow
     sources = list((flow.identified_by_source if flow else {}).keys())
-    chased = sum((flow.identified_other_methods if flow else {}).values())
+    other = flow.identified_other_methods if flow else {}
+    chased = other.get("Citation searching", 0)
+    from_reviews = other.get("Reference lists of reviews", 0)
     tools_used = sorted({tool_for(p.study_type).tool_id for p in papers}, key=list(TOOLS).index)
     organization = ORGANIZATIONS.get(organization_id, ORGANIZATIONS["thematic"]).label.lower()
     n_searches = max((len(v) for v in protocol.search_strategies.values()), default=0)
@@ -74,11 +76,15 @@ def _methods(protocol: ReviewProtocolReport, sel: SelectionReport, papers: Seque
                   f"{', '.join(sources) or 'The enabled databases'} were searched on {search_date}"
                   + ("; the reference lists of the selected studies and the articles citing them were then searched "
                      "in Semantic Scholar (citation searching), and papers linked to at least two selected studies "
-                     f"were added as records identified by other methods ({chased})" if chased else "") + "."),
+                     f"were added as records identified by other methods ({chased})" if chased else "")
+                  + ("; the reference lists of reviews found by the searches (excluded as reviews, but on the topic) "
+                     f"were searched in Semantic Scholar and the studies they cite added ({from_reviews})"
+                     if from_reviews else "") + "."),
         _labelled("Search strategy (item 7)",
                   f"Each database was searched with {_n(n_searches, 'search string')} built from the question's "
                   "concepts and their synonyms by fixed rules (core concepts, reviews and one search per aspect of "
-                  "the question). The exact strings for every database are listed under Review Method."),
+                  "the question). The exact strings for every database are listed under Review Method."
+                  + (" " + "; ".join(protocol.retrieval) + "." if protocol.retrieval else "")),
         _labelled("Selection process (item 8)",
                   "Records were de-duplicated by DOI, PubMed ID and normalised title, then screened on title and "
                   "abstract in two passes: matching of the question's concepts, then screening by the model "

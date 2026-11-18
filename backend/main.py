@@ -81,7 +81,11 @@ from services.study_limits import ceiling, estimate_minutes, resolve_study_limit
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services import citation_chasing
+from services.paper_selection import REASON_REVIEW, REASON_REVIEW_BY_PROTOCOL
+
+REVIEW_REASONS = (REASON_REVIEW, REASON_REVIEW_BY_PROTOCOL)
 from services.pool_map import pool_map_for
+from services.search_log import retrieval_lines, begin_search_log, entries as search_log_entries, matched_for, record as record_search
 from services.mesh_terms import MESH_LOOKUP_VERSION, add_mesh_headings
 from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
@@ -233,11 +237,14 @@ async def _harvest_facet_queries(
     broaden = facet.kind == "core"
     use_arxiv = cfg.enable_arxiv and searches_arxiv(domain, facet.kind)
 
+    # A deeper PubMed core search for local and evaluation runs (SearchRequest.pubmed_depth; never on the demo)
+    pubmed_n = req.pubmed_depth if (req.pubmed_depth and facet.kind == "core"
+                                    and not demo_mode.demo_enabled()) else max_per_source
     if cfg.enable_pubmed:
         tasks.append(
             search_pubmed(
                 q_map.pubmed or fallback_entities,
-                max_per_source,
+                pubmed_n,
                 cfg.pubmed_api_key,
                 req.year_from,
                 req.year_to,
@@ -285,15 +292,21 @@ async def _harvest_facet_queries(
     async def within_budget(name: str, coro):
         # One slow database must not hold up the others: past the limit its results for this search are skipped
         try:
-            return await asyncio.wait_for(coro, timeout=SOURCE_SEARCH_BUDGET_S)
+            return await asyncio.wait_for(coro, timeout=budget)
         except asyncio.TimeoutError:
-            report_source_failure(name, RuntimeError(f"no reply within {SOURCE_SEARCH_BUDGET_S:.0f}s for one search"))
+            report_source_failure(name, RuntimeError(f"no reply within {budget:.0f}s for one search"))
             return []
+
+    # A deep PubMed search fetches its records in batches and needs longer
+    budget = SOURCE_SEARCH_BUDGET_S + (pubmed_n / 25 if pubmed_n > max_per_source else 0)
 
     results = await asyncio.gather(*[within_budget(n, t) for n, t in zip(task_names, tasks)], return_exceptions=True)
     papers: List[PaperRecord] = []
     counts: Dict[str, int] = {name: 0 for name in task_names}
 
+    source_query = {"PubMed": q_map.pubmed or fallback_entities, "arXiv": q_map.arxiv or fallback_entities,
+                    "bioRxiv": str(q_map.biorxiv_medrxiv or fallback_entities),
+                    "Semantic Scholar": q_map.semantic_scholar or fallback_entities}
     for name, res in zip(task_names, results):
         if isinstance(res, list):
             for p in res:
@@ -301,6 +314,8 @@ async def _harvest_facet_queries(
                 p.retrieved_by = [facet.facet_name]
             papers.extend(res)
             counts[name] = len(res)
+        record_search(name, facet.facet_name, source_query.get(name, ""), counts[name],
+                      matched_for(name, source_query.get(name, "")))
     return papers, counts
 
 
@@ -795,6 +810,7 @@ def _begin_request_scope(cfg: ApiKeysConfig) -> None:
     begin_source_health()
     begin_search_budget()
     set_openalex_api_key(cfg.openalex_api_key)
+    begin_search_log()
 
 
 async def _run_research_search(req: SearchRequest) -> ResearchResponse:
@@ -912,13 +928,24 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     # Citation chasing (identification via other methods): papers that cite, or are cited by, several selected
     # studies and are not in the pool join it, and selection runs again over the enlarged pool, so chased records
     # face the same rules as searched ones. The selection stored (and replayed) is the second one.
-    chasing = None
+    chasing = review_refs = None
     if (req.citation_chasing if req.citation_chasing is not None else req.mode == "deep_research") and ranked_papers:
         _report_stage(req, 3, "Citation searching from the selected studies")
         seeds = ranked_papers[:min(citation_chasing.MAX_SEEDS, max(max_total_papers, 1))]
         chase = await citation_chasing.chase_citations(seeds, corpus.records, cfg.s2_api_key,
                                                        pubmed_api_key=cfg.pubmed_api_key)
         citation_chasing.attach_reference_data(all_raw_papers, seeds, chase.seed_links)
+        # The reference lists of the reviews eligibility set aside: on topic, excluded only for being reviews
+        reviews = sorted((p for p in corpus.records if corpus.excluded.get(p.id) in REVIEW_REASONS),
+                         key=lambda p: (-(p.citation_count or 0), p.id))
+        if reviews:
+            ref_chase = await citation_chasing.chase_citations(
+                reviews, corpus.records + chase.added, cfg.s2_api_key, min_links=1,
+                max_added=citation_chasing.REVIEW_REFS_MAX_ADDED, pubmed_api_key=cfg.pubmed_api_key,
+                backward_only=True, label=citation_chasing.REVIEW_REFS_LABEL,
+                max_seeds=citation_chasing.MAX_REVIEW_SEEDS)
+            chase.added += ref_chase.added
+            review_refs = ref_chase.report
         if chase.added:
             await enrich_citation_counts(chase.added)
             all_raw_papers.extend(chase.added)
@@ -935,6 +962,9 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     if chasing is not None:
         chasing.included = citation_chasing.count_included(ranked_papers)
         corpus.citation_chasing = chasing
+    if review_refs is not None:
+        review_refs.included = citation_chasing.count_included(ranked_papers, citation_chasing.REVIEW_REFS_LABEL)
+        corpus.review_references = review_refs
     attach_user_full_texts(ranked_papers, corpus)
     # The corpus: the records, the inputs and the decisions, so the selection can be audited and replayed
     corpus.mode, corpus.review_framework, corpus.organization = req.mode, req.review_framework, req.organization
@@ -943,6 +973,7 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     corpus.source_stats = dict(source_stats)
     corpus.selection_stats = dict(dedup_stats)
     corpus.search_warnings = source_failure_warnings()
+    corpus.search_log = search_log_entries()
     finish_corpus(corpus, ranked_papers, selection_report)
     corpus_store.save(corpus)
     return CorpusRun(req=req, plan=plan, corpus=corpus, papers=ranked_papers, selection_report=selection_report,
@@ -1108,7 +1139,10 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         name for name, on in (("PubMed", cfg.enable_pubmed), ("arXiv", cfg.enable_arxiv),
                               ("bioRxiv", cfg.enable_biorxiv), ("Semantic Scholar", cfg.enable_s2)) if on
     ] + [k for k in source_stats if k.endswith("(imported by the user)") or k == USER_PDF_SOURCE]
-    chased = corpus.citation_chasing.added if corpus.citation_chasing else 0
+    other_methods = {label: rep.added for label, rep in (
+        (citation_chasing.SOURCE_LABEL, corpus.citation_chasing),
+        (citation_chasing.REVIEW_REFS_LABEL, corpus.review_references)) if rep and rep.added}
+    chased = sum(other_methods.values())
     review_protocol = build_review_protocol_report(
         framework_id=req.review_framework,
         organization_id=req.organization,
@@ -1117,7 +1151,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         included_papers=ranked_papers,
         identified_by_source=source_stats,
         identified_total=corpus.records_found - chased,
-        identified_other_methods={citation_chasing.SOURCE_LABEL: chased} if chased else None,
+        identified_other_methods=other_methods or None,
         unique_records=dedup_stats.get("unique_records", len(ranked_papers)),
         enabled_sources=enabled_sources,
         year_from=req.year_from,
@@ -1125,6 +1159,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         constraint_excluded=dedup_stats.get("constraint_excluded", 0),
         selection_report=selection_report,
     )
+    review_protocol.retrieval = retrieval_lines(corpus.search_log)
     for imp in corpus.imports:
         if imp.search_string:
             review_protocol.search_strategies[f"{imp.source} (run by the user, {imp.imported_at[:10]})"] = [imp.search_string]

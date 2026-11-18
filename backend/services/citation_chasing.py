@@ -27,6 +27,11 @@ from services.source_health import report_source_failure, retrying_transport
 
 CHASING_VERSION = "citelume-chasing/1.0"
 SOURCE_LABEL = "Citation searching"
+# Session 5c: the reference lists of reviews that eligibility set aside (they passed the topic rules); one review
+# citing a study is enough to add it, as when a reviewer checks the reference lists of earlier reviews
+REVIEW_REFS_LABEL = "Reference lists of reviews"
+MAX_REVIEW_SEEDS = 20
+REVIEW_REFS_MAX_ADDED = 150
 MIN_LINKS = 2
 MAX_SEEDS = 60
 MAX_ADDED = 100
@@ -115,20 +120,21 @@ def choose_candidates(links_by_seed: Dict[str, Tuple[List[str], List[str]]], poo
     return ranked[:limit]
 
 
-def to_record(item: dict, links: int) -> PaperRecord:
+def to_record(item: dict, links: int, label: str = SOURCE_LABEL) -> PaperRecord:
     ext = item.get("externalIds") or {}
     pid = item["paperId"]
     oa = item.get("openAccessPdf") or {}
     return PaperRecord(
         id=f"s2:{pid}", s2_id=pid, title=(item.get("title") or "").strip(),
         authors=[a.get("name", "") for a in (item.get("authors") or []) if a.get("name")][:12],
-        year=item.get("year"), venue=item.get("venue") or "", source=SOURCE_LABEL, all_sources=[SOURCE_LABEL],
+        year=item.get("year"), venue=item.get("venue") or "", source=label, all_sources=[label],
         doi=(str(ext.get("DOI") or "").strip().lower() or None), pmid=(str(ext.get("PubMed") or "").strip() or None),
         arxiv_id=(str(ext.get("ArXiv") or "").strip() or None), abstract=(item.get("abstract") or "").strip(),
         citation_count=int(item.get("citationCount") or 0), citation_source="Semantic Scholar",
         publication_types=[str(t) for t in (item.get("publicationTypes") or []) if t],
         url=item.get("url") or f"https://www.semanticscholar.org/paper/{pid}", pdf_url=oa.get("url"),
-        retrieved_by=[f"{SOURCE_LABEL} (linked to {links} selected studies)"],
+        retrieved_by=[f"{label} (linked to {links} selected studies)" if label == SOURCE_LABEL
+                      else f"{label} (cited by {links} {'review' if links == 1 else 'reviews'})"],
     )
 
 
@@ -163,14 +169,16 @@ async def complete_from_pubmed(records: List[PaperRecord], api_key: str = "") ->
 
 async def chase_citations(seeds: List[PaperRecord], pool: List[PaperRecord], api_key: str = "",
                           min_links: int = MIN_LINKS, max_added: int = MAX_ADDED,
-                          pubmed_api_key: str = "") -> ChaseResult:
-    """Backward and forward citation chasing from `seeds` (the selected studies). Never raises: a failure is reported
-    in the result's note and as a source warning, and the review goes on without chased records."""
+                          pubmed_api_key: str = "", backward_only: bool = False,
+                          label: str = SOURCE_LABEL, max_seeds: int = MAX_SEEDS) -> ChaseResult:
+    """Backward and forward citation chasing from `seeds` (the selected studies), or backward only (the reference
+    lists of reviews, `label` REVIEW_REFS_LABEL). Never raises: a failure is reported in the result's note and as a
+    source warning, and the review goes on without chased records."""
     report = CitationChasingReport(ran=True, version=CHASING_VERSION, min_links=min_links, max_added=max_added)
     result = ChaseResult(report=report)
-    usable = [(p, seed_identifier(p)) for p in seeds[:MAX_SEEDS]]
+    usable = [(p, seed_identifier(p)) for p in seeds[:max_seeds]]
     usable = [(p, sid) for p, sid in usable if sid]
-    report.seeds = len(seeds[:MAX_SEEDS])
+    report.seeds = len(seeds[:max_seeds])
     report.seeds_without_identifier = report.seeds - len(usable)
     links_by_seed: Dict[str, Tuple[List[str], List[str]]] = {}
     try:
@@ -183,7 +191,7 @@ async def chase_citations(seeds: List[PaperRecord], pool: List[PaperRecord], api
                     continue
                 refs = [r["paperId"] for r in (item.get("references") or []) if r and r.get("paperId")]
                 cites = [c["paperId"] for c in (item.get("citations") or []) if c and c.get("paperId")]
-                links_by_seed[p.id] = (refs, cites)
+                links_by_seed[p.id] = (refs, [] if backward_only else cites)
                 report.seeds_found += 1
                 report.seeds_with_references += bool(refs)
                 report.seeds_with_citations += bool(cites)
@@ -212,7 +220,7 @@ async def chase_citations(seeds: List[PaperRecord], pool: List[PaperRecord], api
                 report.already_in_pool += 1
                 continue
             seen |= keys
-            result.added.append(to_record(item, links_of.get(item["paperId"], min_links)))
+            result.added.append(to_record(item, links_of.get(item["paperId"], min_links), label))
             if len(result.added) >= max_added:
                 break
         report.added = len(result.added)
@@ -256,5 +264,5 @@ def attach_reference_data(raw: List[PaperRecord], seeds: List[PaperRecord], seed
     return updated
 
 
-def count_included(included: List[PaperRecord]) -> int:
-    return sum(1 for p in included if SOURCE_LABEL in (p.all_sources or []) or p.source == SOURCE_LABEL)
+def count_included(included: List[PaperRecord], label: str = SOURCE_LABEL) -> int:
+    return sum(1 for p in included if label in (p.all_sources or []) or p.source == label)

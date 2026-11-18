@@ -15,6 +15,7 @@ import numpy as np
 
 from models import Corpus, PaperRecord, PoolCluster, PoolMap, PoolMember
 
+OTHER_METHODS = {"Citation searching", "Reference lists of reviews"}
 METHOD = "TF-IDF of title and abstract (1-2 word terms), k-means, k = sqrt(records / 2) between 2 and 12, seed 42"
 MIN_RECORDS = 10
 FLAG_MIN_SIZE = 5
@@ -46,7 +47,7 @@ def build_pool_map(records: Sequence[PaperRecord], included: Sequence[PaperRecor
     members = [PoolMember(id=r.id, title=r.title or "", year=r.year, included=r.id in by_id,
                           citation_index=by_id[r.id].citation_index if r.id in by_id else None,
                           excluded_reason="" if r.id in by_id else reason(r),
-                          chased=(r.source == "Citation searching" or "Citation searching" in (r.all_sources or [])))
+                          chased=bool({r.source, *(r.all_sources or [])} & OTHER_METHODS))
                for r in records]
     texts = [f"{r.title or ''}. {r.abstract or ''}" for r in records]
     labels = None

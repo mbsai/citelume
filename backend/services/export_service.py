@@ -221,6 +221,7 @@ def review_protocol_lines(protocol: Optional[ReviewProtocolReport]) -> List[str]
             f"screened {f.screened}; excluded by relevance ranking {f.excluded_at_screening}; included {f.included}."
         )
     lines.extend(f"Eligibility: {c}" for c in protocol.eligibility_criteria)
+    lines.extend(f"Retrieval: {r}" for r in protocol.retrieval)
     for src, queries in protocol.search_strategies.items():
         lines.extend(f"Search ({src}): {q}" for q in queries)
     lines.append("Methodology rules applied:")

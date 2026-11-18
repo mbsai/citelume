@@ -85,6 +85,9 @@ class SearchRequest(BaseModel):
     # Backward and forward citation chasing from the selected studies; None means on for Deep Research, off for
     # the quick answer
     citation_chasing: Optional[bool] = None
+    # Local installs and evaluation only: records the PubMed core search fetches (default: the review type's
+    # number, 20-100). Ignored on the public demo; at most PUBMED_DEPTH_MAX.
+    pubmed_depth: Optional[int] = Field(default=None, ge=20, le=2000)
 
 
 class UserPdfChoice(BaseModel):
@@ -2057,6 +2060,10 @@ class Corpus(BaseModel):
     search_warnings: List[str] = Field(default_factory=list)
     # Citation chasing from the selected studies (None when it was not run)
     citation_chasing: Optional[CitationChasingReport] = None
+    # The reference lists of reviews set aside at eligibility (None when not run)
+    review_references: Optional[CitationChasingReport] = None
+    # Every database search: what it matched (when the database reports it) and how many records were retrieved
+    search_log: List[Dict[str, Any]] = Field(default_factory=list)
 
     # Set when this corpus was derived from another (same records, a different study limit); demo allowances
     # are counted on the original
@@ -2290,6 +2297,8 @@ class ReviewProtocolReport(BaseModel):
     # PRISMA mode: earlier reviews found by the search, labelled R1, R2 ... and cited in the Discussion
     previous_reviews: List[ListedRecord] = Field(default_factory=list)
     search_strategies: Dict[str, List[str]] = Field(default_factory=dict)
+    # PubMed (which reports its totals): "Core search: retrieved 100 of 1,894 matching records"
+    retrieval: List[str] = Field(default_factory=list)
     eligibility_criteria: List[str] = Field(default_factory=list)
     rules_applied: List[AppliedRule] = Field(default_factory=list)
 

@@ -82,3 +82,42 @@ class TestMesh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDepthAndLog(unittest.TestCase):
+    def test_pubmed_depth_core_only_and_logged(self):
+        from fastapi.testclient import TestClient
+        import main
+        from services import corpus_store
+        from tests import test_golden_search as golden
+        from tests.test_corpus_endpoints import CONFIG, fake_sources
+
+        golden.query_utils._DECOMPOSITION_CACHE.clear()
+        calls = []
+        real = golden._by_source("PubMed")
+
+        async def pubmed(query, max_results, *args, **kwargs):
+            calls.append(max_results)
+            from services.search_log import note_matched
+            note_matched("PubMed", query, 1234)
+            return await real()
+        with fake_sources(), mock.patch.object(main, "search_pubmed", pubmed):
+            client = TestClient(main.app)
+            body = {"query": golden.QUERY, "mode": "deep_research", "review_framework": "systematic_prisma",
+                    "config": CONFIG, "pubmed_depth": 500, "citation_chasing": False}
+            r = client.post("/api/corpus", json=body)
+            self.assertEqual(r.status_code, 200, r.text)
+            corpus = corpus_store.load(r.json()["corpus_id"])
+            with mock.patch.object(main.demo_mode, "demo_enabled", lambda: True):
+                calls_before = len(calls)
+                # On the demo the depth is ignored (the demo's own limits apply in _with_demo_limits; here only
+                # the harvest rule is checked)
+                req = main.SearchRequest(**{**body, "config": main.ApiKeysConfig(**CONFIG)})
+                facet = corpus.plan.search_facets[0]
+                asyncio.run(main._harvest_facet_queries(facet, 100, req, "x"))
+                self.assertEqual(calls[calls_before:], [100])
+        self.assertEqual(calls.count(500), 1, "only the core search goes deep")
+        pm = [e for e in corpus.search_log if e["source"] == "PubMed"]
+        self.assertEqual(len(pm), len(corpus.plan.search_facets))
+        self.assertTrue(all(e["matched"] == 1234 and e["retrieved"] >= 0 for e in pm))
+        self.assertEqual(pm[0]["search"], corpus.plan.search_facets[0].facet_name)

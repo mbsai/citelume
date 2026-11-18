@@ -92,6 +92,18 @@ class TestChasingRules(unittest.TestCase):
         self.assertEqual((recs[0].abstract, recs[0].publication_types), ("An abstract from PubMed.", ["Randomized Controlled Trial"]))
         self.assertEqual((recs[1].abstract, recs[1].publication_types), ("x" * 80, ["Review"]))
 
+    def test_review_reference_lists_are_backward_only(self):
+        async def post(ids, fields, api_key):
+            if fields == cc.LINK_FIELDS:
+                return [{"paperId": "f" * 40, "references": [{"paperId": "a" * 40}], "citations": [{"paperId": "b" * 40}]}]
+            return [{"paperId": pid, "title": f"Trial {pid[:4]} of something specific", "abstract": "x"} for pid in ids]
+        with mock.patch.object(cc, "_post_batch", post):
+            res = asyncio.run(cc.chase_citations([rec(1)], [rec(1)], min_links=1, backward_only=True,
+                                                 label=cc.REVIEW_REFS_LABEL))
+        self.assertEqual([p.s2_id for p in res.added], ["a" * 40])
+        self.assertEqual(res.added[0].source, cc.REVIEW_REFS_LABEL)
+        self.assertIn("cited by 1 review", res.added[0].retrieved_by[0])
+
     def test_failure_is_reported_not_raised(self):
         async def broken(*_a, **_k):
             raise RuntimeError("rate limited")
@@ -149,8 +161,13 @@ class TestChasingInThePipeline(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         flow = r.json()["review_protocol"]["flow"]
         corpus = corpus_store.load(r.json()["corpus_id"])
-        self.assertEqual(flow["identified_other_methods"], {cc.SOURCE_LABEL: 1})
-        self.assertEqual(flow["identified_total"], corpus.records_found - 1)
+        other = flow["identified_other_methods"]
+        self.assertEqual(other[cc.SOURCE_LABEL], 1)
+        # Each excluded review cites a paper of its own in the fake endpoint: one per review, found by one review
+        n_reviews = corpus.review_references.seeds_found
+        self.assertGreater(n_reviews, 0)
+        self.assertEqual(other[cc.REVIEW_REFS_LABEL], corpus.review_references.added)
+        self.assertEqual(flow["identified_total"], corpus.records_found - sum(other.values()))
         self.assertNotIn(cc.SOURCE_LABEL, flow["identified_by_source"])
 
 

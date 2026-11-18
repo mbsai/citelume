@@ -204,6 +204,8 @@ def build_request(q: Dict[str, Any], defaults: Dict[str, Any], cfg):
     for key in ("year_from", "year_to", "max_per_source"):
         if q.get(key) is not None:
             fields[key] = q[key]
+    if defaults.get("pubmed_depth"):
+        fields["pubmed_depth"] = defaults["pubmed_depth"]
     return SearchRequest(**fields)
 
 
@@ -327,6 +329,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     r.add_argument("--pause", type=float, default=10.0, help="seconds between questions (default 10)")
     r.add_argument("--rerun", action="store_true", help="run every question again, even those already done")
     r.add_argument("--skip-failed", action="store_true", help="do not retry questions that failed before")
+    r.add_argument("--pubmed-depth", type=int, default=None,
+                   help="records the PubMed core search fetches (20-2000; default: the review type's number)")
     r.add_argument("--save-raw", action="store_true",
                    help="also save raw.json.gz: every record found, before duplicates were merged (evaluation)")
     return p.parse_args(argv)
@@ -343,7 +347,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"{len(questions)} questions, mode {args.mode}, model {model_label(cfg)}, output {args.out}")
     if not uses_model(cfg):
         print("No model key given: the pipeline runs rule-based (no screening model, no AI synthesis).")
-    defaults = {"mode": args.mode, "review_type": args.review_type, "save_raw": args.save_raw}
+    defaults = {"mode": args.mode, "review_type": args.review_type, "save_raw": args.save_raw,
+                "pubmed_depth": args.pubmed_depth}
     done, failed, skipped = asyncio.run(run_batch(questions, args.out, defaults, cfg, rerun=args.rerun,
                                                   skip_failed=args.skip_failed, pause_s=args.pause))
     print(f"Finished: {done} done, {failed} failed, {skipped} skipped. Summary: {args.out / 'summary.csv'}")
