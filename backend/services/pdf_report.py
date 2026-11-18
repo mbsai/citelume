@@ -489,6 +489,8 @@ def _prisma_flow_table(f, st: dict) -> Table:
     def reasons(d):
         return "".join(f"<br/>{_clean(k)}: <b>{v}</b>" for k, v in (d or {}).items())
     by_source = "".join(f"<br/>{_clean(k)}: {v}" for k, v in f.identified_by_source.items())
+    by_source += "".join(f"<br/><b>Identified by other methods</b><br/>{_clean(k)}: {v}"
+                         for k, v in f.identified_other_methods.items())
     rows = [
         ("Identification", f"<b>Records identified: {f.identified_total}</b>{by_source}",
          f"<b>Removed before screening</b><br/>Duplicates: <b>{f.duplicates_removed}</b>"

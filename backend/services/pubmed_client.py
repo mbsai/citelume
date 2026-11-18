@@ -186,3 +186,35 @@ async def search_pubmed(
                 report_source_failure("PubMed", exc)
 
     return papers
+
+
+async def fetch_pubmed_details(pmids: List[str], api_key: str = "") -> dict:
+    """Abstract and publication types for each PubMed ID, from one efetch request per 200 IDs (POST, so long ID
+    lists fit). Returns {pmid: {"abstract": str, "publication_types": [str]}}; IDs not returned are left out."""
+    out: dict = {}
+    ids = [p.strip() for p in pmids if p and p.strip().isdigit()]
+    keyed = bool(api_key and api_key.strip())
+    async with httpx.AsyncClient(transport=retrying_transport(), timeout=30.0) as client:
+        for i in range(0, len(ids), 200):
+            data = {"db": "pubmed", "id": ",".join(ids[i:i + 200]), "retmode": "xml"}
+            if keyed:
+                data["api_key"] = api_key.strip()
+            async with _pubmed_slot(keyed):
+                resp = await client.post(f"{EUTILS_BASE}/efetch.fcgi", data=data)
+            resp.raise_for_status()
+            for article in ET.fromstring(resp.text).findall(".//PubmedArticle"):
+                pmid = (article.findtext(".//MedlineCitation/PMID") or "").strip()
+                if not pmid:
+                    continue
+                parts = []
+                for el in article.findall(".//Article/Abstract/AbstractText"):
+                    txt = "".join(el.itertext()).strip()
+                    if txt:
+                        label = el.attrib.get("Label", "")
+                        parts.append(f"{label}: {txt}" if label else txt)
+                out[pmid] = {
+                    "abstract": " ".join(parts),
+                    "publication_types": [(el.text or "").strip() for el in
+                                          article.findall(".//PublicationTypeList/PublicationType") if (el.text or "").strip()],
+                }
+    return out

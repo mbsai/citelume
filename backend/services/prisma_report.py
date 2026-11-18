@@ -62,7 +62,7 @@ def _methods(protocol: ReviewProtocolReport, sel: SelectionReport, papers: Seque
              organization_id: str, search_date: str) -> str:
     flow = protocol.flow
     sources = list((flow.identified_by_source if flow else {}).keys())
-    citation_links = any("Citation links" in " ".join(p.retrieved_by or []) for p in papers)
+    chased = sum((flow.identified_other_methods if flow else {}).values())
     tools_used = sorted({tool_for(p.study_type).tool_id for p in papers}, key=list(TOOLS).index)
     organization = ORGANIZATIONS.get(organization_id, ORGANIZATIONS["thematic"]).label.lower()
     n_searches = max((len(v) for v in protocol.search_strategies.values()), default=0)
@@ -72,8 +72,9 @@ def _methods(protocol: ReviewProtocolReport, sel: SelectionReport, papers: Seque
         _labelled("Eligibility criteria (item 5)", " ".join(criteria)),
         _labelled("Information sources (item 6)",
                   f"{', '.join(sources) or 'The enabled databases'} were searched on {search_date}"
-                  + ("; the reference lists and citing articles of highly cited included studies were also searched"
-                     if citation_links else "") + "."),
+                  + ("; the reference lists of the selected studies and the articles citing them were then searched "
+                     "in Semantic Scholar (citation searching), and papers linked to at least two selected studies "
+                     f"were added as records identified by other methods ({chased})" if chased else "") + "."),
         _labelled("Search strategy (item 7)",
                   f"Each database was searched with {_n(n_searches, 'search string')} built from the question's "
                   "concepts and their synonyms by fixed rules (core concepts, reviews and one search per aspect of "
@@ -126,8 +127,10 @@ def _study_selection(protocol: ReviewProtocolReport, sel: SelectionReport) -> st
     if not f:
         return "The record flow was not available."
     by_source = "; ".join(f"{k} {v}" for k, v in f.identified_by_source.items())
+    other = " and ".join(f"{k.lower()} found {_n(v, 'more record')}" for k, v in f.identified_other_methods.items())
     sentences = [
         f"The searches identified {_n(f.identified_total, 'record')}" + (f" ({by_source})" if by_source else "")
+        + (f", and {other} (identified by other methods)" if other else "")
         + f". After {_n(f.duplicates_removed, 'duplicate')} were removed"
         + (f" and {sum(f.removed_before_screening.values())} non-research records (corrections, protocols, meeting "
            "abstracts)" if f.removed_before_screening else "")

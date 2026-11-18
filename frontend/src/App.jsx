@@ -3,6 +3,7 @@ import ApiConfigModal from './components/ApiConfigModal';
 import SynthesisPanel from './components/SynthesisPanel';
 import EvidenceTable from './components/EvidenceTable';
 import LiteratureGraph from './components/LiteratureGraph';
+import PoolMap from './components/PoolMap';
 import KnowledgeGapMatrix from './components/KnowledgeGapMatrix';
 import HuggingFacePanel from './components/HuggingFacePanel';
 import { ResultsCards, ResultsTabStrip } from './components/ResultsNav';
@@ -10,6 +11,7 @@ import SelectionPanel from './components/SelectionPanel';
 import {
   analyseCorpus,
   createCorpus,
+  fetchCorpusMap,
   overrideScreening,
   fetchDemoStatus,
   fetchModelScale,
@@ -494,6 +496,22 @@ export default function App() {
     setActiveHistoryId(null);
   };
 
+  const [mapBusy, setMapBusy] = useState(false);
+  const [mapError, setMapError] = useState('');
+  const handleMapView = async (view) => {
+    if (!result?.corpus_id || mapBusy) return;
+    setMapBusy(true);
+    setMapError('');
+    try {
+      const data = await fetchCorpusMap(result.corpus_id, view, config);
+      setResult((prev) => ({ ...prev, graph: data.graph }));
+    } catch (e) {
+      setMapError(e.message);
+    } finally {
+      setMapBusy(false);
+    }
+  };
+
   const handleGraphExpand = (parentNode, neighbors) => {
     if (!result || !neighbors || neighbors.length === 0) return;
     setResult((prev) => {
@@ -932,12 +950,18 @@ export default function App() {
                 <KnowledgeGapMatrix gapMatrix={result.gap_matrix} papers={result.papers} />
               )}
               {activeTab === 'network' && (
-                <LiteratureGraph
-                  graph={result.graph}
-                  papers={result.papers}
-                  config={config}
-                  onGraphExpand={handleGraphExpand}
-                />
+                <div className="space-y-5">
+                  <LiteratureGraph
+                    graph={result.graph}
+                    papers={result.papers}
+                    config={config}
+                    onGraphExpand={handleGraphExpand}
+                    onViewChange={result.corpus_id ? handleMapView : null}
+                    viewBusy={mapBusy}
+                    viewError={mapError}
+                  />
+                  <PoolMap pool={result.graph?.pool} />
+                </div>
               )}
               {activeTab === 'huggingface' && <HuggingFacePanel resources={result.hf_resources} />}
             </>

@@ -61,7 +61,10 @@ def build_review_protocol_report(
     year_to: Optional[int],
     constraint_excluded: int = 0,
     selection_report: Optional[SelectionReport] = None,
+    identified_other_methods: Optional[Dict[str, int]] = None,
 ) -> ReviewProtocolReport:
+    """`identified_total` counts database records only; records found by other methods (citation searching) are
+    given separately, as in the PRISMA 2020 flow diagram, and join the database records for screening."""
     framework, organization = resolve_review_type(framework_id, organization_id)
     # Designs seen in the included abstracts plus the study-method profiles the planner detected
     designs = sorted(
@@ -96,7 +99,8 @@ def build_review_protocol_report(
     report.flow = PrismaFlowCounts(
         identified_by_source={k: v for k, v in identified_by_source.items() if v and k in enabled_sources},
         identified_total=identified_total,
-        duplicates_removed=max(0, identified_total - unique_records),
+        identified_other_methods={k: v for k, v in (identified_other_methods or {}).items() if v},
+        duplicates_removed=max(0, identified_total - (unique_records - sum((identified_other_methods or {}).values()))),
         screened=unique_records,
         excluded_at_screening=max(0, unique_records - len(included_papers)),
         included=len(included_papers),

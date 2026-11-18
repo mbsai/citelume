@@ -80,6 +80,8 @@ from services.search_counts import preview_searches
 from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
 from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
+from services import citation_chasing
+from services.pool_map import pool_map_for
 from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
@@ -748,16 +750,24 @@ async def corpus_gaps(corpus_id: str, mreq: ModuleRequest, request: Request) -> 
 
 @app.post("/api/corpus/{corpus_id}/map")
 async def corpus_map(corpus_id: str, mreq: ModuleRequest) -> Dict[str, Any]:
-    """The analysed map when an analysis exists; otherwise the map of the included studies alone (citation and
-    wording links), which needs no model."""
+    """The map, built from the stored corpus alone (no model, no network): citation links between the included
+    studies by default; with view "all", also word-similarity and evolution links and, when the corpus has been
+    analysed, claim, shared-dataset and gap links. Always with the view of the whole candidate pool."""
     corpus = _corpus_or_404(corpus_id)
-    if corpus.analysis is not None and not mreq.rerun:
-        return _module_payload(corpus, corpus.analysis, "map")
+    analysis = corpus.analysis
     run = _run_from_corpus(corpus, mreq.config)
-    graph = build_literature_graph(papers=run.papers, hf_resources=[], query=corpus.query, mode=corpus.mode,
-                                   decomposition_plan=run.plan)
+    papers = analysis.papers if analysis is not None and analysis.papers else run.papers
+    graph = build_literature_graph(
+        papers=papers, hf_resources=(analysis.hf_resources if analysis is not None else []), query=corpus.query,
+        mode=corpus.mode, decomposition_plan=run.plan,
+        synthesis_package=analysis.synthesis_evidence if analysis is not None else None,
+        evidence_matrix=analysis.evidence_matrix if analysis is not None else None,
+        gap_matrix=analysis.gap_matrix if analysis is not None else None,
+        view=mreq.view)
+    graph.pool = pool_map_for(corpus, papers)
     return {"graph": graph.model_dump(), "corpus_id": corpus.corpus_id, "corpus_hash": corpus.content_hash,
-            "module": "map", "analysis_model": "", "analysed_at": ""}
+            "module": "map", "view": graph.view, "analysis_model": corpus.analysis_model if analysis else "",
+            "analysed_at": corpus.analysed_at if analysis else ""}
 
 
 @dataclass
@@ -869,34 +879,6 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     # Real citation counts (NIH iCite for PubMed records) before anything is ranked by them
     await enrich_citation_counts(all_raw_papers)
 
-    # F6 Citation & Literature-Network Expansion in Deep Research mode
-    if req.mode == "deep_research" and all_raw_papers:
-        prelim = deduplicate_and_rank_papers(
-            all_raw_papers,
-            req.query,
-            max_total=15,
-            understanding=selection_understanding,
-        )
-        seminal = sorted(prelim, key=lambda x: x.citation_count, reverse=True)[:2]
-        snowball_tasks = [
-            expand_paper_neighbors(
-                title=sp.title,
-                doi=sp.doi,
-                arxiv_id=sp.arxiv_id,
-                pmid=sp.pmid,
-                s2_id=sp.s2_id,
-                api_key=cfg.s2_api_key,
-            )
-            for sp in seminal
-        ]
-        snowball_res = await asyncio.gather(*snowball_tasks, return_exceptions=True)
-        for sb in snowball_res:
-            if isinstance(sb, list):
-                for nb in sb:
-                    nb.retrieved_by = ["Citation links of highly cited studies"]
-                all_raw_papers.extend(sb)
-                source_stats["Semantic Scholar"] = source_stats.get("Semantic Scholar", 0) + len(sb)
-
     # What the user brought (local installs only): exported records and PDFs join the pool before duplicates are
     # merged, so they pass the same eligibility and scoring as searched records
     imports, pdf_records, pdf_summaries, forced_keys = _user_material(req, all_raw_papers, source_stats)
@@ -905,20 +887,32 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     _report_stage(req, 3, f"{len(all_raw_papers)} candidate records harvested")
     # Scored against the question plus the rule-based parse's key terms (not the model's plan)
     ranking_query = f"{req.query} {' '.join(plan.selection_entities or plan.extracted_technical_entities)}"
-    dedup_stats: Dict[str, int] = {}
-    await enrich_citation_counts(all_raw_papers)  # records added by citation links
+    await enrich_citation_counts(all_raw_papers)
     # Systematic-style and scoping reviews keep every word-eligible record, so the model can screen them before
     # the limit applies
-    ranked_papers, selection_report, corpus = select_for_corpus(
-        all_raw_papers,
-        query=req.query,
-        ranking_query=ranking_query,
-        study_limit=max_total_papers,
-        understanding=selection_understanding,
-        method=method,
-        stats=dedup_stats,
-        protocol=protocol,
-    )
+    def _select():
+        stats: Dict[str, int] = {}
+        out = select_for_corpus(all_raw_papers, query=req.query, ranking_query=ranking_query,
+                                study_limit=max_total_papers, understanding=selection_understanding, method=method,
+                                stats=stats, protocol=protocol)
+        return out, stats
+
+    (ranked_papers, selection_report, corpus), dedup_stats = _select()
+    # Citation chasing (identification via other methods): papers that cite, or are cited by, several selected
+    # studies and are not in the pool join it, and selection runs again over the enlarged pool, so chased records
+    # face the same rules as searched ones. The selection stored (and replayed) is the second one.
+    chasing = None
+    if (req.citation_chasing if req.citation_chasing is not None else req.mode == "deep_research") and ranked_papers:
+        _report_stage(req, 3, "Citation searching from the selected studies")
+        seeds = ranked_papers[:min(citation_chasing.MAX_SEEDS, max(max_total_papers, 1))]
+        chase = await citation_chasing.chase_citations(seeds, corpus.records, cfg.s2_api_key,
+                                                       pubmed_api_key=cfg.pubmed_api_key)
+        citation_chasing.attach_reference_data(all_raw_papers, seeds, chase.seed_links)
+        if chase.added:
+            await enrich_citation_counts(chase.added)
+            all_raw_papers.extend(chase.added)
+        (ranked_papers, selection_report, corpus), dedup_stats = _select()
+        chasing = chase.report
     if method != "narrative" and selection_report and ranked_papers:
         _report_stage(req, 3, f"Screening {len(ranked_papers)} eligible records on title and abstract")
         ranked_papers = await screen_and_limit(ranked_papers, selection_report, req.query, cfg, max_total_papers,
@@ -927,6 +921,9 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     corpus.imports = imports
     _record_user_pdfs(corpus, pdf_records, pdf_summaries, forced_keys)
     ranked_papers = apply_forced_includes(ranked_papers, corpus, selection_report)
+    if chasing is not None:
+        chasing.included = citation_chasing.count_included(ranked_papers)
+        corpus.citation_chasing = chasing
     attach_user_full_texts(ranked_papers, corpus)
     # The corpus: the records, the inputs and the decisions, so the selection can be audited and replayed
     corpus.mode, corpus.review_framework, corpus.organization = req.mode, req.review_framework, req.organization
@@ -1062,6 +1059,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         evidence_matrix=evidence_matrix,
         gap_matrix=gap_matrix,
     )
+    graph.pool = pool_map_for(corpus, ranked_papers)
 
     # Build Phase 7 Shared Scientific Evidence Base
     evidence_base = build_shared_evidence_base(
@@ -1099,6 +1097,7 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         name for name, on in (("PubMed", cfg.enable_pubmed), ("arXiv", cfg.enable_arxiv),
                               ("bioRxiv", cfg.enable_biorxiv), ("Semantic Scholar", cfg.enable_s2)) if on
     ] + [k for k in source_stats if k.endswith("(imported by the user)") or k == USER_PDF_SOURCE]
+    chased = corpus.citation_chasing.added if corpus.citation_chasing else 0
     review_protocol = build_review_protocol_report(
         framework_id=req.review_framework,
         organization_id=req.organization,
@@ -1106,7 +1105,8 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
         plan=plan,
         included_papers=ranked_papers,
         identified_by_source=source_stats,
-        identified_total=corpus.records_found,
+        identified_total=corpus.records_found - chased,
+        identified_other_methods={citation_chasing.SOURCE_LABEL: chased} if chased else None,
         unique_records=dedup_stats.get("unique_records", len(ranked_papers)),
         enabled_sources=enabled_sources,
         year_from=req.year_from,

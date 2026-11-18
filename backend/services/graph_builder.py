@@ -1,3 +1,4 @@
+from functools import partial
 import math
 import re
 from typing import List, Dict, Optional, Tuple
@@ -21,6 +22,7 @@ from models import (
     KnowledgeGapMatrix,
 )
 from services.corpus import _is_preprint_record, _normalize_title, merge_duplicates  # noqa: F401 (re-exported)
+from services.network_evidence_layer import add_evidence_layer
 from services.network_engine import build_multilayer_literature_network
 from services.paper_selection import MIN_CONSTRAINT_MATCHES, select_studies
 
@@ -120,21 +122,27 @@ def build_literature_graph(
     evidence_matrix: Optional[StructuredEvidenceMatrix] = None,
     gap_matrix: Optional[KnowledgeGapMatrix] = None,
     context_papers: Optional[List[PaperRecord]] = None,
+    view: str = "citations",
 ) -> LiteratureGraph:
     """
-    Universal, Multilayer Scientific Literature Mapping and Knowledge-Relationship Engine (Section 4):
-    Delegates to `build_multilayer_literature_network` to construct Layer A (Bibliographic),
-    Layer B (Semantic/Conceptual), Layer C (Scientific Claims, Shared Datasets & Gaps),
-    Layer D (Research Evolution & Lineage), and Artifact Links with deterministic verification.
+    The literature map of the included studies. By default ("citations") it shows citation links only; view "all"
+    adds word-similarity, research-evolution and Hugging Face links and, from the synthesis, evidence table and gap
+    matrix, claim, shared-dataset and gap links (services/network_evidence_layer.py).
     """
-    return build_multilayer_literature_network(
+    view = "all" if view == "all" else "citations"
+    evidence_layer = None
+    if view == "all" and (synthesis_package or evidence_matrix or gap_matrix):
+        evidence_layer = partial(add_evidence_layer, synthesis_package=synthesis_package,
+                                 evidence_matrix=evidence_matrix, gap_matrix=gap_matrix)
+    graph = build_multilayer_literature_network(
         papers=papers,
         hf_resources=hf_resources,
         query=query,
         mode=mode,
         decomposition_plan=decomposition_plan,
-        synthesis_package=synthesis_package,
-        evidence_matrix=evidence_matrix,
-        gap_matrix=gap_matrix,
         context_papers=context_papers,
+        view=view,
+        evidence_layer=evidence_layer,
     )
+    graph.view = view
+    return graph

@@ -86,6 +86,12 @@ export function editRiskOfBias(corpusId, payload) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/risk-of-bias`, payload, 'Saving the change');
 }
 
+// The map from the stored corpus: view "citations" (citation links only) or "all" (adds word-similarity, lineage,
+// claim and gap links). No model is run.
+export function fetchCorpusMap(corpusId, view, config) {
+  return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/map`, { view, config }, 'Map');
+}
+
 export function analyseCorpus(corpusId, payload) {
   return postJson(`/api/corpus/${encodeURIComponent(corpusId)}/analyse`, payload, 'Analysis');
 }

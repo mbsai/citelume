@@ -49,7 +49,7 @@ function csvEscape(val) {
   return s;
 }
 
-export default function LiteratureGraph({ graph, papers = [], config, onGraphExpand }) {
+export default function LiteratureGraph({ graph, papers = [], config, onGraphExpand, onViewChange, viewBusy, viewError }) {
   const [layoutMode, setLayoutMode] = useState('timeline');
   const [colorMode, setColorMode] = useState('cluster');
   const [layerFilter, setLayerFilter] = useState('all');
@@ -341,8 +341,37 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Links among the included studies only: citations (Layer A), wording similarity (Layer B), claims and open questions (Layer C) and research lineage (Layer D). It is not a map of the whole field.
+              {graph.view === 'all'
+                ? 'Links among the included studies: citations (Layer A), wording similarity (Layer B), claims and open questions (Layer C) and research lineage (Layer D).'
+                : 'Citation links among the included studies: one cites another, they share references, or they are cited together.'}{' '}
+              It is not a map of the whole field; the panel below shows the whole candidate pool.
             </p>
+            {onViewChange && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs" role="group" aria-label="Links shown">
+                <span className="font-semibold text-slate-600">Links shown:</span>
+                {[
+                  { id: 'citations', label: 'Citations only' },
+                  { id: 'all', label: 'All links (adds word similarity, lineage, claims, gaps)' },
+                ].map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    disabled={viewBusy}
+                    aria-pressed={(graph.view || 'citations') === v.id}
+                    onClick={() => (graph.view || 'citations') !== v.id && onViewChange(v.id)}
+                    className={`px-2 py-0.5 rounded-md border font-semibold disabled:opacity-50 ${
+                      (graph.view || 'citations') === v.id
+                        ? 'bg-slate-800 text-white border-slate-800'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+                {viewBusy && <span className="text-slate-500">updating…</span>}
+                {viewError && <span className="text-rose-700">{viewError}</span>}
+              </div>
+            )}
           </div>
 
           {/* Direct Research Exports */}

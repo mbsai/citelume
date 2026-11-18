@@ -25,6 +25,7 @@ def fake_sources() -> ExitStack:
         stack.enter_context(mock.patch.object(main, name, golden._by_source(source)))
     stack.enter_context(mock.patch.object(main, "enrich_citation_counts", golden._none))
     stack.enter_context(mock.patch.object(main, "expand_paper_neighbors", golden._empty))
+    stack.enter_context(mock.patch.object(main.citation_chasing, "_post_batch", golden._empty))
     return stack
 
 

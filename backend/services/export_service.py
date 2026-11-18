@@ -101,6 +101,7 @@ def prisma_flow_lines(f) -> List[str]:
     by_source = ", ".join(f"{k} {v}" for k, v in f.identified_by_source.items())
     lines = [
         f"Identification: {f.identified_total} records identified" + (f" ({by_source})" if by_source else "")
+        + "".join(f"; {v} identified by other methods ({k.lower()})" for k, v in f.identified_other_methods.items())
         + f"; {f.duplicates_removed} duplicates removed" + (
             f"; {sum(f.removed_before_screening.values())} removed before screening{reasons(f.removed_before_screening)}"
             if f.removed_before_screening else ""),
@@ -214,7 +215,9 @@ def review_protocol_lines(protocol: Optional[ReviewProtocolReport]) -> List[str]
         f = protocol.flow
         by_source = ", ".join(f"{k} {v}" for k, v in f.identified_by_source.items())
         lines.append(
-            f"Flow of records: identified {f.identified_total} ({by_source}); duplicates removed {f.duplicates_removed}; "
+            f"Flow of records: identified {f.identified_total} ({by_source})"
+            + "".join(f"; {v} identified by other methods ({k.lower()})" for k, v in f.identified_other_methods.items())
+            + f"; duplicates removed {f.duplicates_removed}; "
             f"screened {f.screened}; excluded by relevance ranking {f.excluded_at_screening}; included {f.included}."
         )
     lines.extend(f"Eligibility: {c}" for c in protocol.eligibility_criteria)

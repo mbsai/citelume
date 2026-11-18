@@ -82,6 +82,9 @@ class SearchRequest(BaseModel):
     # Local installs only: exports the user uploaded (POST /api/imports) and PDFs (POST /api/imports/pdf)
     import_ids: List[str] = Field(default_factory=list)
     user_pdfs: List["UserPdfChoice"] = Field(default_factory=list)
+    # Backward and forward citation chasing from the selected studies; None means on for Deep Research, off for
+    # the quick answer
+    citation_chasing: Optional[bool] = None
 
 
 class UserPdfChoice(BaseModel):
@@ -1545,7 +1548,43 @@ class NetworkValidationReport(BaseModel):
     repaired_elements_count: int = 0
 
 
+class PoolMember(BaseModel):
+    id: str
+    title: str = ""
+    year: Optional[int] = None
+    included: bool = False
+    citation_index: Optional[int] = None
+    excluded_reason: str = ""
+    chased: bool = False      # identified by citation searching
+
+
+class PoolCluster(BaseModel):
+    cluster_id: int
+    label: str = ""
+    terms: List[str] = Field(default_factory=list)
+    size: int = 0
+    included: int = 0
+    # A large cluster none of whose records was included: a part of the pool the review may be missing
+    flagged: bool = False
+    members: List[PoolMember] = Field(default_factory=list)
+
+
+class PoolMap(BaseModel):
+    """Where the included studies sit in the whole candidate pool (services/pool_map.py)."""
+    records: int = 0
+    included: int = 0
+    method: str = ""
+    clusters: List[PoolCluster] = Field(default_factory=list)
+    # Included studies with a reference list, which citation links on the map depend on
+    included_with_references: int = 0
+    citation_chasing: Optional["CitationChasingReport"] = None
+    note: str = ""
+
+
 class LiteratureGraph(BaseModel):
+    # "citations": citation links only (the default); "all": also word-similarity, evolution, claim and gap links
+    view: str = "citations"
+    pool: Optional[PoolMap] = None
     nodes: List[GraphNode] = Field(default_factory=list)
     edges: List[GraphEdge] = Field(default_factory=list)
     clusters: List[Dict[str, Any]] = Field(default_factory=list)
@@ -1944,6 +1983,27 @@ class CorpusCandidate(BaseModel):
     scores: Dict[str, float] = Field(default_factory=dict)
 
 
+class CitationChasingReport(BaseModel):
+    """Backward and forward citation chasing from the selected studies (services/citation_chasing.py)."""
+    ran: bool = False
+    version: str = ""
+    seeds: int = 0                       # selected studies the chasing started from
+    seeds_without_identifier: int = 0    # no DOI, PubMed, arXiv or Semantic Scholar ID to look up
+    seeds_found: int = 0                 # found in Semantic Scholar
+    seeds_with_references: int = 0       # with a reference list
+    seeds_with_citations: int = 0        # cited at least once
+    min_links: int = 2                   # a paper must cite, or be cited by, at least this many seeds
+    max_added: int = 100
+    linked_candidates: int = 0           # papers linked to enough seeds and not in the pool by Semantic Scholar ID
+    already_in_pool: int = 0             # of those, found in the pool by DOI, PubMed ID or title
+    added: int = 0                       # records added to the pool ("identified by other methods")
+    abstracts_from_pubmed: int = 0       # added records whose missing abstract was filled from PubMed
+    added_without_abstract: int = 0      # added records still without an abstract (they rarely pass eligibility)
+    included: int = 0                    # of the added records, how many the selection included
+    requests: int = 0                    # Semantic Scholar batch requests made
+    note: str = ""
+
+
 class Corpus(BaseModel):
     """
     Everything needed to audit and re-run a selection: the records found (one per study, as they were before
@@ -1992,6 +2052,8 @@ class Corpus(BaseModel):
     user_full_texts: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     forced_includes: Dict[str, str] = Field(default_factory=dict)
     search_warnings: List[str] = Field(default_factory=list)
+    # Citation chasing from the selected studies (None when it was not run)
+    citation_chasing: Optional[CitationChasingReport] = None
 
     # Set when this corpus was derived from another (same records, a different study limit); demo allowances
     # are counted on the original
@@ -2009,6 +2071,8 @@ class ModuleRequest(BaseModel):
     config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
     # Run the analysis again even though one is stored (for example with a different model)
     rerun: bool = False
+    # Map only: "citations" (citation links only) or "all" (adds word-similarity, evolution, claim and gap links)
+    view: Literal["citations", "all"] = "citations"
     progress_id: Optional[str] = None
 
 
@@ -2191,6 +2255,9 @@ class SelectionReport(BaseModel):
 class PrismaFlowCounts(BaseModel):
     identified_by_source: Dict[str, int] = Field(default_factory=dict)
     identified_total: int = 0
+    # Identification of studies via other methods (PRISMA 2020), e.g. {"Citation searching": 12}; these records are
+    # screened together with the database records
+    identified_other_methods: Dict[str, int] = Field(default_factory=dict)
     duplicates_removed: int = 0
     # Removed before screening (not research reports), by reason
     removed_before_screening: Dict[str, int] = Field(default_factory=dict)
@@ -2259,3 +2326,5 @@ Corpus.model_rebuild()
 SearchPreview.model_rebuild()
 ProtocolProposeRequest.model_rebuild()
 CorpusSummary.model_rebuild()
+PoolMap.model_rebuild()
+LiteratureGraph.model_rebuild()

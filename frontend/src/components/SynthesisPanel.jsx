@@ -91,6 +91,11 @@ function PrismaFlowFull({ flow }) {
               {s}: {n}
             </div>
           ))}
+          {Object.entries(flow.identified_other_methods || {}).map(([s, n]) => (
+            <div key={s} className="text-[11px] text-slate-700 mt-1">
+              Identified by other methods ({s.toLowerCase()}): <strong>{n}</strong>
+            </div>
+          ))}
         </>,
         <>
           <div className="font-semibold text-slate-700">Removed before screening</div>
@@ -160,6 +165,11 @@ function PrismaFlow({ flow }) {
       <div className={box}>
         <div className="font-semibold">Records identified: {flow.identified_total}</div>
         {bySource && <div className="text-[11px] text-slate-500 mt-0.5">{bySource}</div>}
+        {Object.entries(flow.identified_other_methods || {}).map(([s, n]) => (
+          <div key={s} className="text-[11px] text-slate-700 mt-0.5">
+            Identified by other methods ({s.toLowerCase()}): {n}
+          </div>
+        ))}
       </div>
       {arrow}
       <div className={box}>Duplicates removed: {flow.duplicates_removed}</div>
