@@ -14,6 +14,7 @@ skipped. The id names the question's output folder (letters, digits, '-', '_' an
 is used.
 
 For each question, <out>/<id>/ receives:
+    raw.json.gz      with --save-raw: every record the searches returned, before duplicates were merged
     corpus.json.gz   the stored corpus: every record, the plan, the selection and screening decisions (replayable
                      with `python -m services.replay`)
     result.json      the full analysis: synthesis, evidence table, gaps, map, risk of bias
@@ -187,6 +188,14 @@ def _write_corpus(path: Path, corpus) -> None:
     tmp.replace(path)
 
 
+def _write_raw(path: Path, records) -> None:
+    """The records as the searches returned them, before duplicates were merged (for evaluation)."""
+    tmp = path.with_name(path.name + ".tmp")
+    with gzip.open(tmp, "wt", encoding="utf-8") as fh:
+        fh.write("[" + ",".join(r.model_dump_json() for r in records) + "]")
+    tmp.replace(path)
+
+
 def build_request(q: Dict[str, Any], defaults: Dict[str, Any], cfg):
     from models import SearchRequest
 
@@ -221,6 +230,8 @@ async def run_question(q: Dict[str, Any], folder: Path, defaults: Dict[str, Any]
         t2 = time.monotonic()
         record["timings_s"]["corpus"] = round(t2 - t1, 1)
         _write_corpus(folder / "corpus.json.gz", run.corpus)
+        if defaults.get("save_raw"):
+            _write_raw(folder / "raw.json.gz", run.raw_records)
         record.update(corpus_id=run.corpus.corpus_id, content_hash=run.corpus.content_hash,
                       records=len(run.corpus.records), included=len(run.corpus.included_ids))
         _write_json(folder / "run.json", record)  # the corpus survives even if the analysis fails
@@ -316,6 +327,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     r.add_argument("--pause", type=float, default=10.0, help="seconds between questions (default 10)")
     r.add_argument("--rerun", action="store_true", help="run every question again, even those already done")
     r.add_argument("--skip-failed", action="store_true", help="do not retry questions that failed before")
+    r.add_argument("--save-raw", action="store_true",
+                   help="also save raw.json.gz: every record found, before duplicates were merged (evaluation)")
     return p.parse_args(argv)
 
 
@@ -330,7 +343,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"{len(questions)} questions, mode {args.mode}, model {model_label(cfg)}, output {args.out}")
     if not uses_model(cfg):
         print("No model key given: the pipeline runs rule-based (no screening model, no AI synthesis).")
-    defaults = {"mode": args.mode, "review_type": args.review_type}
+    defaults = {"mode": args.mode, "review_type": args.review_type, "save_raw": args.save_raw}
     done, failed, skipped = asyncio.run(run_batch(questions, args.out, defaults, cfg, rerun=args.rerun,
                                                   skip_failed=args.skip_failed, pause_s=args.pause))
     print(f"Finished: {done} done, {failed} failed, {skipped} skipped. Summary: {args.out / 'summary.csv'}")

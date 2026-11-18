@@ -115,6 +115,15 @@ class TestBatchRun(unittest.TestCase):
         self.assertEqual(self.run_batch(skip_failed=True), (0, 0, 2))
         self.assertEqual(self.run_batch(), (2, 0, 0))
 
+    def test_raw_records_saved_on_request(self):
+        self.defaults["save_raw"] = True
+        self.questions = self.questions[:1]
+        self.assertEqual(self.run_batch(), (1, 0, 0))
+        raw = json.loads(gzip.decompress((self.out / "vitd" / "raw.json.gz").read_bytes()))
+        corpus = read_file(self.out / "vitd" / "corpus.json.gz")
+        self.assertGreaterEqual(len(raw), len(corpus.records))
+        self.assertEqual(len(raw), corpus.records_found)
+
     def test_unsearchable_question_fails_cleanly(self):
         self.questions = [{"id": "empty", "query": "state of the art"}]
         self.assertEqual(self.run_batch(), (0, 1, 0))

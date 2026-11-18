@@ -3,7 +3,7 @@ import re
 import asyncio
 import base64
 import binascii
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -782,6 +782,9 @@ class CorpusRun:
     dedup_stats: Dict[str, int]
     sub_queries: List[str]
     fallback_entities: str
+    # Every record the searches (and citation chasing) returned, before duplicates were merged; kept in memory only,
+    # for evaluation (services/batch.py --save-raw)
+    raw_records: List[PaperRecord] = field(default_factory=list)
 
 
 def _begin_request_scope(cfg: ApiKeysConfig) -> None:
@@ -936,7 +939,7 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
     corpus_store.save(corpus)
     return CorpusRun(req=req, plan=plan, corpus=corpus, papers=ranked_papers, selection_report=selection_report,
                      source_stats=source_stats, dedup_stats=dedup_stats, sub_queries=sub_queries,
-                     fallback_entities=fallback_entities_str)
+                     fallback_entities=fallback_entities_str, raw_records=list(all_raw_papers))
 
 
 async def _analyse(run: CorpusRun) -> ResearchResponse:
