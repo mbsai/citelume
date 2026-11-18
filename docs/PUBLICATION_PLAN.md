@@ -51,7 +51,13 @@ the PubMed queries (services/mesh_terms.py), review-title parsing fixes (dashes,
 labels, bracketed abbreviations), PubMed depth setting (`pubmed_depth`, local and evaluation only) with "retrieved N
 of M" logged and reported, reference lists of excluded reviews as a second "other method". Development set:
 included studies found 28% -> 36% (MeSH) -> 55% (plus depth 500 and review reference lists); selected 6% -> 17%.
-Eligibility now loses 53 of the 78 found. Next: Session 5d.
+Eligibility now loses 53 of the 78 found. Session 5d built 18 Nov 2026 (selection protocol 2.4; 57b5935,
+702073c): eligibility reads PubMed's MeSH indexing of each record (exploded headings, stored on the record as
+mesh_concepts); in systematic-style reviews partial matches go to the model's screening (and stay excluded when no
+model answers); title-only records kept when the title or indexing matches. Concept position and the embedding
+option were not built: the development data show recall, not precision, is the loss. Development re-run
+incomplete: OpenRouter's free daily quota ran out after 2 of 11 reviews (screening load rose to 100-300 decisions
+per review); early signal CD008018 0 -> 5 of 13 selected. Next: finish the 5d development re-run, then Session 6.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
