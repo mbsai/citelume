@@ -36,7 +36,8 @@ Of 141 included studies. Table: `5d_loss_by_stage.md`.
 | Screening and limit | 22 | 16% |
 
 - **The screening cap is the new bottleneck after search.** 17 included studies were eligible but never screened:
-  the model screens at most 300 records per review (`MAX_SCREENED`, or twice the study limit), in score order, and
+  the model screens at most the larger of `MAX_SCREENED` (240) and twice the study limit (here 300) records
+  per review, in score order, and
   these ranked below that. Only 29 of the 77 eligible included studies ranked in the top 60. Better ranking, or a
   higher cap at a model cost, would recover them.
 - **Model cost rose** with the number of records screened: about 0.18 USD per review on the paid endpoint, and the
