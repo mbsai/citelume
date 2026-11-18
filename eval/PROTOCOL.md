@@ -26,7 +26,7 @@ source directly avoids a second layer of processing.
 - **Review ID** (Cochrane CD number) and **title**, from the CLEF topic file.
 - **Question:** the review title, unchanged. It is what a user would plausibly type, and it is not tuned.
 - **Search date limit:** the publication year of the version of the review CLEF used, found from PubMed (the latest
-  version published before 1 January 2019). Searches are limited to records up to that year, so studies published
+  version published before 1 July 2019). Searches are limited to records up to that year, so studies published
   after the review cannot count against or for CiteLume.
 - **Included studies:** the content-level PubMed IDs, each resolved to its DOI, title and year through PubMed.
 - **Not stored in this repository:** the Cochrane search strategies and the review abstracts (copyright of the
@@ -36,7 +36,8 @@ source directly avoids a second layer of processing.
 ## 3. Exclusions (decided now)
 
 - A review is excluded if fewer than 2 of its included studies resolve to a PubMed record, or if no version of it
-  published before 2019 can be found. Each exclusion is listed with its reason in `eval/benchmark/EXCLUDED.md`.
+  published before July 2019 can be found.
+- A review listed in both CLEF parts (training and test) counts once. Each exclusion is listed with its reason in `eval/benchmark/EXCLUDED.md`.
 - No review is excluded for any reason that depends on CiteLume's results.
 - Reviews with very many included studies (for example 245) stay in. Recall at a fixed study limit is reported per
   review and summarised both over all reviews and over reviews with at most 60 included studies, because a review
@@ -78,3 +79,11 @@ Baselines on the same pools: BM25 ranking of the pool by the question, citation 
 - Every run goes through `python -m services.batch`, which stores the corpus, result, timings, model and code
   commit. Failed runs are re-run once; a review that fails twice is reported as failed, not dropped.
 - Results are reported as they come out. Low recall is a finding, not a reason to change the protocol.
+
+## Amendments
+
+- **18 November 2026, before any run:** the date rule was "the latest version published before 1 January 2019".
+  Building the benchmark showed that CLEF 2019 used nine reviews whose only PubMed version is dated March 2019, so
+  that rule excluded reviews CLEF itself used. The rule is now "before 1 July 2019" (CLEF assembled the 2019
+  topics in the first half of 2019). Two reviews listed in both CLEF parts are counted once. No CiteLume run had
+  been made; the split was drawn after this change.

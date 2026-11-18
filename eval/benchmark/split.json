@@ -1,0 +1,43 @@
+{
+  "benchmark": "citelume-benchmark/clef2019-intervention/1.0",
+  "built": "2026-11-18",
+  "seed": 20261118,
+  "rule": "eligible review IDs sorted, shuffled with random.Random(seed), first third (rounded down) = development",
+  "development": [
+    "CD007868",
+    "CD008018",
+    "CD010038",
+    "CD010355",
+    "CD010526",
+    "CD010753",
+    "CD011571",
+    "CD011977",
+    "CD012223",
+    "CD012455",
+    "CD012551"
+  ],
+  "test": [
+    "CD000996",
+    "CD001261",
+    "CD004414",
+    "CD005139",
+    "CD005253",
+    "CD006468",
+    "CD006715",
+    "CD007867",
+    "CD008170",
+    "CD008201",
+    "CD009069",
+    "CD009642",
+    "CD010239",
+    "CD010558",
+    "CD010778",
+    "CD011380",
+    "CD011436",
+    "CD011768",
+    "CD012069",
+    "CD012164",
+    "CD012347",
+    "CD012930"
+  ]
+}
