@@ -32,8 +32,14 @@ view of the whole pool (services/pool_map.py: TF-IDF k-means groups, included st
 included flagged, click to list). Real runs (Deep Research, Nemotron): vitamin D and fractures 100 papers added,
 19 included, among them the WHI, Chapuy, Trivedi and RECORD trials the searches had missed (before the PubMed
 abstract fill, 46 of 100 chased records had no abstract and only 11 were included); exercise and depression 100
-added, 3 included. Seeds with reference lists: 31 of 58 and 35 of 56. Both corpora replay. Next: Session 5
-(gold standard).
+added, 3 included. Seeds with reference lists: 31 of 58 and 35 of 56. Both corpora replay. Session 5 done 18 Nov 2026: eval/PROTOCOL.md pre-registered and committed first
+(3b00c62); benchmark = CLEF TAR 2019 intervention reviews (MIT licence), built by eval/build_benchmark.py through
+PubMed: 33 reviews, 785 included studies all resolved to PubMed IDs (714 with DOIs), 5 reviews excluded for fewer
+than 2 included studies; seeded split 11 development / 22 test, committed before any run (f68fa5a). One protocol
+amendment before any run (review-version date rule; recorded in the protocol). eval/scoring.py matches included
+studies to corpus records and refuses test reviews before Session 6; `python -m eval.scoring questions
+development` writes a batch-runner file. Short of the 40-50 target: CLEF 2019 has only 38 intervention topics.
+Next: Session 5b (where studies are lost, development set).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

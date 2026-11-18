@@ -10,6 +10,7 @@ Written 17 Nov 2026 from a planning session in the Claude app. It covers what Ci
 - **Stack:** Python backend (`backend/main.py`, `backend/services/`, `backend/frameworks/`), Vite frontend (`frontend/src/`)
 - **Tests:** `cd backend && python -m unittest discover -s tests`
 - **Batch runs (no browser):** `cd backend && python -m services.batch run questions.jsonl --mode standard --out ../runs/x` (keys from `--config keys.json` or `CITELUME_LLM_*` environment variables; see the module docstring; example questions in `docs/batch_questions_example.jsonl`; `runs/` is git-ignored)
+- **Evaluation:** protocol `eval/PROTOCOL.md` (pre-registered); benchmark in `eval/benchmark/` (rebuild with `eval/build_benchmark.py`); matching in `eval/scoring.py`. Test reviews are held out until Session 6.
 - **Replay a corpus:** `cd backend && python -m services.replay path/to/corpus.json.gz`
 
 CiteLume takes a research question, searches PubMed, Europe PMC, arXiv, bioRxiv/medRxiv and Semantic Scholar/OpenAlex, selects 20 studies (Standard) or 60 (Deep Research), and produces four outputs: a cited synthesis, an evidence table, a knowledge-gap matrix and a literature network.
