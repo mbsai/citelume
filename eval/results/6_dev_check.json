@@ -1,0 +1,378 @@
+{
+ "rows": [
+  {
+   "review_id": "CD007868",
+   "included": 3,
+   "pool recall": 1.0,
+   "pool recall, databases only": 0.3333333333333333,
+   "top 20": 0.0,
+   "top 60": 0.0,
+   "selected": 0.0,
+   "screening sensitivity": null,
+   "screening precision": 0.0,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.0,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  },
+  {
+   "review_id": "CD008018",
+   "included": 13,
+   "pool recall": 0.7692307692307693,
+   "pool recall, databases only": 0.46153846153846156,
+   "top 20": 0.23076923076923078,
+   "top 60": 0.23076923076923078,
+   "selected": 0.38461538461538464,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.11627906976744186,
+   "BM25 top 20": 0.07692307692307693,
+   "BM25 top 60": 0.23076923076923078,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.46153846153846156,
+   "Random top 20": 0.07692307692307693,
+   "Random top 60": 0.07692307692307693
+  },
+  {
+   "review_id": "CD010038",
+   "included": 9,
+   "pool recall": 0.1111111111111111,
+   "pool recall, databases only": 0.1111111111111111,
+   "top 20": 0.0,
+   "top 60": 0.1111111111111111,
+   "selected": 0.1111111111111111,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.006993006993006993,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.1111111111111111,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  },
+  {
+   "review_id": "CD010355",
+   "included": 6,
+   "pool recall": 1.0,
+   "pool recall, databases only": 0.8333333333333334,
+   "top 20": 0.3333333333333333,
+   "top 60": 0.6666666666666666,
+   "selected": 1.0,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.21428571428571427,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.5,
+   "Citations top 20": 0.16666666666666666,
+   "Citations top 60": 0.16666666666666666,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  },
+  {
+   "review_id": "CD010526",
+   "included": 8,
+   "pool recall": 1.0,
+   "pool recall, databases only": 1.0,
+   "top 20": 0.0,
+   "top 60": 0.125,
+   "selected": 0.875,
+   "screening sensitivity": 0.875,
+   "screening precision": 0.0546875,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.0,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.0,
+   "Random top 60": 0.25
+  },
+  {
+   "review_id": "CD010753",
+   "included": 20,
+   "pool recall": 0.5,
+   "pool recall, databases only": 0.5,
+   "top 20": 0.05,
+   "top 60": 0.3,
+   "selected": 0.5,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.08547008547008547,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.0,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.05,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  },
+  {
+   "review_id": "CD011571",
+   "included": 6,
+   "pool recall": 1.0,
+   "pool recall, databases only": 1.0,
+   "top 20": 0.5,
+   "top 60": 0.6666666666666666,
+   "selected": 0.6666666666666666,
+   "screening sensitivity": 0.8,
+   "screening precision": 0.029850746268656716,
+   "BM25 top 20": 0.16666666666666666,
+   "BM25 top 60": 0.16666666666666666,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.16666666666666666,
+   "Random top 60": 0.16666666666666666
+  },
+  {
+   "review_id": "CD011977",
+   "included": 37,
+   "pool recall": 0.5135135135135135,
+   "pool recall, databases only": 0.4864864864864865,
+   "top 20": 0.13513513513513514,
+   "top 60": 0.16216216216216217,
+   "selected": 0.13513513513513514,
+   "screening sensitivity": 0.8333333333333334,
+   "screening precision": 0.21739130434782608,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.10810810810810811,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.02702702702702703,
+   "Random top 60": 0.05405405405405406
+  },
+  {
+   "review_id": "CD012223",
+   "included": 5,
+   "pool recall": 0.8,
+   "pool recall, databases only": 0.8,
+   "top 20": 0.2,
+   "top 60": 0.2,
+   "selected": 0.2,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.0625,
+   "BM25 top 20": 0.0,
+   "BM25 top 60": 0.2,
+   "Citations top 20": 0.4,
+   "Citations top 60": 0.4,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  },
+  {
+   "review_id": "CD012455",
+   "included": 5,
+   "pool recall": 0.2,
+   "pool recall, databases only": 0.2,
+   "top 20": 0.2,
+   "top 60": 0.2,
+   "selected": 0.2,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.1111111111111111,
+   "BM25 top 20": 0.2,
+   "BM25 top 60": 0.2,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.0,
+   "Random top 60": 0.2
+  },
+  {
+   "review_id": "CD012551",
+   "included": 29,
+   "pool recall": 0.6551724137931034,
+   "pool recall, databases only": 0.6206896551724138,
+   "top 20": 0.13793103448275862,
+   "top 60": 0.3793103448275862,
+   "selected": 0.5172413793103449,
+   "screening sensitivity": 1.0,
+   "screening precision": 0.09941520467836257,
+   "BM25 top 20": 0.034482758620689655,
+   "BM25 top 60": 0.034482758620689655,
+   "Citations top 20": 0.0,
+   "Citations top 60": 0.0,
+   "Random top 20": 0.0,
+   "Random top 60": 0.0
+  }
+ ],
+ "all": {
+  "pool recall": {
+   "n": 11,
+   "median": 0.7692307692307693,
+   "mean": 0.6862752552407725,
+   "ci_low": 0.4958899338209683,
+   "ci_high": 0.8567840567840569
+  },
+  "pool recall, databases only": {
+   "n": 11,
+   "median": 0.5,
+   "mean": 0.5769538528159218,
+   "ci_low": 0.4035742035742036,
+   "ci_high": 0.7490287490287489
+  },
+  "top 20": {
+   "n": 11,
+   "median": 0.13793103448275862,
+   "mean": 0.16246988488367797,
+   "ci_low": 0.07936965178344489,
+   "ci_high": 0.25431235431235427
+  },
+  "top 60": {
+   "n": 11,
+   "median": 0.2,
+   "mean": 0.2765169256548567,
+   "ci_low": 0.16354258768051871,
+   "ci_high": 0.40548790290169595
+  },
+  "selected": {
+   "n": 11,
+   "median": 0.38461538461538464,
+   "mean": 0.41725178880351294,
+   "ci_low": 0.23949843260188086,
+   "ci_high": 0.6080128476680201
+  },
+  "screening sensitivity": {
+   "n": 10,
+   "median": 1.0,
+   "mean": 0.9508333333333333,
+   "ci_low": 0.8983333333333334,
+   "ci_high": 1.0
+  },
+  "screening precision": {
+   "n": 11,
+   "median": 0.08547008547008547,
+   "mean": 0.09072579481110955,
+   "ci_low": 0.05122801971145256,
+   "ci_high": 0.13295470046562755
+  },
+  "BM25 top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.04346113656458484,
+   "ci_low": 0.006269592476489028,
+   "ci_high": 0.0899525761594727
+  },
+  "BM25 top 60": {
+   "n": 11,
+   "median": 0.1111111111111111,
+   "mean": 0.14101253411598239,
+   "ci_low": 0.06458245078934734,
+   "ci_high": 0.23003003003003003
+  },
+  "Citations top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.051515151515151514,
+   "ci_low": 0.0,
+   "ci_high": 0.12424242424242425
+  },
+  "Citations top 60": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.09801864801864801,
+   "ci_low": 0.009090909090909092,
+   "ci_high": 0.20606060606060606
+  },
+  "Random top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.024601524601524597,
+   "ci_low": 0.0,
+   "ci_high": 0.057361557361557354
+  },
+  "Random top 60": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.06796761796761797,
+   "ci_low": 0.0189000189000189,
+   "ci_high": 0.12517482517482517
+  }
+ },
+ "at_most_60": {
+  "pool recall": {
+   "n": 11,
+   "median": 0.7692307692307693,
+   "mean": 0.6862752552407725,
+   "ci_low": 0.4958899338209683,
+   "ci_high": 0.8567840567840569
+  },
+  "pool recall, databases only": {
+   "n": 11,
+   "median": 0.5,
+   "mean": 0.5769538528159218,
+   "ci_low": 0.4035742035742036,
+   "ci_high": 0.7490287490287489
+  },
+  "top 20": {
+   "n": 11,
+   "median": 0.13793103448275862,
+   "mean": 0.16246988488367797,
+   "ci_low": 0.07936965178344489,
+   "ci_high": 0.25431235431235427
+  },
+  "top 60": {
+   "n": 11,
+   "median": 0.2,
+   "mean": 0.2765169256548567,
+   "ci_low": 0.16354258768051871,
+   "ci_high": 0.40548790290169595
+  },
+  "selected": {
+   "n": 11,
+   "median": 0.38461538461538464,
+   "mean": 0.41725178880351294,
+   "ci_low": 0.23949843260188086,
+   "ci_high": 0.6080128476680201
+  },
+  "screening sensitivity": {
+   "n": 10,
+   "median": 1.0,
+   "mean": 0.9508333333333333,
+   "ci_low": 0.8983333333333334,
+   "ci_high": 1.0
+  },
+  "screening precision": {
+   "n": 11,
+   "median": 0.08547008547008547,
+   "mean": 0.09072579481110955,
+   "ci_low": 0.05122801971145256,
+   "ci_high": 0.13295470046562755
+  },
+  "BM25 top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.04346113656458484,
+   "ci_low": 0.006269592476489028,
+   "ci_high": 0.0899525761594727
+  },
+  "BM25 top 60": {
+   "n": 11,
+   "median": 0.1111111111111111,
+   "mean": 0.14101253411598239,
+   "ci_low": 0.06458245078934734,
+   "ci_high": 0.23003003003003003
+  },
+  "Citations top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.051515151515151514,
+   "ci_low": 0.0,
+   "ci_high": 0.12424242424242425
+  },
+  "Citations top 60": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.09801864801864801,
+   "ci_low": 0.009090909090909092,
+   "ci_high": 0.20606060606060606
+  },
+  "Random top 20": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.024601524601524597,
+   "ci_low": 0.0,
+   "ci_high": 0.057361557361557354
+  },
+  "Random top 60": {
+   "n": 11,
+   "median": 0.0,
+   "mean": 0.06796761796761797,
+   "ci_low": 0.0189000189000189,
+   "ci_high": 0.12517482517482517
+  }
+ },
+ "missing": []
+}
