@@ -46,7 +46,12 @@ studies found), merging and screening 1% each. Search depth explains only 10 of 
 query sensitivity (question words only, no MeSH or drug-class terms; a slash-parsing defect). So 5c goes first,
 reordered: MeSH / pharmacological-action terms, synonyms and the slash fix before deeper paging. Then 5d: MeSH and
 synonym matching in eligibility, outcome phrases not required, title-only records assessed on their titles.
-Next: Session 5c.
+Session 5c done 18 Nov 2026 (eval/results/5c_findings.md): MeSH headings / pharmacological actions in
+the PubMed queries (services/mesh_terms.py), review-title parsing fixes (dashes, slashes, purpose words, class
+labels, bracketed abbreviations), PubMed depth setting (`pubmed_depth`, local and evaluation only) with "retrieved N
+of M" logged and reported, reference lists of excluded reviews as a second "other method". Development set:
+included studies found 28% -> 36% (MeSH) -> 55% (plus depth 500 and review reference lists); selected 6% -> 17%.
+Eligibility now loses 53 of the 78 found. Next: Session 5d.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

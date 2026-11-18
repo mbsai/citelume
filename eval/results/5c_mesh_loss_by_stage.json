@@ -1,0 +1,1877 @@
+{
+ "reviews": [
+  {
+   "review_id": "CD007868",
+   "status": "done",
+   "title": "Fluoride toothpastes of different concentrations for preventing dental caries",
+   "included": 3,
+   "records_found": 764,
+   "records_merged": 441,
+   "eligible": 19,
+   "selected": 7,
+   "reached": {
+    "found": 0,
+    "merged": 0,
+    "eligible": 0,
+    "screened_in": 0,
+    "included": 0
+   },
+   "top20": 0,
+   "top60": 0,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 3
+   },
+   "studies": [
+    {
+     "pmid": "6365424",
+     "title": "Caries prevention using a 1.2% sodium monofluorophosphate dentifrice in an aluminium oxide trihydrate base.",
+     "year": 1984,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "7960166",
+     "title": "Results from a three-year caries clinical trial comparing NaF and SMFP fluoride formulations.",
+     "year": 1994,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "15470832",
+     "title": "The prevalence and severity of fluorosis and other developmental defects of enamel in children who received free fluoride toothpaste containing either 440 or 1450 ppm F from the age of 12 months.",
+     "year": 2004,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 3,
+    "missed_matched_by_a_query": 3
+   }
+  },
+  {
+   "review_id": "CD008018",
+   "status": "done",
+   "title": "Adjuvant gonadotropin‐releasing hormone analogues for the prevention of chemotherapy‐induced premature ovarian failure in premenopausal women",
+   "included": 13,
+   "records_found": 672,
+   "records_merged": 209,
+   "eligible": 3,
+   "selected": 0,
+   "reached": {
+    "found": 6,
+    "merged": 6,
+    "eligible": 0,
+    "screened_in": 0,
+    "included": 0
+   },
+   "top20": 0,
+   "top60": 0,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 7,
+    "Not about the topic of the question": 3,
+    "No abstract available to assess": 3
+   },
+   "studies": [
+    {
+     "pmid": "3105906",
+     "title": "Failure to preserve fertility in patients with Hodgkin's disease.",
+     "year": 1987,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "21771987",
+     "title": "Effect of the gonadotropin-releasing hormone analogue triptorelin on the occurrence of chemotherapy-induced early menopause in premenopausal women with breast cancer: a randomized trial.",
+     "year": 2011,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "24654464",
+     "title": "Evaluation of the effect of GnRH agonist on menstrual reverse in breast cancer cases treated with cyclophosphamide.",
+     "year": 2014,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "28472240",
+     "title": "GnRH agonist for protection against ovarian toxicity during chemotherapy for early breast cancer: the Anglo Celtic Group OPTION trial.",
+     "year": 2017,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "23904400",
+     "title": "Effect of leuprolide acetate on ovarian function after cyclophosphamide-doxorubicin-based chemotherapy in premenopausal patients with breast cancer: results from a phase II randomized trial.",
+     "year": 2013,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "23805216",
+     "title": "Gonadotropin-Releasing Hormone Analog Cotreatment for the Preservation of Ovarian Function during Gonadotoxic Chemotherapy for Breast Cancer: A Meta-Analysis.",
+     "year": 2013,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "23262931",
+     "title": "Gonadatrophin suppression to prevent chemotherapy-induced ovarian damage: a randomized controlled trial.",
+     "year": 2013,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "26720025",
+     "title": "Ovarian Suppression With Triptorelin During Adjuvant Breast Cancer Chemotherapy and Long-term Ovarian Function, Pregnancies, and Disease-Free Survival: A Randomized Clinical Trial.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "21537042",
+     "title": "Effect of luteinizing hormone-releasing hormone agonist on ovarian function after modern adjuvant breast cancer chemotherapy: the GBG 37 ZORO study.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "17454195",
+     "title": "Ovarian function after cancer treatment in young women affected by Hodgkin disease (HD).",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "18675959",
+     "title": "Gonadotropin-releasing hormone agonists for prevention of chemotherapy-induced ovarian damage: prospective randomized study.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "25738668",
+     "title": "Goserelin for ovarian protection during breast-cancer adjuvant chemotherapy.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "22231041",
+     "title": "Randomized trial using gonadotropin-releasing hormone agonist triptorelin for the preservation of ovarian function during (neo)adjuvant chemotherapy for breast cancer.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 7,
+    "missed_matched_by_a_query": 0
+   }
+  },
+  {
+   "review_id": "CD010038",
+   "status": "done",
+   "title": "Face‐to‐face interventions for informing or educating parents about early childhood vaccination",
+   "included": 9,
+   "records_found": 824,
+   "records_merged": 631,
+   "eligible": 10,
+   "selected": 1,
+   "reached": {
+    "found": 0,
+    "merged": 0,
+    "eligible": 0,
+    "screened_in": 0,
+    "included": 0
+   },
+   "top20": 0,
+   "top60": 0,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 9
+   },
+   "studies": [
+    {
+     "pmid": "9549449",
+     "title": "The effects of postnatal health education for mothers on infant care and family planning practices in Nepal: a randomised controlled trial.",
+     "year": 1998,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "21159080",
+     "title": "Randomized controlled trial to improve childhood immunization adherence in rural Pakistan: redesigned immunization card and maternal education.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "18996423",
+     "title": "Redesigned immunization card and center-based education to reduce childhood immunization dropouts in urban Pakistan: a randomized controlled trial.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "9458569",
+     "title": "Assessment of parent education methods for infant immunization.",
+     "year": 1997,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "21679432",
+     "title": "Randomised cluster trial to support informed parental decision-making for the MMR vaccine.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "12648967",
+     "title": "Postnatal home visits in teenage mothers: a randomised controlled trial.",
+     "year": 2003,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "9529460",
+     "title": "Reducing missed opportunities to vaccinate during child health visits. How effective are parent education and case management?",
+     "year": 1998,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "23524116",
+     "title": "Perinatal immunization education improves immunization rates and knowledge: a randomized controlled trial.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "9424040",
+     "title": "Increasing immunization rates among inner-city, African American children. A randomized trial of case management.",
+     "year": 1998,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 1,
+    "missed": 9,
+    "missed_matched_by_a_query": 8
+   }
+  },
+  {
+   "review_id": "CD010355",
+   "status": "done",
+   "title": "Non‐invasive positive pressure ventilation for prevention of complications after pulmonary resection in lung cancer patients",
+   "included": 6,
+   "records_found": 791,
+   "records_merged": 360,
+   "eligible": 12,
+   "selected": 2,
+   "reached": {
+    "found": 0,
+    "merged": 0,
+    "eligible": 0,
+    "screened_in": 0,
+    "included": 0
+   },
+   "top20": 0,
+   "top60": 0,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 6
+   },
+   "studies": [
+    {
+     "pmid": "21357311",
+     "title": "Intermittent positive-pressure breathing after lung surgery.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "22613197",
+     "title": "Prophylactic use of helmet CPAP after pulmonary lobectomy: a prospective randomized controlled study.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "11673215",
+     "title": "Noninvasive ventilation reduces mortality in acute respiratory failure following lung resection.",
+     "year": 2001,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "17257820",
+     "title": "Prophylactic use of noninvasive ventilation in patients undergoing lung resectional surgery.",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "24474079",
+     "title": "Continuous positive airway pressure (CPAP) after lung resection: a randomized clinical trial.",
+     "year": 2014,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "24496783",
+     "title": "Comparison of gas exchange after lung resection with a Boussignac CPAP or Venturi mask.",
+     "year": 2014,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 6,
+    "missed_matched_by_a_query": 6
+   }
+  },
+  {
+   "review_id": "CD010526",
+   "status": "done",
+   "title": "Dental cavity liners for Class I and Class II resin‐based composite restorations",
+   "included": 8,
+   "records_found": 727,
+   "records_merged": 488,
+   "eligible": 7,
+   "selected": 2,
+   "reached": {
+    "found": 6,
+    "merged": 6,
+    "eligible": 0,
+    "screened_in": 0,
+    "included": 0
+   },
+   "top20": 0,
+   "top60": 0,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "Not about the topic of the question": 6,
+    "not returned by any search": 2
+   },
+   "studies": [
+    {
+     "pmid": "23355492",
+     "title": "Two-year clinical study on postoperative pulpal complications arising from the absence of a glass-ionomer lining in deep occlusal resin-composite restorations.",
+     "year": 2013,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "19953773",
+     "title": "Effect of glass-ionomer cement lining on postoperative sensitivity in occlusal cavities restored with resin composite--a randomized clinical trial.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "22532941",
+     "title": "A prospective, double-blind, randomized clinical trial of a one-step, self-etch adhesive with and without an intermediary layer of a flowable composite: a 2-year evaluation.",
+     "year": 2012,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "19492715",
+     "title": "Influence of cavity lining and remaining dentin thickness on the occurrence of postoperative hypersensitivity of composite restorations.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "23904575",
+     "title": "Effectiveness of a resin-modified glass ionomer liner in reducing hypersensitivity in posterior restorations: a study from the practitioners engaged in applied research and learning network.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "16683683",
+     "title": "Performance of 2 packable composites at 12 months.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "16708724",
+     "title": "Two-year clinical evaluation of ormocer and nanofill composite with and without a flowable liner.",
+     "year": 2006,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "25427330",
+     "title": "Posterior resin composite restorations with or without resin-modified, glass-ionomer cement lining: a 1-year randomized, clinical trial.",
+     "year": 2011,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 2,
+    "missed_matched_by_a_query": 2
+   }
+  },
+  {
+   "review_id": "CD010753",
+   "status": "done",
+   "title": "Antidepressants for insomnia in adults",
+   "included": 20,
+   "records_found": 686,
+   "records_merged": 437,
+   "eligible": 21,
+   "selected": 8,
+   "reached": {
+    "found": 5,
+    "merged": 5,
+    "eligible": 1,
+    "screened_in": 1,
+    "included": 1
+   },
+   "top20": 0,
+   "top60": 1,
+   "found_only_by_chasing": 2,
+   "loss_reasons": {
+    "Not about the topic of the question": 4,
+    "not returned by any search": 15
+   },
+   "studies": [
+    {
+     "pmid": "2688037",
+     "title": "Effects on sleep: a double-blind study comparing trimipramine to imipramine in depressed insomniac patients.",
+     "year": 1989,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "18616688",
+     "title": "Trazodone for sleep disturbance after alcohol detoxification: a double-blind, placebo-controlled trial.",
+     "year": 2008,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "21798674",
+     "title": "Trazodone for sleep disturbance during methadone maintenance: a double-blind, placebo-controlled trial.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "22197474",
+     "title": "Efficacy and safety of doxepin 6 mg in a four-week outpatient trial of elderly adults with chronic primary insomnia.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "16943177",
+     "title": "Paroxetine treatment of primary insomnia in older adults.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "9646878",
+     "title": "Comparative effects of nefazodone and fluoxetine on sleep in outpatients with major depressive disorder.",
+     "year": 1998,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "23561946",
+     "title": "Doxepin and cognitive behavioural therapy for insomnia in patients with Parkinson's disease -- a randomized study.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "11465523",
+     "title": "Doxepin in the treatment of primary insomnia: a placebo-controlled, double-blind, polysomnographic study.",
+     "year": 2001,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 28,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "23823799",
+     "title": "Efficacy of agomelatine and escitalopram on depression, subjective sleep and emotional experiences in patients with major depressive disorder: a 24-wk randomized, controlled, double-blind trial.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "21102997",
+     "title": "Efficacy and Safety of Doxepin 1 mg and 3 mg in a 12-week Sleep Laboratory and Outpatient Trial of Elderly Subjects with Chronic Primary Insomnia.",
+     "year": 2010,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "21623982",
+     "title": "Cognitive, psychomotor and polysomnographic effects of trazodone in primary insomniacs.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "21966075",
+     "title": "Efficacy and safety of doxepin 3 and 6 mg in a 35-day sleep laboratory trial in adults with chronic primary insomnia.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "23993464",
+     "title": "Insomnia treatment in the third trimester of pregnancy reduces postpartum depression symptoms: a randomized clinical trial.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "23650468",
+     "title": "Sentra PM (a Medical Food) and Trazodone in the Management of Sleep Disorders.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "7491373",
+     "title": "The effects of fluoxetine on symptoms of insomnia in depressed patients.",
+     "year": 1995,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "12499712",
+     "title": "Complaints of poststroke insomnia and its treatment with mianserin.",
+     "year": 2003,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "11910258",
+     "title": "Acute efficacy of fluoxetine versus sertraline and paroxetine in major depressive disorder including effects of baseline insomnia.",
+     "year": 2002,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "12237787",
+     "title": "Trimipramine in primary insomnia: results of a polysomnographic double-blind controlled study.",
+     "year": 2002,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "12920414",
+     "title": "Double-blind, placebo-controlled study of the efficacy of trazodone in alcohol post-withdrawal syndrome: polysomnographic and clinical evaluations.",
+     "year": 2003,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "9184611",
+     "title": "A comparison of nefazodone and fluoxetine on mood and on objective, subjective, and clinician-rated measures of sleep in depressed patients: a double-blind, 8-week clinical trial.",
+     "year": 1997,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 15,
+    "missed_matched_by_a_query": 12
+   }
+  },
+  {
+   "review_id": "CD011571",
+   "status": "done",
+   "title": "Antistreptococcal interventions for guttate and chronic plaque psoriasis",
+   "included": 6,
+   "records_found": 642,
+   "records_merged": 386,
+   "eligible": 46,
+   "selected": 39,
+   "reached": {
+    "found": 5,
+    "merged": 5,
+    "eligible": 1,
+    "screened_in": 1,
+    "included": 1
+   },
+   "top20": 1,
+   "top60": 1,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 1,
+    "Does not address every part of the question": 1,
+    "Not about the topic of the question": 2,
+    "No abstract available to assess": 1
+   },
+   "studies": [
+    {
+     "pmid": "18937661",
+     "title": "Antistreptococcal treatment of guttate psoriasis: a controlled study.",
+     "year": 2008,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 7,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "12476481",
+     "title": "Management of guttate and generalized psoriasis vulgaris: prospective randomized study.",
+     "year": 2002,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "27819714",
+     "title": "Patient-reported Outcomes and Clinical Response in Patients with Moderate-to-severe Plaque Psoriasis Treated with Tonsillectomy: A Randomized Controlled Trial.",
+     "year": 2017,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "1564153",
+     "title": "A therapeutic trial of the use of penicillin V or erythromycin with or without rifampin in the treatment of psoriasis.",
+     "year": 1992,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "20299307",
+     "title": "Long-term oral azithromycin in chronic plaque psoriasis: a controlled trial.",
+     "year": 2010,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "22491250",
+     "title": "Improvement of psoriasis after tonsillectomy is associated with a decrease in the frequency of circulating T cells that recognize streptococcal determinants and homologous skin determinants.",
+     "year": 2012,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 1,
+    "missed_matched_by_a_query": 0
+   }
+  },
+  {
+   "review_id": "CD011977",
+   "status": "done",
+   "title": "Blue‐light filtering intraocular lenses (IOLs) for protecting macular health",
+   "included": 37,
+   "records_found": 901,
+   "records_merged": 508,
+   "eligible": 23,
+   "selected": 11,
+   "reached": {
+    "found": 20,
+    "merged": 20,
+    "eligible": 4,
+    "screened_in": 4,
+    "included": 4
+   },
+   "top20": 4,
+   "top60": 4,
+   "found_only_by_chasing": 4,
+   "loss_reasons": {
+    "Does not address every part of the question": 12,
+    "not returned by any search": 17,
+    "No abstract available to assess": 1,
+    "Not about the topic of the question": 3
+   },
+   "studies": [
+    {
+     "pmid": "24158845",
+     "title": "New light for old eyes: comparing melanopsin-mediated non-visual benefits of blue-light and UV-blocking intraocular lenses.",
+     "year": 2014,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "16863969",
+     "title": "Effect of the AcrySof Natural intraocular lens on blue-yellow perimetry.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19118695",
+     "title": "Influence of blue-light-filtering intraocular lenses on color perception and contrast acuity.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "17056369",
+     "title": "Frequency doubling technology perimetry after clear and yellow intraocular lens implantation.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "15682919",
+     "title": "Comparing the contrast sensitivity of a modified prolate anterior surface IOL and of two spherical IOLs.",
+     "year": 2004,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "16473224",
+     "title": "Clinical results of the blue-light filtering AcrySof Natural foldable acrylic intraocular lens.",
+     "year": 2005,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "17469752",
+     "title": "Blue light filtering intraocular lenses in phacoemulsification cataract surgery.",
+     "year": 2007,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 9,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "19304088",
+     "title": "Objective assessment of inflammation after cataract surgery: comparison of 3 similar intraocular lens models.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "23471324",
+     "title": "Effect of aspherical and yellow tinted intraocular lens on blue-on-yellow perimetry.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "18361983",
+     "title": "Intraindividual comparison of a blue-light filter on visual function: AF-1 (UY) versus AF-1 (UV) intraocular lens.",
+     "year": 2008,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "19628740",
+     "title": "Augmentation of macular pigment following implantation of blue light-filtering intraocular lenses at the time of cataract surgery.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 2,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "22205829",
+     "title": "Correlation between contrast sensitivity and higher-order aberration based on pupil diameter after cataract surgery.",
+     "year": 2011,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "22520306",
+     "title": "Visual quality assessment in patients with orange-tinted blue light-filtering and clear ultraviolet light-filtering intraocular lenses.",
+     "year": 2012,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "22108107",
+     "title": "Effects of blue light-filtering intraocular lenses on the macula, contrast sensitivity, and color vision after a long-term follow-up.",
+     "year": 2011,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 4,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "21111309",
+     "title": "Comparison of visual performance with blue light-filtering and ultraviolet light-filtering intraocular lenses.",
+     "year": 2010,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "19781467",
+     "title": "Feasibility of spherical aberration correction with aspheric intraocular lenses in cataract surgery based on individual pupil diameter.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "21111310",
+     "title": "Comparison of photochromic, yellow, and clear intraocular lenses in human eyes under photopic and mesopic lighting conditions.",
+     "year": 2010,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "18464801",
+     "title": "Objective and subjective outcomes in comparing three different aspheric intraocular lens implants with their spherical counterparts.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "16445446",
+     "title": "Visual outcomes with the yellow intraocular lens.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "26286756",
+     "title": "Effect on contrast sensitivity after clear, yellow and orange intraocular lens implantation.",
+     "year": 2016,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "18191090",
+     "title": "Blue light-filter intraocular lenses in vitrectomy combined with cataract surgery: results of a randomized controlled clinical trial.",
+     "year": 2008,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 20,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "16597662",
+     "title": "Visual function in patients with yellow tinted intraocular lenses compared with vision in patients with non-tinted intraocular lenses.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "16473225",
+     "title": "AcrySof Natural SN60AT versus AcrySof SA60AT intraocular lens in patients with color vision defects.",
+     "year": 2005,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "27966269",
+     "title": "The effect of blue-blocking and neutral intraocular lenses on circadian photoentrainment and sleep one year after cataract surgery.",
+     "year": 2017,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "19491981",
+     "title": "Comparison of pseudophakic visual quality in spherical and aspherical intraocular lenses.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "17397731",
+     "title": "Contrast sensitivity and glare disability after implantation of AcrySof IQ Natural aspherical intraocular lens: prospective randomized masked clinical trial.",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "15234295",
+     "title": "Contrast sensitivity and color vision with a yellow intraocular len.",
+     "year": 2004,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "15852166",
+     "title": "[Intraocular lenses with blue light filter].",
+     "year": 2005,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "16445445",
+     "title": "Colour vision and retinal nerve fibre layer photography in patients with an Acrysof Natural intraocular lens.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "16338566",
+     "title": "Quality-of-life improvements in cataract patients with bilateral blue light-filtering intraocular lenses: clinical trial.",
+     "year": 2005,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "17912933",
+     "title": "Prospective randomized study of clinical performance of 3 aspheric and 2 spherical intraocular lenses in 250 eyes.",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "16631056",
+     "title": "Visual performance: Comparison of foldable intraocular lenses.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": true,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "21950699",
+     "title": "Influence of blue light-filtering intraocular lenses on retinal nerve fiber layer measurements by spectral-domain optical coherence tomography.",
+     "year": 2011,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "26233628",
+     "title": "The Effect of Cataract Surgery on Circadian Photoentrainment: A Randomized Trial of Blue-Blocking versus Neutral Intraocular Lenses.",
+     "year": 2015,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Does not address every part of the question"
+    },
+    {
+     "pmid": "19662914",
+     "title": "Contrast sensitivity evaluation of aspheric and spherical intraocular lenses 2 years after implantation.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "18471631",
+     "title": "Intraindividual comparison of color contrast sensitivity in patients with clear and blue-light-filtering intraocular lenses.",
+     "year": 2008,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Not about the topic of the question"
+    },
+    {
+     "pmid": "17445897",
+     "title": "Spherical aberration and depth of focus in eyes implanted with aspheric and spherical intraocular lenses: a prospective randomized study.",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 17,
+    "missed_matched_by_a_query": 2
+   }
+  },
+  {
+   "review_id": "CD012223",
+   "status": "done",
+   "title": "Cyclodestructive procedures for refractory glaucoma",
+   "included": 5,
+   "records_found": 681,
+   "records_merged": 440,
+   "eligible": 17,
+   "selected": 6,
+   "reached": {
+    "found": 1,
+    "merged": 1,
+    "eligible": 1,
+    "screened_in": 1,
+    "included": 1
+   },
+   "top20": 1,
+   "top60": 1,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 4
+   },
+   "studies": [
+    {
+     "pmid": "8470979",
+     "title": "A comparison of two energy levels for noncontact transscleral neodymium-YAG cyclophotocoagulation.",
+     "year": 1993,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "24811050",
+     "title": "Micropulse versus continuous wave transscleral diode cyclophotocoagulation in refractory glaucoma: a randomized exploratory study.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "7626573",
+     "title": "Clinical comparison of semiconductor diode versus neodymium: YAG non-contact cyclo photocoagulation.",
+     "year": 1995,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "9822227",
+     "title": "A clinical comparison of transscleral cyclophotocoagulation with neodymium: YAG and semiconductor diode lasers.",
+     "year": 1998,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "15118469",
+     "title": "A prospective, comparative study between endoscopic cyclophotocoagulation and the Ahmed drainage implant in refractory glaucoma.",
+     "year": 2004,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 8,
+     "stage": "included",
+     "reason": ""
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 4,
+    "missed_matched_by_a_query": 3
+   }
+  },
+  {
+   "review_id": "CD012455",
+   "status": "done",
+   "title": "Melatonin for the promotion of sleep in adults in the intensive care unit",
+   "included": 5,
+   "records_found": 627,
+   "records_merged": 471,
+   "eligible": 99,
+   "selected": 5,
+   "reached": {
+    "found": 2,
+    "merged": 2,
+    "eligible": 1,
+    "screened_in": 1,
+    "included": 1
+   },
+   "top20": 1,
+   "top60": 1,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "No abstract available to assess": 1,
+    "not returned by any search": 3
+   },
+   "studies": [
+    {
+     "pmid": "25647773",
+     "title": "Sleep in the neurological intensive care unit: feasibility of quantifying sleep after melatonin supplementation with environmental light and noise reduction.",
+     "year": 2015,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "18423009",
+     "title": "Melatonin therapy to improve nocturnal sleep in critically ill patients: encouraging results from a small randomised controlled trial.",
+     "year": 2008,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "25969139",
+     "title": "Melatonin reduces the need for sedation in ICU patients: a randomized controlled trial.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "28368352",
+     "title": "Melatonin Pharmacological Blood Levels Increase Total Antioxidant Capacity in Critically Ill Patients.",
+     "year": 2017,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "16930101",
+     "title": "A double-blind placebo-controlled randomised pilot study of nocturnal melatonin in tracheostomised patients.",
+     "year": 2006,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 13,
+     "stage": "included",
+     "reason": ""
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 3,
+    "missed_matched_by_a_query": 2
+   }
+  },
+  {
+   "review_id": "CD012551",
+   "status": "done",
+   "title": "Non‐pharmacological interventions for treating chronic prostatitis/chronic pelvic pain syndrome",
+   "included": 29,
+   "records_found": 671,
+   "records_merged": 302,
+   "eligible": 65,
+   "selected": 52,
+   "reached": {
+    "found": 6,
+    "merged": 6,
+    "eligible": 4,
+    "screened_in": 4,
+    "included": 4
+   },
+   "top20": 2,
+   "top60": 4,
+   "found_only_by_chasing": 0,
+   "loss_reasons": {
+    "not returned by any search": 23,
+    "No abstract available to assess": 1,
+    "Review article (secondary research; earlier reviews are cited in the Discussion)": 1
+   },
+   "studies": [
+    {
+     "pmid": "15596188",
+     "title": "Cooled transurethral microwave thermotherapy for intractable chronic prostatitis--results of a pilot study after 1 year.",
+     "year": 2004,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19372000",
+     "title": "Extracorporeal shock wave therapy for the treatment of chronic pelvic pain syndrome in males: a randomised, double-blind, placebo-controlled study.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19641356",
+     "title": "Efficiency of posterior tibial nerve stimulation in category IIIB chronic prostatitis/chronic pelvic pain: a Sham-Controlled Comparative Study.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 31,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "23234638",
+     "title": "Randomized multicenter feasibility trial of myofascial physical therapy for the treatment of urological chronic pelvic pain syndromes.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "15879822",
+     "title": "A prospective, randomized, placebo controlled, double-blind study of pelvic electromagnetic therapy for the treatment of chronic pelvic pain syndrome with 1 year of followup.",
+     "year": 2005,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "27380504",
+     "title": "Comparison of the efficiency of combined extracorporeal shock-wave therapy and triple therapy versus triple therapy itself in Category III B chronic pelvic pain syndrome (CPPS).",
+     "year": 2016,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "18187077",
+     "title": "Acupuncture versus sham acupuncture for chronic prostatitis/chronic pelvic pain.",
+     "year": 2008,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19535099",
+     "title": "Randomized multicenter feasibility trial of myofascial physical therapy for the treatment of urological chronic pelvic pain syndromes.",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "22100490",
+     "title": "The effects of transrectal radiofrequency hyperthermia on patients with chronic prostatitis and the changes of MDA, NO, SOD, and Zn levels in pretreatment and posttreatment.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "24980414",
+     "title": "Circumcision plus antibiotic, anti-inflammatory, and α-blocker therapy for the treatment for chronic prostatitis/chronic pelvic pain syndrome: a prospective, randomized, multicenter trial.",
+     "year": 2015,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "No abstract available to assess"
+    },
+    {
+     "pmid": "16566972",
+     "title": "Evaluation of prostatic massage in treatment of chronic prostatitis.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "12479049",
+     "title": "[Treatment of external RF hyperthermia combining with alpha 1-adrenergic receptor blocker for patients with prostatodynia and chronic non-bacterial prostatitis].",
+     "year": 2002,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "25546177",
+     "title": "Sono-electro-magnetic therapy for treating chronic pelvic pain syndrome in men: a randomized, placebo-controlled, double-blind trial.",
+     "year": 2014,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "17162029",
+     "title": "Physical activity of men with chronic prostatitis/chronic pelvic pain syndrome not satisfied with conventional treatments--could it represent a valid option? The physical activity and male pelvic pain trial: a double-blind, randomized study.",
+     "year": 2007,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "12137830",
+     "title": "Transurethral needle ablation for the treatment of chronic pelvic pain syndrome (category III prostatitis): a randomized, sham-controlled study.",
+     "year": 2002,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "8456052",
+     "title": "Is there a role for transrectal microwave hyperthermia of the prostate in the treatment of abacterial prostatitis and prostatodynia?",
+     "year": 1993,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "17009541",
+     "title": "[Clinical trials of combined therapy of an oral Chinese medicine with massage for chronic nonbacterial prostatitis].",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": true
+    },
+    {
+     "pmid": "24000311",
+     "title": "Efficacy of extracorporeal shock wave therapy for the treatment of chronic pelvic pain syndrome: a randomized, controlled trial.",
+     "year": 2013,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19394499",
+     "title": "Electroacupuncture relieves pain in men with chronic prostatitis/chronic pelvic pain syndrome: three-arm randomized trial.",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 17,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "22340476",
+     "title": "Extracorporeal shock wave treatment for non-inflammatory chronic pelvic pain syndrome: a prospective, randomized and sham-controlled study.",
+     "year": 2012,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "25939517",
+     "title": "Acupuncture relieves symptoms in chronic prostatitis/chronic pelvic pain syndrome: a randomized, sham-controlled trial.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "8996381",
+     "title": "Re: Transurethral microwave thermotherapy for nonbacterial prostatitis: a randomized double-blind sham controlled study using new prostatitis specific assessment questionnaires.",
+     "year": 1997,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "16683008",
+     "title": "More effects of extracorporeal magnetic innervation and terazosin therapy than terazosin therapy alone for non-inflammatory chronic pelvic pain syndrome: a pilot study.",
+     "year": 2006,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19111075",
+     "title": "Transcutaneous electrical nerve stimulation (TENS) in the symptomatic management of chronic prostatitis/chronic pelvic pain syndrome: a placebo-control randomized trial.",
+     "year": 2008,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 16,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "19565733",
+     "title": "[Observation on therapeutic effect of warm needle moxibustion on chronic non-bacterial prostatitis].",
+     "year": 2009,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "25453515",
+     "title": "Acupuncture and immune function in chronic prostatitis/chronic pelvic pain syndrome: a randomized, controlled study.",
+     "year": 2014,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "19705093",
+     "title": "[Chronic prostatitis/chronic pelvic pain syndrome. Influence of osteopathic treatment - a randomized controlled study].",
+     "year": 2009,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": 53,
+     "stage": "included",
+     "reason": ""
+    },
+    {
+     "pmid": "25582816",
+     "title": "Effectiveness of acupuncture on chronic prostatitis-chronic pelvic pain syndrome category IIIB patients: a prospective, randomized, nonblinded, clinical trial.",
+     "year": 2015,
+     "found_by_search": false,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "missed",
+     "reason": "not returned by any search",
+     "matched_by_pubmed_query": false
+    },
+    {
+     "pmid": "25097599",
+     "title": "Long-term effect of extracorporeal shock wave therapy on the treatment of chronic pelvic pain syndrome due to non bacterial prostatitis.",
+     "year": 2014,
+     "found_by_search": true,
+     "found_by_chasing": false,
+     "rank": null,
+     "stage": "merged",
+     "reason": "Review article (secondary research; earlier reviews are cited in the Discussion)"
+    }
+   ],
+   "query_check": {
+    "pubmed_queries": 8,
+    "queries_over_9999": 0,
+    "missed": 23,
+    "missed_matched_by_a_query": 5
+   }
+  }
+ ],
+ "included_studies": 141,
+ "reached": {
+  "found": 51,
+  "merged": 51,
+  "eligible": 12,
+  "screened_in": 12,
+  "included": 12
+ },
+ "losses": {
+  "search": 90,
+  "duplicate merging": 0,
+  "eligibility": 39,
+  "screening and limit": 0
+ },
+ "largest_loss": "search",
+ "top20": 9,
+ "top60": 12,
+ "found_only_by_chasing": 6,
+ "missed_matched_by_a_query": 43
+}

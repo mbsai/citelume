@@ -1,7 +1,8 @@
 """
 Session 5b: where each development review's included studies are lost in the CiteLume pipeline.
 
-    python -m eval.loss_by_stage runs/5b_dev            (from the repository root; adds backend/ to the path)
+    python -m eval.loss_by_stage runs/5b_dev [--name=5b_loss_by_stage] [--no-pubmed]
+    (from the repository root; adds backend/ to the path; --name sets the eval/results/ file names)
 
 Reads, for each development review, the batch runner's raw.json.gz (records before duplicates were merged) and
 corpus.json.gz, and follows every included study through the stages, in order:
@@ -245,9 +246,10 @@ def main(argv: List[str]) -> int:
         return 2
     runs = Path(argv[1])
     res = analyse(runs, check_queries="--no-pubmed" not in argv)
+    stem = next((a.split("=", 1)[1] for a in argv if a.startswith("--name=")), "5b_loss_by_stage")
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "5b_loss_by_stage.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
-    (RESULTS / "5b_loss_by_stage.md").write_text(markdown(res, runs), encoding="utf-8")
+    (RESULTS / f"{stem}.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
+    (RESULTS / f"{stem}.md").write_text(markdown(res, runs), encoding="utf-8")
     print(markdown(res, runs))
     return 0
 
