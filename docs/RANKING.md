@@ -1,6 +1,6 @@
 # How CiteLume chooses its studies
 
-Protocol version: `citelume-selection/2.4`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
+Protocol version: `citelume-selection/2.5`. This file is generated from the code (`backend/services/paper_selection.py` and `backend/services/query_planning.py`); do not edit it by hand.
 
 A **quick answer** uses at most **20 studies**. A **guided review** sets its study limit in the review protocol: a narrative review uses up to **60** by default, and systematic-style and scoping reviews include **every study that meets the criteria**, up to a ceiling (150 for systematic-style and 200 for scoping reviews in a local install, 60 on the public demo). The ceiling is a cost limit, not a method choice: the model reads every included study, and eligible studies beyond it are listed. After the search, the user may choose a smaller number from the same records without searching again. A topic can have thousands of papers, so which ones are chosen matters. The choice follows the fixed steps below. Nothing in steps 2 to 5 uses an AI model: the same records always give the same result, and every result shows the counts at each step and the score of each included study.
 
@@ -93,7 +93,7 @@ The included studies are then numbered [1], [2], ... in this order.
 A guided review of the systematic-style type replaces this step with eligibility criteria, so inclusion does not depend on quotas:
 
 1. Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title or abstract addresses every part of the question, including any place or population it names.
-2. Studies matching the question's main concepts but not every part of it are ranked after those matching every part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: reviews of all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, commentaries and letters.
+2. Studies matching the question's main concepts but not every part of it are judged by the model's screening, not excluded by word matching; eligible studies are screened in order of score. Excluded at eligibility: reviews of all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion instead; editorials, commentaries and letters.
 3. Every eligible study is included, up to the study limit. When more studies are eligible than the limit, they are taken in order of score (the 100-point score above) and the rest are listed as eligible but not synthesised.
 4. If fewer than 5 studies meet the criteria, reviews are admitted, and the report says so.
 5. No coverage quotas, author limits or caps on study types are applied: inclusion depends only on the criteria.
@@ -104,7 +104,7 @@ A guided review of the systematic-style type replaces this step with eligibility
 A scoping review also includes every eligible study, but maps reviews as well and does not judge risk of bias:
 
 1. Eligibility criteria: any study, primary research or review, whose title or abstract addresses every part of the question, including any place or population it names.
-2. Studies matching the question's main concepts but not every part of it are ranked after those matching every part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: editorials, commentaries and letters; reviews only if the review protocol excludes them.
+2. Studies matching the question's main concepts but not every part of it are judged by the model's screening, not excluded by word matching; eligible studies are screened in order of score. Excluded at eligibility: editorials, commentaries and letters; reviews only if the review protocol excludes them.
 3. Every eligible study is included, up to the study limit (a cost limit: each included study is read by the model). When more studies are eligible than the limit, they are taken in order of score and the rest are listed as eligible but not analysed.
 4. Screening is in two passes: matching of the question's concepts in the title and abstract, or in the record's MeSH indexing, then the model screens the remaining records on title and abstract, in order of score, until the limit is filled. A record without an abstract is kept when its title or indexing matches, and is marked as assessed on title only.
 

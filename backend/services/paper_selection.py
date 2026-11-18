@@ -40,7 +40,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.4"
+PROTOCOL_VERSION = "citelume-selection/2.5"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)
@@ -173,8 +173,8 @@ EXCLUSION_STAGE = {
 SCOPING_RULES: List[str] = [
     "Eligibility criteria: any study, primary research or review, whose title or abstract addresses every part of "
     "the question, including any place or population it names.",
-    "Studies matching the question's main concepts but not every part of it are ranked after those matching every "
-    "part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: editorials, "
+    "Studies matching the question's main concepts but not every part of it are judged by the model's screening, "
+    "not excluded by word matching; eligible studies are screened in order of score. Excluded at eligibility: editorials, "
     "commentaries and letters; reviews only if the review protocol excludes them.",
     "Every eligible study is included, up to the study limit (a cost limit: each included study is read by the "
     "model). When more studies are eligible than the limit, they are taken in order of score and the rest are "
@@ -189,8 +189,8 @@ PRISMA_RULES: List[str] = [
     "Eligibility criteria: a primary study (any design that reports its own data, including trials, cohort, "
     "case-control, cross-sectional, laboratory, computational and qualitative studies and case reports) whose title "
     "or abstract addresses every part of the question, including any place or population it names.",
-    "Studies matching the question's main concepts but not every part of it are ranked after those matching every "
-    "part and judged by the model's screening, not excluded by word matching. Excluded at eligibility: reviews of "
+    "Studies matching the question's main concepts but not every part of it are judged by the model's screening, "
+    "not excluded by word matching; eligible studies are screened in order of score. Excluded at eligibility: reviews of "
     "all kinds (narrative, systematic, meta-analyses, guidelines), which are listed and cited in the Discussion "
     "instead; editorials, commentaries and letters.",
     "Every eligible study is included, up to the study limit. When more studies are eligible than the limit, they "
@@ -813,7 +813,12 @@ def _prisma_selection(ranked: List[PaperRecord], max_total: int, report: Selecti
         reviews_admitted = True
         relaxed.append(f"fewer than {MIN_PRISMA_STUDIES} primary studies were eligible, so {len(reviews)} review(s) "
                        "were admitted")
-    eligible.sort(key=lambda p: (p.relevance == "addresses", sort_key(p)), reverse=True)
+    # Screening order is the score alone (which already rewards matching every concept): a study matching only
+    # part of the question in words but scoring high is screened before a weaker full match, so it is not pushed
+    # past the screening cap. Each eligible study's rank is its place in this order.
+    eligible.sort(key=lambda p: sort_key(p)[1:], reverse=True)
+    for rank, p in enumerate(eligible, start=1):
+        p.selection_rank = rank
 
     excluded = dict(report.excluded)
     if off_topic:

@@ -59,8 +59,11 @@ option were not built: the development data show recall, not precision, is the l
 completed with the paid endpoint of the same model after the free daily quota ran out (1.63 USD for 9 reviews;
 eval/results/5d_findings.md): included studies selected 17% -> 39% (55 of 141), eligibility losses 53 -> 10,
 precision of the selection unchanged at 6%. New bottleneck after search: the screening cap (300 records; 17
-eligible included studies never screened; only 29 of 77 in the top 60). Next: Session 6 (test set), optionally a
-short ranking / screening-cap session on the development set first.
+eligible included studies never screened; only 29 of 77 in the top 60). Ranking session 18 Nov 2026
+(eval/results/5e_ranking.md): selection protocol 2.5 screens eligible studies in score order instead of tier
+first; offline on the stored development corpora, included studies inside the 300-record screening cap 60 -> 74
+of 77 eligible. Not yet confirmed with the model (about 1.6 USD for the development set). Next: confirm, then
+Session 6 (test set).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

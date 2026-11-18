@@ -96,3 +96,25 @@ class TestUnscreenedPartialMatches(unittest.TestCase):
         self.assertEqual([p.id for p in chosen], ["f0", "f1", "f2"])
         self.assertEqual(rep.excluded.get(REASON_PARTIAL), 2)
         self.assertFalse(any(d.screened for d in rep.screening_decisions))
+
+
+class TestScreeningOrder(unittest.TestCase):
+    def test_eligible_studies_in_score_order(self):
+        # A recent, cited trial matching only part of the question in words, and weaker full matches
+        strong_partial = paper(70, "Vitamin D supplementation in older adults: vitamin D dosing trial",
+                               "Vitamin D supplementation in older adults; vitamin D levels; vitamin D dose.",
+                               cites=900, types=("Randomized Controlled Trial",), year=2024)
+        weak = [paper(80 + i, f"Older adults and vitamin D supplementation: an observational note on fractures {i}",
+                      "Fractures were noted once.", cites=0, year=2001) for i in range(3)]
+        chosen, rep, _, _ = select([trial(i, cites=1) for i in range(1, 4)] + weak + [strong_partial])
+        by_id = {p.id: p for p in chosen}
+        self.assertEqual((by_id["p70"].relevance, by_id["p80"].relevance), ("partly", "addresses"))
+        order = [p.id for p in chosen]
+        self.assertLess(order.index("p70"), order.index("p80"), "the stronger partial match is screened first")
+        totals = [p.selection_breakdown["total"] for p in chosen]
+        self.assertEqual(totals, sorted(totals, reverse=True))
+        self.assertEqual([p.selection_rank for p in chosen], list(range(1, len(chosen) + 1)))
+
+
+if __name__ == "__main__":
+    unittest.main()
