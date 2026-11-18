@@ -82,6 +82,7 @@ from services import demo_mode
 from services.citation_enrichment import enrich_citation_counts
 from services import citation_chasing
 from services.pool_map import pool_map_for
+from services.mesh_terms import MESH_LOOKUP_VERSION, add_mesh_headings
 from services.query_planning import results_per_search, searches_arxiv
 from services.source_budget import begin_search_budget
 from services.fulltext import attach_open_access_full_texts
@@ -824,6 +825,13 @@ async def _build_corpus(req: SearchRequest) -> CorpusRun:
         protocol = default_protocol(plan, req.query, review_type=req.review_framework, organization=req.organization,
                                     year_from=req.year_from, year_to=req.year_to)
     fallback_entities_str = " ".join(plan.extracted_technical_entities[:3]) or req.query
+    # PubMed: each concept's MeSH headings become one more alternative in the stored queries (services/mesh_terms.py)
+    if cfg.enable_pubmed and plan.question_understanding and plan.question_understanding.concepts.search_concepts:
+        n_mesh = await add_mesh_headings(plan.question_understanding.concepts.search_concepts, plan.search_facets,
+                                         cfg.pubmed_api_key)
+        if n_mesh and plan.search_plan:
+            plan.search_plan.expansion_notes.append(
+                f"MeSH headings added to the PubMed searches for {n_mesh} concept(s) ({MESH_LOOKUP_VERSION}).")
 
     # How many studies, and how they are chosen, follow the review type and the protocol (services/study_limits.py)
     method = selection_method(req.mode, req.review_framework)

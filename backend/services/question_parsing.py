@@ -69,7 +69,9 @@ QUESTION_FRAMING_WORDS = {
 # Multi-word framing removed before parsing
 _FRAMING_PHRASES = re.compile(
     r"\b(?:state[- ]of[- ]the[- ]art|state of knowledge|current state|what is known|an overview of|"
-    r"the latest on|recent advances in|literature review on|systematic review of|review of)\b", re.I)
+    r"the latest on|recent advances in|literature review on|systematic review of|review of|"
+    # Purpose in review titles: "... for the prevention of complications" -> the concept is "complications"
+    r"(?:the\s+)?(?:prevention|promotion|treatment|management|reduction|improvement|control|relief)\s+of)\b", re.I)
 _NEGATION_RE = re.compile(r"\b(?:NOT|not|without|excluding|exclude|except)\b\s+([^,;:()]+?)(?=\s+(?:AND|OR|and|or)\b|[,;:()]|$)")
 
 
@@ -233,6 +235,16 @@ def constraint_words(constraints: Sequence[QuestionConstraint]) -> set:
     return words
 
 
+# Verbs of purpose in review titles ("... for treating chronic prostatitis", "... for protecting macular health"):
+# they frame the concept, they are not part of it. An explicit list, so nouns such as "screening" or "nursing" stay.
+ACTION_GERUNDS = {
+    "treating", "preventing", "protecting", "reducing", "improving", "managing", "informing", "educating",
+    "promoting", "increasing", "decreasing", "controlling", "supporting", "enhancing", "maintaining", "delaying",
+    "relieving", "avoiding", "achieving", "optimising", "optimizing", "facilitating", "encouraging", "minimising",
+    "minimizing", "lowering", "limiting", "stopping", "inducing", "restoring",
+}
+
+
 def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_words: int = 4) -> List[str]:
     """
     Runs of consecutive content words, in question order. "What is the state of coronary artery disease in India"
@@ -250,7 +262,7 @@ def concept_phrases(question: str, stop_words: set, max_phrases: int = 4, max_wo
     model_words = {w for c in detect_model_systems(question) for sp in c.spellings for w in sp.split()}
     model_words |= {"models", "model", "animal", "human", "clinical", "samples", "sample", "patients", "patient"} \
         if model_words else set()
-    excluded = stop_words | QUESTION_FRAMING_WORDS | constraint_words(constraints) | model_words
+    excluded = stop_words | QUESTION_FRAMING_WORDS | ACTION_GERUNDS | constraint_words(constraints) | model_words
     phrases: List[str] = []
     run: List[str] = []
 

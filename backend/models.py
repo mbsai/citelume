@@ -207,6 +207,9 @@ class SearchConcept(BaseModel):
     # Set by a review protocol: True for the concept(s) that are the main topic. None = decided from the question's
     # wording (concepts listed side by side at the start are the main topic)
     main: Optional[bool] = None
+    # PubMed only: MeSH headings / pharmacological actions for the concept (services/mesh_terms.py), each an
+    # alternative to the title/abstract words; looked up once and stored with the plan
+    mesh: List[str] = Field(default_factory=list)
 
 
 class SearchAspect(BaseModel):

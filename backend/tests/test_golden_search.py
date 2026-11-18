@@ -122,6 +122,7 @@ def run_search(mode="standard", framework="narrative", llm_key="", responder=Non
         mock.patch.object(main, "enrich_citation_counts", _none),
         mock.patch.object(main, "expand_paper_neighbors", _empty),
         mock.patch.object(main.citation_chasing, "_post_batch", _empty),
+        mock.patch.object(main, "add_mesh_headings", _none),
     ]
     for p in patches:
         p.start()

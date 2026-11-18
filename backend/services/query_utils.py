@@ -165,6 +165,20 @@ def correct_typos_keep_punctuation(query: str) -> str:
                   query or "")
 
 
+_DASHES = re.compile("[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]")
+# "chronic prostatitis/chronic pelvic pain syndrome": a slash between words names alternatives. Only between
+# words of 3 or more letters, so units ("mg/kg") and "and/or" are left alone.
+_WORD_SLASH = re.compile(r"(?<=[A-Za-z]{3})/(?=[A-Za-z]{3})")
+
+
+def normalize_question_text(query: str) -> str:
+    """Typographic dashes become hyphens, and a slash between two words becomes " or ", before the question is
+    parsed (Cochrane titles use U+2010 hyphens; "X/Y" otherwise glues two words into one search term)."""
+    q = _DASHES.sub("-", query or "")
+    q = re.sub(r"\band/or\b", "or", q, flags=re.I)
+    return _WORD_SLASH.sub(" or ", q)
+
+
 def normalize_and_correct_query(query: str) -> str:
     cleaned = re.sub(r"[^\w\s\-/<>]", " ", query or "")
     words = cleaned.split()
@@ -366,6 +380,7 @@ def understand_research_question(
     UniversalQuestionUnderstanding object with intents, domains, methodological profiles,
     normalized technical concepts, and complexity-appropriate subquestions.
     """
+    query = normalize_question_text(query)
     norm_q = normalize_and_correct_query(query)
     prim_dom, sec_doms, meth_profiles, amb_notes = detect_domains_and_profiles(norm_q, domain_override)
     prim_intent, sec_intents = detect_research_intents(norm_q)

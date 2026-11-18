@@ -5,7 +5,7 @@ open-access flags, used when NCBI's E-utilities are failing. No API key is requi
 PubMed query syntax from the planner is translated to Europe PMC's field syntax:
   "term"[Title/Abstract] -> (TITLE:"term" OR ABSTRACT:"term")
   "Review"[Publication Type] -> PUB_TYPE:"review"
-  "Heading"[MeSH Terms] -> MESH:"Heading"
+  "Heading"[MeSH Terms] or [Pharmacological Action] -> MESH:"Heading"
   (2010:2020[dp]) -> PUB_YEAR:[2010 TO 2020]
 """
 import re
@@ -22,7 +22,7 @@ _TIAB = re.compile(r'("[^"]+"|[\w\-*]+)\[(?:Title/Abstract|tiab)\]', re.I)
 _TITLE = re.compile(r'("[^"]+"|[\w\-*]+)\[(?:Title|ti)\]', re.I)
 # The tagged term is either quoted or a single word; never a run of preceding query text
 _PUBTYPE = re.compile(r'(?:"([^"]+)"|([\w\-]+))\[(?:Publication Type|pt)\]', re.I)
-_MESH = re.compile(r'(?:"([^"]+)"|([\w\-]+))\[(?:MeSH Terms|MeSH|mh)\]', re.I)
+_MESH = re.compile(r'(?:"([^"]+)"|([\w\-]+))\[(?:MeSH Terms|MeSH|mh|Pharmacological Action|pa)\]', re.I)
 _DATE = re.compile(r"(\d{4}):(\d{4})\[dp\]", re.I)
 
 

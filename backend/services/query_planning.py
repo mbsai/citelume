@@ -280,11 +280,38 @@ def concepts_from_question(understanding: UniversalQuestionUnderstanding) -> Lis
     concepts = [SearchConcept(name=b[0].replace("-change", " change").replace("-research", " research"),
                               synonyms=list(b[1:])) for b in blocks if b]
     # A method named in the question ("machine learning in drug discovery") is part of what is asked about
+    # An abbreviation in brackets after a concept is another name for it: "intraocular lenses (IOLs)"
+    raw = understanding.raw_query or ""
+    # (Not in a Boolean query, where brackets group terms)
+    bracketed = set() if re.search(r"\b(?:AND|OR|NOT)\b", raw) else {
+        re.sub(r"\s+", " ", m).strip().lower() for m in re.findall(r"\(([^()]{2,40})\)", raw)}
+    merged: List[SearchConcept] = []
+    for c in concepts:
+        if merged and c.name.lower() in bracketed and not c.synonyms:
+            merged[-1].synonyms.append(c.name)
+        else:
+            merged.append(c)
+    concepts = merged
+    # A label for a class of interventions ("non-pharmacological interventions", "face-to-face interventions") is
+    # not how trials describe themselves; they name the intervention. It is not required in the searches when the
+    # question has another concept (the population or condition), which keeps the search sensitive.
+    specific = [c for c in concepts if not _is_category_label(c.name)]
+    if specific:
+        concepts = specific
     methods = [p for p in all_phrases if is_method_concept(p) and p not in phrases
                and p.lower() not in ("review", "analysis", "data", "survey", "study")]
     if methods and len(concepts) < 3:
         concepts.append(SearchConcept(name=methods[0]))
     return concepts
+
+
+CATEGORY_HEADS = {"intervention", "interventions", "strategies", "strategy", "approaches", "approach",
+                  "programmes", "programs", "programme", "program"}
+
+
+def _is_category_label(name: str) -> bool:
+    words = name.lower().split()
+    return len(words) >= 1 and words[-1] in CATEGORY_HEADS
 
 
 def _clean_term(text: Any, max_words: int = 6) -> str:
@@ -384,6 +411,7 @@ def _pubmed_concept_block(concept: SearchConcept) -> str:
             parts = ["(" + " OR ".join(f"{v}[Title/Abstract]" for v in [w] + spelling_variants(w)) + ")"
                      if spelling_variants(w) else f"{w}[Title/Abstract]" for w in spec]
             alts.append(parts[0] if len(parts) == 1 else "(" + " AND ".join(parts) + ")")
+    alts += list(concept.mesh)
     return "(" + " OR ".join(dict.fromkeys(alts)) + ")"
 
 
