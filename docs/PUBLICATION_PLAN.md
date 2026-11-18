@@ -21,7 +21,7 @@ against every branch of the decision figures in the official RoB 2 cribsheet of 
 branches: 2.5 NI now gives High, and 4.1 NI no longer lowers the measurement domain; the adhering-to-intervention
 variant is not covered), reviewer edits recorded, Unpaywall when
 UNPAYWALL_EMAIL is set. First real run: 4 of 18 studies had full text; 34 of 36 trial quotes verified; many
-domains High because of missing information, as RoB 2's rules require. Next: Session 4 (headless runner).
+domains High because of missing information, as RoB 2's rules require. Session 4 done 18 Nov 2026: `python -m services.batch run` writes corpus.json.gz, result.json and run.json (status, timings per stage, model, settings without keys, versions, code commit) per question plus summary.csv; resumable; one question at a time with a pause; refuses demo mode and the demo key. First run: 5 standard questions end to end (Nemotron, 113-152 s each, each corpus replays); the model's relevance check dropped 1-5 of 20 selected studies per question, worth measuring in Session 6. Next: Session 4b (citation chasing).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
