@@ -38,7 +38,8 @@ PubMed: 33 reviews, 785 included studies all resolved to PubMed IDs (714 with DO
 than 2 included studies; seeded split 11 development / 22 test, committed before any run (f68fa5a). One protocol
 amendment before any run (review-version date rule; recorded in the protocol). eval/scoring.py matches included
 studies to corpus records and refuses test reviews before Session 6; `python -m eval.scoring questions
-development` writes a batch-runner file. Short of the 40-50 target: CLEF 2019 has only 38 intervention topics.
+development` writes a batch-runner file. Short of the 40-50 target (CLEF 2019 has only 38 intervention topics); decision 18 Nov 2026: keep the 33 reviews,
+SYNERGY+ stays an exploratory second set for Session 6 only.
 Next: Session 5b (where studies are lost, development set).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
