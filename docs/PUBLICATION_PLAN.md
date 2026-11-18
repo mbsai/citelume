@@ -76,6 +76,56 @@ are often unavailable without a key because of rate limits. Selection protocol i
 Standing rules: do not push or deploy without asking; do not hand-edit `docs/RANKING.md` or `docs/FRAMEWORKS.md`
 (regenerate them); the tool must still run with no model and with small local models; keep `._*` files out of commits.
 
+## Next steps (written 18 Nov 2026, end of day)
+
+State: everything through selection protocol 2.5 is committed locally (latest 3612f94); nothing pushed or
+deployed since 35da30c. The Session 6 analysis (`eval/session6.py`) is built and dry-run on the development set.
+No test review has been run.
+
+**Tomorrow, before any test run (no model needed)**
+1. Make the batch runner fail a run whose model screening did not happen. When the free quota ran out on 18 Nov,
+   runs went on without screening and were marked "done" with up to 150 unscreened studies. `services/batch.py`
+   should mark such a run "failed" (the selection report says screening was not available, or no decision has
+   `screened` true while records were eligible), so `--skip-failed` / a plain re-run retries it next day. Add a
+   test.
+2. Record in `run.json` which endpoint answered (free or paid), and keep the model the same (Nemotron 3 Ultra,
+   `nvidia/nemotron-3-ultra-550b-a55b:free`, paid endpoint only if you decide so).
+3. Check the free quota first: `GET https://openrouter.ai/api/v1/key` with your key (usage, limit). The free
+   allowance is per day and shared by every run that day.
+
+**Session 6 runs (test set, 22 reviews)**
+4. Write the question files: `python -m eval.scoring questions test` is refused by design; generate them with
+   `eval.scoring.questions("test", session6_test_analysis=True)` into `runs/6_test_questions.jsonl`.
+5. PRISMA runs first (the primary measures): `python -m services.batch run runs/6_test_questions.jsonl --mode
+   deep_research --review-type systematic_prisma --save-raw --pubmed-depth 500 --out runs/6_test_prisma`. A review
+   makes roughly 25 screening calls plus extraction and synthesis calls; on the free tier expect several reviews a
+   day, so plan for 2-3 days. The runner resumes: re-run the same command each day until all 22 are done.
+6. Standard runs: same file, `--mode standard --out runs/6_test_standard` (fewer calls).
+7. If the free tier is too slow, the paid endpoint of the same model cost about 0.18 USD per PRISMA review on
+   18 Nov (about 4 USD for 22; 8.33 USD left under the key's limit).
+
+**Analysis and write-up**
+8. `python -m eval.session6 --prisma runs/6_test_prisma --standard runs/6_test_standard --set test --name 6_test`
+   gives the results table, per-review rows and the figure in `eval/results/`. Also run the loss-by-stage table on
+   the test set (`eval/loss_by_stage.py` reads the development set only; add a test-set option that requires the
+   same `session6_test_analysis` flag).
+9. Report as they come out, with these deviations stated: the date rule amendment (protocol, 18 Nov); free and
+   paid endpoints of one model; selection protocol 2.5's ranking gain measured offline on the development set,
+   not confirmed with the model before the test runs.
+10. Write `eval/results/6_findings.md` and the Progress line; commit.
+
+**After Session 6**
+11. Session 7 (repeatability: three repeats and other models, from stored corpora where possible), Session 8
+    (verification gates: needs your annotation), then Sessions 9 and 13-15 as planned.
+12. Exploratory, not pre-registered: the protocol written from each review's own eligibility criteria, and
+    SYNERGY+ as a second set.
+
+**Housekeeping (your call)**
+- Push and deploy: many local commits since 35da30c. Before deploying, check the demo: MeSH lookups and record
+  marking call PubMed (fine for allowances), `pubmed_depth` is ignored there, imports stay off.
+- The `._pack-*.idx` files in `.git/objects/pack` (macOS metadata from the external drive) cause the
+  "non-monotonic index" messages; deleting them is safe.
+
 ## 1. What the paper claims
 
 **Claim:** protocol-first, auditable and repeatable study selection for LLM-assisted literature reviews. The user's
