@@ -1,0 +1,162 @@
+[
+ {
+  "variant": "concept-match points x0.5",
+  "standard_jaccard_median": 0.9523809523809523,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9207946336429308,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.9047619047619048,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "wording-overlap points x0.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.847953216374269,
+  "standard_recall_change_mean": 0.0006684491978609625,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.8461538461538461,
+  "prisma_recall_change_mean": 0.00018552875695732808
+ },
+ {
+  "variant": "study-type points x0.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.6666666666666666,
+  "standard_tau_median": 0.8714826281389749,
+  "standard_recall_change_mean": 0.0009090909090909087,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.8927444794952681,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "citation-impact points x0.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9090987272101823,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.8633540372670807,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "recency points x0.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9067767457860337,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.910828025477707,
+  "prisma_recall_change_mean": 0.00037105751391465616
+ },
+ {
+  "variant": "preprint penalty x0.5",
+  "standard_jaccard_median": 1.0,
+  "standard_jaccard_min": 1.0,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "review share caps x0.5",
+  "standard_jaccard_median": 0.5692307692307692,
+  "standard_jaccard_min": 0.48148148148148145,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": 0.001118403284178685,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "same author-year cap x0.5",
+  "standard_jaccard_median": 1.0,
+  "standard_jaccard_min": 0.8181818181818182,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": -0.002525252525252525,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "concept-match points x1.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9502923976608187,
+  "standard_recall_change_mean": 0.0009090909090909087,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.9047619047619048,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "wording-overlap points x1.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9114379084967319,
+  "standard_recall_change_mean": 0.0009090909090909087,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.8633540372670807,
+  "prisma_recall_change_mean": -0.00018552875695732935
+ },
+ {
+  "variant": "study-type points x1.5",
+  "standard_jaccard_median": 1.0,
+  "standard_jaccard_min": 0.5384615384615384,
+  "standard_tau_median": 0.9157894736842106,
+  "standard_recall_change_mean": 0.002066115702479339,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.910828025477707,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "citation-impact points x1.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.8181818181818182,
+  "standard_tau_median": 0.9005847953216375,
+  "standard_recall_change_mean": 0.002066115702479339,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.8867924528301887,
+  "prisma_recall_change_mean": 0.00018552875695732808
+ },
+ {
+  "variant": "recency points x1.5",
+  "standard_jaccard_median": 0.9523809523809523,
+  "standard_jaccard_min": 0.7391304347826086,
+  "standard_tau_median": 0.9105263157894737,
+  "standard_recall_change_mean": 0.0009090909090909087,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 0.875,
+  "prisma_recall_change_mean": -0.00037105751391465746
+ },
+ {
+  "variant": "preprint penalty x1.5",
+  "standard_jaccard_median": 1.0,
+  "standard_jaccard_min": 1.0,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "review share caps x1.5",
+  "standard_jaccard_median": 0.9047619047619048,
+  "standard_jaccard_min": 0.5384615384615384,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ },
+ {
+  "variant": "same author-year cap x1.5",
+  "standard_jaccard_median": 1.0,
+  "standard_jaccard_min": 1.0,
+  "standard_tau_median": 1.0,
+  "standard_recall_change_mean": 0.0,
+  "prisma_top300_jaccard_median": 1.0,
+  "prisma_top300_jaccard_min": 1.0,
+  "prisma_recall_change_mean": 0.0
+ }
+]
