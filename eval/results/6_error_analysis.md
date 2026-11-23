@@ -87,8 +87,8 @@ search stage: the question's words and the PubMed term mapping do not reach stud
 
 - Most loss is at search (80%), half of it depth. A Cochrane search is broad and hand-tuned; a search built from the
   review's title alone is not, and CiteLume makes the gap visible ("retrieved N of M") rather than hiding it.
-- The precision-oriented rule that selection is model-independent has a measurable recall cost on poorly parsed
-  questions; reporting it is part of the reproducibility claim.
+- The reproducibility rule that selection does not depend on the model has a measurable recall cost on poorly
+  parsed questions; reporting it is part of the reproducibility claim.
 - Model screening was not the weak point: 9 included studies screened out, 8 of them by criteria built from the
   question's structure (comparators, bracketed synonyms), not by the model misreading an abstract.
 
