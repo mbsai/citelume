@@ -68,7 +68,11 @@ selected 25% (15-35%), top 60 22% vs BM25 15%, citations 11%, random 3%; search 
 23 Nov 2026: search and selection are frozen at protocol 2.5 / commit 47e40ef (tag eval-freeze-2.5; amendment in
 eval/PROTOCOL.md); these are the paper's recall results. Standard-mode test runs done 23 Nov 2026 on the frozen code
 (paid endpoint, 0.77 USD): pool recall 15%, 4% in its 20 selected studies. Session 6 done; results in
-eval/results/6_test.md and 6_findings.md. Next: the error analysis for the paper, then Session 7.
+eval/results/6_test.md and 6_findings.md. Error analysis done 23 Nov 2026 (eval/results/6_error_analysis.md):
+of 538 included studies not selected, search lost 80% (depth 49%, query sensitivity 31%), eligibility word matching
+10%, screening 4%; failure modes: the rule-based selection parse is weaker than the model's, class concepts
+(psychological therapies, corticosteroids, anti-VEGF), comparators and bracketed synonyms made required screening
+criteria, case series typed as reviews. Post-freeze work listed there. Next: Session 7.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend

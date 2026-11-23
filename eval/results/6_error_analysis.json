@@ -1,0 +1,205 @@
+{
+ "lost": 538,
+ "totals": {
+  "search: depth": 266,
+  "search: query sensitivity": 169,
+  "eligibility: topic words": 55,
+  "screening: cap or limit": 27,
+  "eligibility: typed as review": 10,
+  "screening: criterion": 9,
+  "eligibility: other": 2
+ },
+ "screening_criteria": {
+  "Outcome: wide resection": 5,
+  "Topic: infusion": 2,
+  "Design: primary study": 1,
+  "Topic: cradle cap": 1
+ },
+ "per_review": {
+  "CD000996": {
+   "eligibility: topic words": 4
+  },
+  "CD001261": {
+   "search: depth": 11,
+   "search: query sensitivity": 1,
+   "screening: cap or limit": 1
+  },
+  "CD004414": {
+   "screening: criterion": 1,
+   "search: depth": 2
+  },
+  "CD005139": {
+   "search: query sensitivity": 40,
+   "eligibility: topic words": 11,
+   "search: depth": 15
+  },
+  "CD005253": {
+   "eligibility: other": 1,
+   "eligibility: topic words": 1,
+   "search: query sensitivity": 1
+  },
+  "CD006468": {
+   "search: depth": 11
+  },
+  "CD006715": {
+   "eligibility: topic words": 2
+  },
+  "CD007867": {
+   "search: depth": 5,
+   "eligibility: other": 1
+  },
+  "CD008170": {
+   "search: query sensitivity": 26,
+   "search: depth": 55
+  },
+  "CD008201": {
+   "eligibility: topic words": 1,
+   "search: query sensitivity": 6,
+   "search: depth": 1
+  },
+  "CD009069": {
+   "search: depth": 3
+  },
+  "CD009642": {
+   "search: query sensitivity": 24,
+   "search: depth": 6,
+   "screening: criterion": 2
+  },
+  "CD010239": {
+   "search: query sensitivity": 4,
+   "eligibility: topic words": 5
+  },
+  "CD010558": {
+   "eligibility: topic words": 9,
+   "search: query sensitivity": 1
+  },
+  "CD010778": {
+   "eligibility: typed as review": 8,
+   "screening: criterion": 5,
+   "eligibility: topic words": 4
+  },
+  "CD011380": {
+   "screening: criterion": 1,
+   "search: query sensitivity": 2,
+   "eligibility: topic words": 1
+  },
+  "CD011436": {
+   "eligibility: topic words": 7
+  },
+  "CD011768": {
+   "search: query sensitivity": 7,
+   "search: depth": 10,
+   "eligibility: typed as review": 1,
+   "screening: cap or limit": 1
+  },
+  "CD012069": {
+   "search: depth": 134,
+   "screening: cap or limit": 25,
+   "search: query sensitivity": 56,
+   "eligibility: typed as review": 1
+  },
+  "CD012164": {
+   "search: depth": 1
+  },
+  "CD012347": {
+   "eligibility: topic words": 8,
+   "search: depth": 3
+  },
+  "CD012930": {
+   "eligibility: topic words": 2,
+   "search: query sensitivity": 1,
+   "search: depth": 9
+  }
+ },
+ "typed_as_review": [
+  {
+   "review_id": "CD010778",
+   "title": "Intralesional curettage and cementation for low-grade chondrosarcoma of long bones: retrospective study and literature review.",
+   "publication_types": [
+    "Journal Article",
+    "Review",
+    "JournalArticle"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Outcome of intralesional curettage for low-grade chondrosarcoma of long bones.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Low-grade chondrosarcoma of bone: experiences from the Vienna Bone and Soft Tissue Tumour Registry.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Surgical treatment of central grade 1 chondrosarcoma of the appendicular skeleton.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Surgical management of grade I chondrosarcoma of the long bones.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Surgical management of conventional grade I chondrosarcoma of long bones.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Intralesional curettage of central low-grade chondrosarcoma: A midterm follow-up study.",
+   "publication_types": [
+    "Journal Article",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD010778",
+   "title": "Relationship between surgical procedure and outcome for patients with grade I chondrosarcomas.",
+   "publication_types": [
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD011768",
+   "title": "Nutrition education and introduction of broad bean-based complementary food improves knowledge and dietary practices of caregivers and nutritional status of their young children in Hula, Ethiopia.",
+   "publication_types": [
+    "Journal Article",
+    "Research Support, Non-U.S. Gov't",
+    "JournalArticle",
+    "Review"
+   ]
+  },
+  {
+   "review_id": "CD012069",
+   "title": "National survey of adherence, efficacy, and side effects of methylphenidate in children with attention-deficit/hyperactivity disorder in Taiwan.",
+   "publication_types": [
+    "Journal Article",
+    "Research Support, Non-U.S. Gov't"
+   ]
+  }
+ ]
+}
