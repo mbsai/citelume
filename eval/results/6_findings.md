@@ -1,4 +1,4 @@
-# Session 6 findings: recall on the held-out test set (interim: PRISMA runs)
+# Session 6 findings: recall on the held-out test set
 
 Runs `runs/6_test_prisma`, 23 Nov 2026, code 47e40ef (selection protocol 2.5): 22 test reviews, Deep Research with
 the systematic-style (PRISMA) review type, PubMed core search 500 deep, citation chasing and the reference lists of
@@ -6,9 +6,12 @@ excluded reviews on, each review's title as the question and its year as the upp
 Ultra on OpenRouter's free endpoint (`nvidia/nemotron-3-ultra-550b-a55b:free`) for planning, screening and analysis;
 all 22 searches were planned by the model. No cost.
 
-Tables: `6_test_prisma.md` (pre-registered measures, per review, baselines; figure `6_test_prisma.png`) and
-`6_test_loss_by_stage.md`. The Standard-mode runs are still to be made (the free daily quota ran out at the end of
-the PRISMA runs).
+Standard-mode runs `runs/6_test_standard`, 23 Nov 2026, same frozen code (selection protocol 2.5; the freeze test
+passed before the run): the paid endpoint of the same model (`nvidia/nemotron-3-ultra-550b-a55b`), all 22 searches
+planned by the model, cost 0.77 USD.
+
+Tables: `6_test.md` (all pre-registered measures for both modes, per review, baselines; figure `6_test.png`),
+`6_test_prisma.md` (the PRISMA measures alone, identical) and `6_test_loss_by_stage.md`.
 
 ## Results (mean of per-review shares, 95% bootstrap CI; 22 reviews)
 
@@ -21,6 +24,8 @@ the PRISMA runs).
 | Selected after model screening | 25% (15-35%) | 28% (17-39%) |
 | Screening sensitivity (17 reviews with an included study screened) | 87% (72-99%) | 86% (68-99%) |
 | Screening precision (20 reviews) | 10% (5-17%) | 10% (5-17%) |
+| Standard mode: pool recall | 15% (8-22%), median 11% | 17% (10-25%) |
+| Standard mode: in its 20 selected studies | 4% (1-9%), median 0% | 5% (1-10%) |
 
 Baselines on the same pools, top 60: BM25 of the question 15% (8-24%), citation count 11% (6-17%), random 3%
 (1-7%). Top 20: BM25 7%, citations 1%, random 0%. CiteLume's order recalls more than each baseline at both cut-offs.
@@ -43,6 +48,9 @@ Pooled over all 644 included studies (one review has 245): found 32%, eligible 2
 - **Screening keeps most included studies it sees** (median 100%, mean 87%) but CD010778 (17%) and CD011380 (0%)
   are exceptions to examine.
 - **Other methods** found 15 included studies no database search returned.
+- **Standard mode (the quick answer) is not a review search**: 100-170 records per question and 20 selected studies
+  hold 15% and 4% of the reviews' included studies. It answers a question quickly; the systematic-style mode is the
+  one to compare with a review.
 
 ## Deviations from the protocol (to report)
 
@@ -52,12 +60,13 @@ Pooled over all 644 included studies (one review has 245): found 32%, eligible 2
 3. One review (CD006715) was re-run after its first run lost two screening batches to dropped connections (the
    batch runner fails runs with more than 5% unscreened records). In the final runs, CD006715 and CD009642 each
    have 12 records (one batch) that the model did not screen, under the 5% threshold.
-4. The development set's 5d runs used the paid endpoint of the same model for 9 of 11 reviews; the test runs used
-   the free endpoint.
+4. The development set's 5d runs used the paid endpoint of the same model for 9 of 11 reviews; the test PRISMA runs
+   used the free endpoint and the test Standard runs the paid one.
+5. Search and selection were frozen after the test results were seen (amendment of 23 Nov 2026, tag
+   eval-freeze-2.5); the Standard runs were made after that, on the same code.
 
-## Still to do
+## Next
 
-- Standard-mode runs of the 22 test reviews (`--mode standard --out runs/6_test_standard`), then re-run
-  `python -m eval.session6 --prisma runs/6_test_prisma --standard runs/6_test_standard --set test --name 6_test`.
-- Look at the two parse failures and the low-sensitivity reviews for the paper's error analysis (no changes to the
-  measured pipeline).
+- Error analysis for the paper (no change to the measured pipeline): the two parse failures, the reviews where
+  screening sensitivity was low (CD010778, CD011380), and the depth losses in the three large reviews.
+- Session 7 (repeatability) from the stored corpora.
