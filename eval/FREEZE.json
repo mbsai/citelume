@@ -1,0 +1,28 @@
+{
+ "frozen": "2026-11-23",
+ "commit": "47e40ef",
+ "tag": "eval-freeze-2.5",
+ "protocol_version": "citelume-selection/2.5",
+ "note": "Search and selection code measured in Session 6.",
+ "hashes": {
+  "services/paper_selection.py": "694e558c173f1861ef53648154d7f9b53f1c1ff2717c0221c296c294d88684db",
+  "services/query_planning.py": "a4d22e2f105e3530c5edfde3f396e585b36b050a26fccfbd3d689d2559556ba8",
+  "services/question_parsing.py": "b9499f2a40b705091c14ae7ba813ef91e61c703d7b99d19e7995f679ff4a2059",
+  "services/query_utils.py": "0ffe5b6d55db9da58cdfb1bf3f7baa070ca263b230aa11c07f6dd813606184f1",
+  "services/mesh_terms.py": "e20223882a03bdf5b1a85be48b60044c3f11513334e0fa639c6e7a9f416040b3",
+  "services/citation_chasing.py": "ca4c3116ed4a80de11f5857d258518d6b38ead97fe0ed849e58fceb7bce36787",
+  "services/ai_screening.py": "aaa5824d1f5e793bd6e8864887bf79a954f7c0f5db4b887e39eba3e0dbc050df",
+  "services/corpus.py": "a58223913ba1e464ea09af13763b6b5ce728c8094c391891e10743684694f3b0",
+  "services/review_protocol.py": "9e1e9e5cb66a1cc7b9c05e42dd307fc50b36e5a30deb531bea800aed14d5efbb",
+  "services/study_limits.py": "70d723054fcb24635e4b3d6968bad752a451a1eaf8ed90405e0079622e759302",
+  "services/pubmed_client.py": "071168013669d889c3e9b90324e420f05952a50a5ed864a9c7246b7ea2894171",
+  "services/s2_client.py": "9b3c02050fefd0d75a634991ca57f73d3d9c3f972917e1d4fed7df73c05bff16",
+  "services/europepmc_client.py": "8e2b5f88ba9c23454588d1c0a1c73597ab2b2d8642527b0415e46fafa1db5a06",
+  "services/arxiv_client.py": "4e05b9849b21cc82de8f3f9cf0a8e1cfbeb064eb3ca00b7176bac153f7233626",
+  "services/biorxiv_client.py": "a67eb192be8783a680c8216cbae8dd8f6c5077c562ddcda78f36b1ccfc6d05b7",
+  "services/citation_enrichment.py": "1102da8a089ccacdcf06e41424a907bf85dae0d8fcaad82ec8f1044c1e212702",
+  "main._build_corpus": "508b7781f31f751026fb61d0d3626c18261473af4b503bbed7a57bbc1531b1bb",
+  "main._harvest_facet_queries": "b10debc6fe9b61c56c6c31890b94d7b2dda5b3bd54d3a30fad7cc35149990708",
+  "main._prepare_query": "4d17fb528f06a9969c951e5563779b84887dfedcf0a6b28a16d506bb46dc7327"
+ }
+}

@@ -87,3 +87,12 @@ Baselines on the same pools: BM25 ranking of the pool by the question, citation 
   that rule excluded reviews CLEF itself used. The rule is now "before 1 July 2019" (CLEF assembled the 2019
   topics in the first half of 2019). Two reviews listed in both CLEF parts are counted once. No CiteLume run had
   been made; the split was drawn after this change.
+
+- **23 November 2026, after the Session 6 PRISMA test runs: the measured pipeline is frozen.** The recall results
+  reported in the paper are those of selection protocol `citelume-selection/2.5` at code commit `47e40ef` (git tag
+  `eval-freeze-2.5`): question parsing, search planning and MeSH terms, PubMed depth, citation chasing and review
+  reference lists, eligibility, ranking and model screening. Test results were looked at on this date (including
+  two reviews that failed at the question parse), so no change to these parts may be made on their account. The
+  Standard-mode test runs, made later, use the same frozen code. Later sessions (repeatability, verification gates,
+  component checks, release) build on top without changing what was measured; any later change to search or
+  selection gets a new protocol version and is reported as post-freeze, separately from the recall results.
