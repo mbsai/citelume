@@ -22,7 +22,9 @@ For each question, <out>/<id>/ receives:
 and <out>/summary.csv has one row per question.
 
 Resumable: a question whose run.json says "done" is skipped, so an interrupted batch continues where it stopped.
-Failed questions are tried again unless --skip-failed is given; --rerun runs every question again.
+Failed questions are tried again unless --skip-failed is given; --rerun runs every question again. With a model, a
+systematic-style run whose records were not screened by the model (more than 5% unscreened, for example when a free
+quota runs out) is marked failed, so it is retried rather than counted.
 
 Rate limits: questions run one at a time, with --pause seconds between them (default 10); the source clients retry
 rate-limited calls and pace Semantic Scholar themselves.
@@ -188,6 +190,33 @@ def _write_corpus(path: Path, corpus) -> None:
     tmp.replace(path)
 
 
+# A run with a model must have had its records screened by it: when a free quota runs out mid-run, the pipeline
+# carries on with the word-based decisions, which is right for a user but would make an evaluation run measure the
+# wrong thing. Such a run is marked failed (the corpus is kept) so the next run of the batch retries it.
+MAX_UNSCREENED_SHARE = 0.05
+
+
+def screening_problem(corpus, cfg) -> str:
+    """Why a run's model screening is incomplete ("" when it is complete or not part of the run)."""
+    if not uses_model(cfg) or corpus.selection_method == "narrative" or corpus.selection_report is None:
+        return ""
+    decisions = corpus.selection_report.screening_decisions
+    if not decisions:
+        return ""
+    unscreened = sum(1 for d in decisions if not d.screened)
+    if unscreened == len(decisions):
+        return f"the model screened none of the {len(decisions)} records (no model answer: quota or outage?)"
+    if unscreened / len(decisions) > MAX_UNSCREENED_SHARE:
+        return f"the model left {unscreened} of {len(decisions)} records unscreened (quota or outage?)"
+    return ""
+
+
+def model_endpoint(cfg) -> str:
+    if not uses_model(cfg):
+        return ""
+    return "free" if cfg.llm_model.endswith(":free") else "paid"
+
+
 def _write_raw(path: Path, records) -> None:
     """The records as the searches returned them, before duplicates were merged (for evaluation)."""
     tmp = path.with_name(path.name + ".tmp")
@@ -218,7 +247,8 @@ async def run_question(q: Dict[str, Any], folder: Path, defaults: Dict[str, Any]
     req = build_request(q, defaults, cfg)
     record: Dict[str, Any] = {
         "id": q["id"], "query": q["query"], "status": "running", "mode": req.mode,
-        "review_type": req.review_framework, "model": model_label(cfg), "settings": public_settings(cfg),
+        "review_type": req.review_framework, "model": model_label(cfg), "model_endpoint": model_endpoint(cfg),
+        "settings": public_settings(cfg),
         "versions": versions(), "started_at": _now(), "finished_at": "", "timings_s": {}, "error": "",
     }
     _write_json(folder / "run.json", record)
@@ -237,6 +267,9 @@ async def run_question(q: Dict[str, Any], folder: Path, defaults: Dict[str, Any]
         record.update(corpus_id=run.corpus.corpus_id, content_hash=run.corpus.content_hash,
                       records=len(run.corpus.records), included=len(run.corpus.included_ids))
         _write_json(folder / "run.json", record)  # the corpus survives even if the analysis fails
+        problem = screening_problem(run.corpus, cfg)
+        if problem:
+            raise RuntimeError(f"Screening incomplete: {problem}. The corpus is kept; the next run retries it.")
 
         result = await main._analyse(run)
         t3 = time.monotonic()

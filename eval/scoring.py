@@ -128,9 +128,13 @@ if __name__ == "__main__":
     import sys
 
     # python -m eval.scoring questions development > runs/dev_questions.jsonl
-    if len(sys.argv) == 3 and sys.argv[1] == "questions" and sys.argv[2] in ("development", "test"):
-        for q in questions(sys.argv[2]):
+    # python -m eval.scoring questions test --session6 > runs/6_test_questions.jsonl   (Session 6 only)
+    args = sys.argv[1:]
+    session6 = "--session6" in args
+    args = [a for a in args if a != "--session6"]
+    if len(args) == 2 and args[0] == "questions" and args[1] in ("development", "test"):
+        for q in questions(args[1], session6_test_analysis=session6):
             print(json.dumps(q, ensure_ascii=False))
     else:
-        print("usage: python -m eval.scoring questions development", file=sys.stderr)
+        print("usage: python -m eval.scoring questions development|test [--session6]", file=sys.stderr)
         sys.exit(2)

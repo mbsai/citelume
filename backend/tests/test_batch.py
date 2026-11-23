@@ -124,6 +124,24 @@ class TestBatchRun(unittest.TestCase):
         self.assertGreaterEqual(len(raw), len(corpus.records))
         self.assertEqual(len(raw), corpus.records_found)
 
+    def test_unscreened_run_with_a_model_fails_and_is_retried(self):
+        cfg = ApiKeysConfig(llm_provider="openrouter", llm_api_key="test-key", llm_model="nvidia/x:free",
+                            enable_hf=False, enable_fulltext=False)
+        self.questions = self.questions[1:]  # the PRISMA question
+        # A model that gives no usable answer, as when a free quota has run out: nothing gets screened
+        set_test_llm_responder(lambda *_a: "quota exceeded")
+        self.addCleanup(set_test_llm_responder, None)
+        done = asyncio.run(batch.run_batch(self.questions, self.out, self.defaults, cfg, pause_s=0,
+                                           log=lambda *_: None))
+        self.assertEqual(done, (0, 1, 0))
+        run = json.loads((self.out / "vitd-prisma" / "run.json").read_text())
+        self.assertIn("Screening incomplete", run["error"])
+        self.assertEqual(run["model_endpoint"], "free")
+        corpus = read_file(self.out / "vitd-prisma" / "corpus.json.gz")
+        self.assertTrue(corpus.selection_report.screening_decisions)
+        # A run without a model is not held to this (nothing could screen it)
+        self.assertEqual(batch.screening_problem(corpus, offline_config()), "")
+
     def test_unsearchable_question_fails_cleanly(self):
         self.questions = [{"id": "empty", "query": "state of the art"}]
         self.assertEqual(self.run_batch(), (0, 1, 0))

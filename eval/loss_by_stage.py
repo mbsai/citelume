@@ -2,6 +2,7 @@
 Session 5b: where each development review's included studies are lost in the CiteLume pipeline.
 
     python -m eval.loss_by_stage runs/5b_dev [--name=5b_loss_by_stage] [--no-pubmed]
+    python -m eval.loss_by_stage runs/6_test_prisma --set=test --session6 --name=6_test_loss_by_stage
     (from the repository root; adds backend/ to the path; --name sets the eval/results/ file names)
 
 Reads, for each development review, the batch runner's raw.json.gz (records before duplicates were merged) and
@@ -20,7 +21,8 @@ a result limit): "matched by a query" means the study was beyond the number of r
 "matched by no query" means the queries were not sensitive enough. All included studies are in PubMed by
 construction (eval/build_benchmark.py), so PubMed coverage itself is not the ceiling.
 
-Writes eval/results/5b_loss_by_stage.md and .json. Development reviews only (eval/PROTOCOL.md section 4).
+Writes eval/results/<name>.md and .json. Development reviews unless --set=test --session6 is given (eval/PROTOCOL.md
+section 4: test reviews are for the Session 6 analysis only).
 """
 from __future__ import annotations
 
@@ -165,10 +167,10 @@ def query_check(rows: List[dict], corpus: Corpus, year_to: Optional[int], client
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def analyse(runs: Path, check_queries: bool = True) -> dict:
+def analyse(runs: Path, check_queries: bool = True, which: str = "development", session6: bool = False) -> dict:
     reviews = []
     client = httpx.Client(timeout=60.0, headers={"User-Agent": "CiteLume-eval/1.0"}) if check_queries else None
-    for review in review_split("development"):
+    for review in review_split(which, session6_test_analysis=session6):
         folder = runs / review["review_id"]
         if not (folder / "raw.json.gz").exists():
             reviews.append({"review_id": review["review_id"], "status": "not run"})
@@ -193,7 +195,7 @@ def analyse(runs: Path, check_queries: bool = True) -> dict:
     losses = {"search": n - total["found"], "duplicate merging": total["found"] - total["merged"],
               "eligibility": total["merged"] - total["eligible"],
               "screening and limit": total["eligible"] - total["included"]}
-    return {"reviews": reviews, "included_studies": n, "reached": total, "losses": losses,
+    return {"set": which, "reviews": reviews, "included_studies": n, "reached": total, "losses": losses,
             "largest_loss": max(losses, key=losses.get) if done else "",
             "top20": sum(r["top20"] for r in done), "top60": sum(r["top60"] for r in done),
             "found_only_by_chasing": sum(r["found_only_by_chasing"] for r in done),
@@ -207,7 +209,7 @@ def pct(a: int, b: int) -> str:
 def markdown(res: dict, runs: Path) -> str:
     done = [r for r in res["reviews"] if r["status"] == "done"]
     n = res["included_studies"]
-    lines = ["# Session 5b: where included studies are lost (development set)", "",
+    lines = [f"# Where included studies are lost ({res.get('set', 'development')} set)", "",
              f"Runs: `{runs}`; {len(done)} of {len(res['reviews'])} development reviews; {n} included studies. "
              "Deep Research, systematic-style (PRISMA) review type, citation chasing on. Stages are cumulative: "
              "each column counts the included studies still present after that stage.", "",
@@ -248,7 +250,8 @@ def main(argv: List[str]) -> int:
         print(__doc__.strip())
         return 2
     runs = Path(argv[1])
-    res = analyse(runs, check_queries="--no-pubmed" not in argv)
+    which = "test" if "--set=test" in argv else "development"
+    res = analyse(runs, check_queries="--no-pubmed" not in argv, which=which, session6="--session6" in argv)
     stem = next((a.split("=", 1)[1] for a in argv if a.startswith("--name=")), "5b_loss_by_stage")
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / f"{stem}.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
