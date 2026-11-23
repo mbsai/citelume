@@ -12,7 +12,7 @@ the PRISMA runs).
 
 ## Results (mean of per-review shares, 95% bootstrap CI; 22 reviews)
 
-| Measure | All reviews | Reviews with <= 60 included (20) |
+| Measure | All reviews | Reviews with <= 60 included (19) |
 |---|---|---|
 | Pool recall (primary) | 54% (41-67%), median 49% | 60% (48-73%) |
 | Pool recall, databases only | 50% (36-63%) | 55% (41-70%) |

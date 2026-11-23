@@ -62,8 +62,10 @@ precision of the selection unchanged at 6%. New bottleneck after search: the scr
 eligible included studies never screened; only 29 of 77 in the top 60). Ranking session 18 Nov 2026
 (eval/results/5e_ranking.md): selection protocol 2.5 screens eligible studies in score order instead of tier
 first; offline on the stored development corpora, included studies inside the 300-record screening cap 60 -> 74
-of 77 eligible. Not yet confirmed with the model (about 1.6 USD for the development set). Next: confirm, then
-Session 6 (test set).
+of 77 eligible. Not yet confirmed with the model (about 1.6 USD for the development set). Session 6 PRISMA runs done 23 Nov
+2026 on the free endpoint (eval/results/6_findings.md): test set, 22 reviews, pool recall 54% (95% CI 41-67%),
+selected 25% (15-35%), top 60 22% vs BM25 15%, citations 11%, random 3%; search depth is the largest loss. Next:
+the Standard-mode test runs, then the Session 6 write-up (error analysis of the two parse failures).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
