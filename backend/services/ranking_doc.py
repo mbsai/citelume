@@ -13,6 +13,10 @@ def render() -> str:
     std_core, std_other = qp.RESULTS_PER_SEARCH["standard"]
     deep_core, deep_other = qp.RESULTS_PER_SEARCH["deep_research"]
     n_std, n_deep = qp.ASPECTS_BY_MODE["standard"], qp.ASPECTS_BY_MODE["deep_research"]
+    prisma_core, prisma_other = qp.RESULTS_PER_SEARCH_PRISMA
+    from services import citation_chasing as cc
+    from services import mesh_terms as mt
+    from services.question_parsing import ACTION_GERUNDS
     lines = [
         "# How CiteLume chooses its studies",
         "",
@@ -53,7 +57,15 @@ def render() -> str:
         "or population named in the question (for example *India*, *older adults*) is required as well. When an "
         "AI model is configured it proposes the concepts and synonyms; they are accepted only if the leading "
         "concept is anchored in the question's own words. Without a model the concepts are taken from the "
-        "question's wording.",
+        f"question's wording. At most {qp.MAX_REQUIRED_CONCEPTS} concepts are required in every search (more makes "
+        "searches too narrow).",
+        "   Reading the question's wording follows fixed rules, built for questions written as review titles: "
+        "typographic dashes count as hyphens; a slash between two words names alternatives (*chronic "
+        "prostatitis/chronic pelvic pain syndrome*); purpose words frame a concept rather than join it (*for the "
+        "prevention of*, *treating*, *protecting*; the full list has "
+        f"{len(ACTION_GERUNDS)} verbs); a label for a class of interventions (*non-pharmacological interventions*, "
+        "*... strategies*, *... programmes*) is not required when the question names something else; and a term "
+        "in brackets after a concept is another name for it (*intraocular lenses (IOLs)*).",
         "2. **Breadth.** The question is classed as a *broad topic* to survey (\"gut microbiome\") or a "
         "*focused question* relating concepts (\"Does vitamin D prevent COVID-19?\"). A question that relates "
         "concepts is always treated as focused.",
@@ -64,8 +76,26 @@ def render() -> str:
         "backup, bioRxiv/medRxiv, and arXiv) receives a *core* search (the concepts only), a *reviews* search "
         "(the concepts plus review and meta-analysis filters) and one search per aspect (the concepts plus that "
         f"aspect's terms). The core search requests {std_core} records per database and every other search "
-        f"{std_other} (Deep Research: {deep_core} and {deep_other}). The search strings are compiled by fixed "
-        "rules, never written by the model, and are shown with the results.",
+        f"{std_other} (Deep Research: {deep_core} and {deep_other}; a systematic-style review: {prisma_core} and "
+        f"{prisma_other}). A local install can set a deeper PubMed core search (`pubmed_depth`, up to 2,000 "
+        "records, fetched in batches of 200); the public demo keeps its limits. The search strings are compiled by "
+        "fixed rules, never written by the model, and are shown with the results, with the number of records each "
+        "PubMed search matched and how many were retrieved (\"retrieved N of M\").",
+        "5. **MeSH headings.** For each concept, PubMed is asked once how it maps the concept's words to its "
+        "controlled vocabulary, and the MeSH headings and pharmacological actions it returns become one more "
+        "alternative in the PubMed query (for example *antidepressants* also searches *Antidepressive Agents* "
+        "[Pharmacological Action], which covers trials of doxepin or trazodone). Only parts of two or more words, "
+        "and the word the concept ends with, are mapped, so a single leading word does not pull in another sense; "
+        f"at most {mt.MAX_TAGS_PER_WORD} headings per part are used. The headings are stored with the plan, so the "
+        "query is the same on every run; if PubMed does not answer, the query is used without them.",
+        "6. **Other methods** (Deep Research). After a first selection, the reference lists and the citing papers "
+        f"of up to {cc.MAX_SEEDS} selected studies are fetched from Semantic Scholar; a paper linked to at least "
+        f"{cc.MIN_LINKS} of them and not already found is added (up to {cc.MAX_ADDED}), as a record identified by "
+        "citation searching. The reference lists of reviews that the eligibility rules set aside (on the topic, "
+        f"excluded only for being reviews; up to {cc.MAX_REVIEW_SEEDS}) are searched the same way, and every study "
+        f"they cite is added (up to {cc.REVIEW_REFS_MAX_ADDED}). Missing abstracts and publication types of the "
+        "added records are filled from PubMed. Selection then runs again over the enlarged pool, so the added "
+        "records meet the same rules; the flow diagram counts them separately, as identified by other methods.",
         "",
         "## Step 2. Merge duplicates",
         "",
@@ -184,8 +214,16 @@ def render() -> str:
         "",
         "- It is a ranked sample, not a systematic search. The candidate pool is what the databases return for "
         "these searches (typically 150 to 300 unique records in Standard), not every paper on the topic.",
-        "- Topic matching is by words and synonyms. A relevant paper that uses different vocabulary can be "
-        "scored low or missed.",
+        "- Topic matching is by words and synonyms, and by MeSH indexing for records PubMed indexes. A relevant "
+        "paper that names a member of a class (a drug, a therapy) when the question names the class can still be "
+        "scored low or missed, especially when PubMed maps the class to a narrower or different heading.",
+        "- Selection reads a rule-based parse of the question, not the model's, so that the same records give the "
+        "same studies with any model. When the question's wording parses poorly (a verb or participle joined to a "
+        "concept), this costs recall; the concepts used are shown with every result.",
+        "- Measured on 22 held-out Cochrane intervention reviews (eval/results/6_test.md): a systematic-style run's "
+        "pool held 54% of the reviews' included studies on average and its selection 25%; most of the loss was at "
+        "search. Changing any weight to half or one and a half times its value changed about one of 20 selected "
+        "studies and recall by under half a point (eval/results/7_sensitivity_test.md).",
         "- Citation counts favour older and English-language work; the neutral value for recent papers and the "
         "recency points offset this only partly.",
         "- Study type recognised from wording can be wrong; the type shown for each study makes this checkable.",
