@@ -111,7 +111,8 @@ the current search; docs/GAPS.md the gap module. Nothing pushed or deployed sinc
   Scholar's types: 0.78, with 225 primary studies labelled "Review").
 - Your step: `eval/annotation/merge_sheet.csv` (100 merged pairs, about 30 minutes), then
   `python -m eval.merge_check score`.
-- Decide: risk of bias against Cochrane judgements (extract for a small set of trials, or report as exploratory).
+- Decided 24 Nov 2026: risk of bias is reported as exploratory (no agreement figure claimed; comparison with
+  published Cochrane judgements listed as future work).
 
 **Then**: Sessions 13-15 (release, manuscript, pre-submission review).
 

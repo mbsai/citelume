@@ -24,10 +24,12 @@ output: 1,351 merges matched on the title alone and 99 merges of records that sh
 title (merges of identical records are not counted). 50 of each are in `eval/annotation/merge_sheet.csv` (kept
 local); fill "same_study" with yes, no or unsure (about 30 minutes), then `python -m eval.merge_check score`.
 
-## Risk of bias against Cochrane judgements (not done; needs a decision)
+## Risk of bias: reported as exploratory (decided 24 Nov 2026)
 
-The CLEF benchmark does not include the reviews' risk-of-bias tables. Comparing CiteLume's suggested judgements
-with Cochrane's would need the per-trial judgements extracted from the reviews, for the trials CiteLume assessed
-from full text (few, since most full texts are not open access), and a cited figure for agreement between human
-reviewers as the yardstick. Options: extract them for a small set of trials, or report the risk-of-bias module as
-exploratory, as the plan allows.
+The CLEF benchmark does not include the reviews' risk-of-bias tables, and CiteLume assesses risk of bias only for
+studies with open full text (a minority), so a comparison with Cochrane's judgements would rest on few trials and
+need them extracted by hand. Decision: no agreement figure is claimed. The paper describes the risk-of-bias module
+as exploratory: every judgement is a suggestion for the reviewer to confirm, each rests on a quote checked against
+the study's text, randomised trials follow the coded RoB 2 algorithm (checked branch by branch against the official
+cribsheet), and abstract-only studies are marked "Not assessed". A comparison with published judgements is listed
+as future work.
