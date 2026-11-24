@@ -1,0 +1,101 @@
+{
+ "pairs": [
+  {
+   "a": "stored",
+   "b": "nemotron-r1",
+   "records": 1638,
+   "agreement": 0.9120879120879121,
+   "kappa": 0.8230276001674647
+  },
+  {
+   "a": "stored",
+   "b": "nemotron-r2",
+   "records": 1638,
+   "agreement": 0.9114774114774115,
+   "kappa": 0.8218841538316167
+  },
+  {
+   "a": "stored",
+   "b": "nemotron-r3",
+   "records": 1638,
+   "agreement": 0.8998778998778999,
+   "kappa": 0.7984868056837056
+  },
+  {
+   "a": "stored",
+   "b": "qwen3.5-9b-local",
+   "records": 192,
+   "agreement": 0.765625,
+   "kappa": 0.5190380761523046
+  },
+  {
+   "a": "nemotron-r1",
+   "b": "nemotron-r2",
+   "records": 1638,
+   "agreement": 0.9603174603174603,
+   "kappa": 0.9201247754986294
+  },
+  {
+   "a": "nemotron-r1",
+   "b": "nemotron-r3",
+   "records": 1638,
+   "agreement": 0.9560439560439561,
+   "kappa": 0.9114957382334269
+  },
+  {
+   "a": "nemotron-r1",
+   "b": "qwen3.5-9b-local",
+   "records": 192,
+   "agreement": 0.75,
+   "kappa": 0.49139072847682114
+  },
+  {
+   "a": "nemotron-r2",
+   "b": "nemotron-r3",
+   "records": 1638,
+   "agreement": 0.9725274725274725,
+   "kappa": 0.9447122200170116
+  },
+  {
+   "a": "nemotron-r2",
+   "b": "qwen3.5-9b-local",
+   "records": 192,
+   "agreement": 0.7552083333333334,
+   "kappa": 0.5062376887721602
+  },
+  {
+   "a": "nemotron-r3",
+   "b": "qwen3.5-9b-local",
+   "records": 192,
+   "agreement": 0.7395833333333334,
+   "kappa": 0.47916666666666674
+  }
+ ],
+ "sensitivity": [
+  {
+   "label": "stored",
+   "included_studies_screened": 117,
+   "sensitivity": 0.9230769230769231
+  },
+  {
+   "label": "nemotron-r1",
+   "included_studies_screened": 117,
+   "sensitivity": 0.9316239316239316
+  },
+  {
+   "label": "nemotron-r2",
+   "included_studies_screened": 117,
+   "sensitivity": 0.9316239316239316
+  },
+  {
+   "label": "nemotron-r3",
+   "included_studies_screened": 117,
+   "sensitivity": 0.9316239316239316
+  },
+  {
+   "label": "qwen3.5-9b-local",
+   "included_studies_screened": 11,
+   "sensitivity": 1.0
+  }
+ ]
+}

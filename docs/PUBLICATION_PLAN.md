@@ -74,8 +74,11 @@ of 538 included studies not selected, search lost 80% (depth 49%, query sensitiv
 (psychological therapies, corticosteroids, anti-VEGF), comparators and bracketed synonyms made required screening
 criteria, case series typed as reviews. Post-freeze work listed there. Session 7 part done 23 Nov 2026 (eval/results/7_findings.md):
 all 44 test corpora replay exactly; selection weights and caps at half or 1.5 times change about one of 20 Standard
-selections and recall by at most 0.3 points. Remaining: screening repeatability and records-found repeatability
-(model runs; see Next steps).
+selections and recall by at most 0.3 points. Session 7 done 24 Nov 2026 (eval/results/7_findings.md): screening
+repeats agree 96-97% (kappa 0.91-0.94); two identical rule-planned searches share a median 63% of records, the gap
+coming from sources that timed out or were rate-limited; model planning adds about 20 points of pool recall (37% ->
+54%) and names stable concepts with varying synonyms. A second screening model was not measured (free models
+rate-limited upstream). Next: Session 8 (verification gates; needs your annotation).
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
@@ -88,29 +91,26 @@ are often unavailable without a key because of rate limits. Selection protocol i
 Standing rules: do not push or deploy without asking; do not hand-edit `docs/RANKING.md` or `docs/FRAMEWORKS.md`
 (regenerate them); the tool must still run with no model and with small local models; keep `._*` files out of commits.
 
-## Next steps (written 23 Nov 2026, end of day)
+## Next steps (written 24 Nov 2026)
 
-State: Session 6 is done (eval/results/6_test.md, 6_findings.md, 6_error_analysis.md); search and selection are
-frozen at protocol 2.5 (tag eval-freeze-2.5, checked by backend/tests/test_evaluation_freeze.py). Session 7 is part
-done (eval/results/7_findings.md): E2a (exact replay of all 44 test corpora) and E3 (weight and cap sensitivity).
-Nothing pushed or deployed since 35da30c. OpenRouter key: 7.53 USD left of its 10 USD limit.
+State: Sessions 1-7 done (results in eval/results/: 6_test.md, 6_findings.md, 6_error_analysis.md,
+7_findings.md); search and selection frozen at protocol 2.5 (tag eval-freeze-2.5). Docs: docs/RANKING.md describes
+the current search; docs/GAPS.md the gap module. Nothing pushed or deployed since 35da30c. OpenRouter key: about
+7.50 USD left of its 10 USD limit.
 
-**Session 7, remaining runs** (check the free quota first: `GET https://openrouter.ai/api/v1/key`)
-1. Screening repeatability, Nemotron free, three repeats (one day's quota):
-   `CITELUME_LLM_API_KEY=... python -m eval.rescreen run --prisma runs/6_test_prisma --set test --label
-   nemotron-r1 --provider openrouter --model nvidia/nemotron-3-ultra-550b-a55b:free` (then `-r2`, `-r3`).
-2. Another free model: the same with `--label gemma4-31b --model google/gemma-4-31b-it:free`.
-3. Optional: the local model (`--label qwen3.5-9b-local --provider ollama --model qwen3.5:9b`, about 80 minutes,
-   resumes from 2 done); a paid frontier model only after asking (about 3-4 USD).
-4. `python -m eval.rescreen report --prisma runs/6_test_prisma --set test` writes 7_screening_agreement.md.
-5. Records-found repeatability: two no-model PRISMA builds of the test questions
-   (`python -m services.batch run runs/6_test_questions.jsonl --mode deep_research --review-type systematic_prisma
-   --save-raw --pubmed-depth 500 --out runs/7_search_r1`, then `_r2`, with no CITELUME_LLM_API_KEY set), and a
-   small `eval/replan.py` for planning variation; compare record sets.
-6. Finish 7_findings.md, update the Progress line, commit.
+**Session 8, verification gates** (needs your annotation)
+1. Build the runs: 30 questions with the verification gates on and off (the gates are the deterministic checks of
+   citation numbers and figures against the source text in services/verification_gates.py). The synthesis does not
+   change the frozen selection, so the questions can reuse stored corpora (the 22 test corpora plus 8 development
+   ones) and only re-run the analysis, once with the gates and once without (a switch to add in the analysis, not
+   in search or selection).
+2. Sample about 200 claims across both arms (seeded), and export an annotation sheet: claim, cited study, the
+   source sentence the claim rests on, and a blank "supported / partly / not supported" column. Blind the arm.
+3. Your step: annotate the sheet (ideally a second annotator for a subset, for agreement).
+4. Report claim-level error rates with and without gates, with inter-annotator agreement.
 
-**After Session 7**: Session 8 (verification gates; needs your annotation of about 200 claims), Session 9, then
-13-15. Post-freeze recall work is listed in eval/results/6_error_analysis.md.
+**Optional, if free models are available**: a second screening model for Session 7
+(`python -m eval.rescreen run ... --label gemma4-31b --model google/gemma-4-31b-it:free`, then the report).
 
 **Housekeeping (your call)**: push and deploy; delete the `._pack-*.idx` files in `.git/objects/pack`.
 

@@ -1,0 +1,354 @@
+[
+ {
+  "review_id": "CD000996",
+  "records": [
+   785,
+   658,
+   975
+  ],
+  "pool_recall": [
+   0.3333333333333333,
+   0.5,
+   1.0
+  ],
+  "7_search_r1 vs 7_search_r2": 0.5857142857142857,
+  "7_search_r1 vs stored (model-planned)": 0.30177514792899407,
+  "7_search_r2 vs stored (model-planned)": 0.3507030603804797
+ },
+ {
+  "review_id": "CD001261",
+  "records": [
+   990,
+   903,
+   609
+  ],
+  "pool_recall": [
+   0.7272727272727273,
+   0.7727272727272727,
+   0.45454545454545453
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6096938775510204,
+  "7_search_r1 vs stored (model-planned)": 0.3302828618968386,
+  "7_search_r2 vs stored (model-planned)": 0.3584905660377358
+ },
+ {
+  "review_id": "CD004414",
+  "records": [
+   1122,
+   681,
+   847
+  ],
+  "pool_recall": [
+   0.14285714285714285,
+   0.14285714285714285,
+   0.7142857142857143
+  ],
+  "7_search_r1 vs 7_search_r2": 0.576048951048951,
+  "7_search_r1 vs stored (model-planned)": 0.08724461623412479,
+  "7_search_r2 vs stored (model-planned)": 0.09298998569384835
+ },
+ {
+  "review_id": "CD005139",
+  "records": [
+   840,
+   650,
+   692
+  ],
+  "pool_recall": [
+   0.20588235294117646,
+   0.14705882352941177,
+   0.19117647058823528
+  ],
+  "7_search_r1 vs 7_search_r2": 0.7126436781609196,
+  "7_search_r1 vs stored (model-planned)": 0.22756410256410256,
+  "7_search_r2 vs stored (model-planned)": 0.2589118198874296
+ },
+ {
+  "review_id": "CD005253",
+  "records": [
+   307,
+   306,
+   503
+  ],
+  "pool_recall": [
+   0.0,
+   0.6666666666666666,
+   0.6666666666666666
+  ],
+  "7_search_r1 vs 7_search_r2": 0.2383838383838384,
+  "7_search_r1 vs stored (model-planned)": 0.09164420485175202,
+  "7_search_r2 vs stored (model-planned)": 0.13464235624123422
+ },
+ {
+  "review_id": "CD006468",
+  "records": [
+   942,
+   877,
+   1021
+  ],
+  "pool_recall": [
+   0.5,
+   0.5,
+   0.08333333333333333
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6461538461538462,
+  "7_search_r1 vs stored (model-planned)": 0.05993520518358531,
+  "7_search_r2 vs stored (model-planned)": 0.05561735261401557
+ },
+ {
+  "review_id": "CD006715",
+  "records": [
+   584,
+   624,
+   844
+  ],
+  "pool_recall": [
+   0.7777777777777778,
+   0.7777777777777778,
+   1.0
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6236559139784946,
+  "7_search_r1 vs stored (model-planned)": 0.25704225352112675,
+  "7_search_r2 vs stored (model-planned)": 0.24936170212765957
+ },
+ {
+  "review_id": "CD007867",
+  "records": [
+   1017,
+   651,
+   816
+  ],
+  "pool_recall": [
+   0.4444444444444444,
+   0.0,
+   0.4444444444444444
+  ],
+  "7_search_r1 vs 7_search_r2": 0.550185873605948,
+  "7_search_r1 vs stored (model-planned)": 0.11428571428571428,
+  "7_search_r2 vs stored (model-planned)": 0.10466867469879518
+ },
+ {
+  "review_id": "CD008170",
+  "records": [
+   1164,
+   946,
+   640
+  ],
+  "pool_recall": [
+   0.012345679012345678,
+   0.012345679012345678,
+   0.0
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6306027820710973,
+  "7_search_r1 vs stored (model-planned)": 0.050058207217694994,
+  "7_search_r2 vs stored (model-planned)": 0.036601307189542485
+ },
+ {
+  "review_id": "CD008201",
+  "records": [
+   387,
+   198,
+   791
+  ],
+  "pool_recall": [
+   0.125,
+   0.125,
+   0.125
+  ],
+  "7_search_r1 vs 7_search_r2": 0.5116279069767442,
+  "7_search_r1 vs stored (model-planned)": 0.03062117235345582,
+  "7_search_r2 vs stored (model-planned)": 0.029136316337148804
+ },
+ {
+  "review_id": "CD009069",
+  "records": [
+   773,
+   598,
+   751
+  ],
+  "pool_recall": [
+   0.2,
+   0.0,
+   0.4
+  ],
+  "7_search_r1 vs 7_search_r2": 0.7736093143596378,
+  "7_search_r1 vs stored (model-planned)": 0.07855626326963906,
+  "7_search_r2 vs stored (model-planned)": 0.07233704292527822
+ },
+ {
+  "review_id": "CD009642",
+  "records": [
+   718,
+   1036,
+   894
+  ],
+  "pool_recall": [
+   0.5,
+   0.72,
+   0.4
+  ],
+  "7_search_r1 vs 7_search_r2": 0.693050193050193,
+  "7_search_r1 vs stored (model-planned)": 0.058437294812869335,
+  "7_search_r2 vs stored (model-planned)": 0.05522143247676326
+ },
+ {
+  "review_id": "CD010239",
+  "records": [
+   283,
+   262,
+   773
+  ],
+  "pool_recall": [
+   0.3,
+   0.4,
+   0.6
+  ],
+  "7_search_r1 vs 7_search_r2": 0.48097826086956524,
+  "7_search_r1 vs stored (model-planned)": 0.022265246853823813,
+  "7_search_r2 vs stored (model-planned)": 0.031904287138584245
+ },
+ {
+  "review_id": "CD010558",
+  "records": [
+   371,
+   337,
+   762
+  ],
+  "pool_recall": [
+   0.0,
+   0.1,
+   0.9
+  ],
+  "7_search_r1 vs 7_search_r2": 0.25754884547069273,
+  "7_search_r1 vs stored (model-planned)": 0.12067260138476756,
+  "7_search_r2 vs stored (model-planned)": 0.20372398685651696
+ },
+ {
+  "review_id": "CD010778",
+  "records": [
+   479,
+   422,
+   951
+  ],
+  "pool_recall": [
+   0.7222222222222222,
+   0.7222222222222222,
+   1.0
+  ],
+  "7_search_r1 vs 7_search_r2": 0.5975177304964538,
+  "7_search_r1 vs stored (model-planned)": 0.06716417910447761,
+  "7_search_r2 vs stored (model-planned)": 0.06682206682206682
+ },
+ {
+  "review_id": "CD011380",
+  "records": [
+   84,
+   78,
+   541
+  ],
+  "pool_recall": [
+   0.25,
+   0.25,
+   0.5
+  ],
+  "7_search_r1 vs 7_search_r2": 0.8,
+  "7_search_r1 vs stored (model-planned)": 0.05218855218855219,
+  "7_search_r2 vs stored (model-planned)": 0.05272108843537415
+ },
+ {
+  "review_id": "CD011436",
+  "records": [
+   424,
+   364,
+   962
+  ],
+  "pool_recall": [
+   0.42105263157894735,
+   0.42105263157894735,
+   1.0
+  ],
+  "7_search_r1 vs 7_search_r2": 0.3447098976109215,
+  "7_search_r1 vs stored (model-planned)": 0.16863406408094436,
+  "7_search_r2 vs stored (model-planned)": 0.16520210896309315
+ },
+ {
+  "review_id": "CD011768",
+  "records": [
+   852,
+   701,
+   1021
+  ],
+  "pool_recall": [
+   0.32,
+   0.08,
+   0.32
+  ],
+  "7_search_r1 vs 7_search_r2": 0.7065934065934066,
+  "7_search_r1 vs stored (model-planned)": 0.17947103274559195,
+  "7_search_r2 vs stored (model-planned)": 0.12992125984251968
+ },
+ {
+  "review_id": "CD012069",
+  "records": [
+   987,
+   927,
+   708
+  ],
+  "pool_recall": [
+   0.2816326530612245,
+   0.2530612244897959,
+   0.22448979591836735
+  ],
+  "7_search_r1 vs 7_search_r2": 0.7196765498652291,
+  "7_search_r1 vs stored (model-planned)": 0.34844868735083534,
+  "7_search_r2 vs stored (model-planned)": 0.4291958041958042
+ },
+ {
+  "review_id": "CD012164",
+  "records": [
+   712,
+   769,
+   608
+  ],
+  "pool_recall": [
+   1.0,
+   1.0,
+   0.6666666666666666
+  ],
+  "7_search_r1 vs 7_search_r2": 0.788647342995169,
+  "7_search_r1 vs stored (model-planned)": 0.3056379821958457,
+  "7_search_r2 vs stored (model-planned)": 0.29783223374175305
+ },
+ {
+  "review_id": "CD012347",
+  "records": [
+   608,
+   817,
+   616
+  ],
+  "pool_recall": [
+   0.0,
+   0.0,
+   0.7272727272727273
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6903914590747331,
+  "7_search_r1 vs stored (model-planned)": 0.003278688524590164,
+  "7_search_r2 vs stored (model-planned)": 0.002097902097902098
+ },
+ {
+  "review_id": "CD012930",
+  "records": [
+   759,
+   931,
+   961
+  ],
+  "pool_recall": [
+   0.2631578947368421,
+   0.47368421052631576,
+   0.47368421052631576
+  ],
+  "7_search_r1 vs 7_search_r2": 0.6749256689791873,
+  "7_search_r1 vs stored (model-planned)": 0.13306982872200263,
+  "7_search_r2 vs stored (model-planned)": 0.2050955414012739
+ }
+]

@@ -1,0 +1,200 @@
+[
+ {
+  "review_id": "CD000996",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD001261",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 1.0,
+  "pubmed_vs_stored": 0.3395493395493396,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD004414",
+  "plans": 3,
+  "concepts_vs_stored": 0.611111111111111,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 0.7777777777777777,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD005139",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD005253",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD006468",
+  "plans": 3,
+  "concepts_vs_stored": 0.3333333333333333,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 0.3333333333333333,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD006715",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD007867",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.3333333333333333,
+  "pubmed_vs_stored": 0.047619047619047616,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD008170",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 1.0,
+  "pubmed_vs_stored": 0.17216117216117213,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD008201",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD009069",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 1.0,
+  "pubmed_vs_stored": 0.35384615384615387,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD009642",
+  "plans": 3,
+  "concepts_vs_stored": 0.8333333333333334,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 0.6666666666666666,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD010239",
+  "plans": 3,
+  "concepts_vs_stored": 0.5,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 0.3,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD010558",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD010778",
+  "plans": 3,
+  "concepts_vs_stored": 0.4666666666666666,
+  "core_search_identical": 0.3333333333333333,
+  "pubmed_vs_stored": 0.047619047619047616,
+  "concepts_between_repeats": 0.4666666666666666,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD011380",
+  "plans": 3,
+  "concepts_vs_stored": 0.5,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD011436",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD011768",
+  "plans": 3,
+  "concepts_vs_stored": 0.20000000000000004,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD012069",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD012164",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.0,
+  "pubmed_vs_stored": 0.0,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ },
+ {
+  "review_id": "CD012347",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.3333333333333333,
+  "pubmed_vs_stored": 0.1111111111111111,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": false
+ },
+ {
+  "review_id": "CD012930",
+  "plans": 3,
+  "concepts_vs_stored": 1.0,
+  "core_search_identical": 0.6666666666666666,
+  "pubmed_vs_stored": 0.30303030303030304,
+  "concepts_between_repeats": 1.0,
+  "identical_concepts_all": true
+ }
+]
