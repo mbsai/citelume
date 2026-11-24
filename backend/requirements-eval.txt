@@ -1,0 +1,3 @@
+# Extra packages for the evaluation scripts in eval/ (figures and rank correlation); versions in requirements-lock.txt
+scipy>=1.11
+matplotlib>=3.8
