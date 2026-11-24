@@ -35,9 +35,9 @@ target recall is reached \citep{omara2015using,vandeschoot2021open}; that measur
 LLM screening report agreement with human decisions on given records \citep{guo2024automated,khraisha2024can}, and
 studies of LLM-written search strings report precision and recall of the strings \citep{wang2023can}. Our evaluation
 follows the whole path from question to selected studies against the included studies of published reviews, and
-attributes each lost study to a stage, which is what a reviewer needs to judge where the tool can be trusted. The
-repeatability problem reported for a commercial LLM assistant \citep{elicit2025repeat} is addressed here not by
-making the search deterministic, which the evidence suggests is not possible with live databases and models, but by
+attributes each lost study to a stage, which is what a reviewer needs to judge where the tool can be trusted. Run-to-run
+variation of the kind reported for LLM data extraction \citep{lagisz2026elicit} is addressed here, for study
+selection, not by making the search deterministic, which the evidence suggests is not possible with live databases and models, but by
 storing what each run found and making the selection a replayable function of it.
 
 \subsection{Implications}
