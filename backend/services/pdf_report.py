@@ -39,6 +39,8 @@ from reportlab.platypus import (
 from models import ExportRequest
 from services.fulltext import repair_ligatures
 from services.export_service import (
+    ROBINSON_LABELS,
+    gap_section_title,
     _gap_text_items,
     _is_prisma,
     gap_status_label,
@@ -325,7 +327,7 @@ def _coverage_grid(gm, st: dict) -> list:
 
 def _gap_section(req: ExportRequest, st: dict) -> list:
     gm = req.gap_matrix
-    out = [Paragraph("Open Questions and Thin Areas in These Studies", st["h1"])]
+    out = [Paragraph(gap_section_title(gm), st["h1"])]
     if gm.corpus_adequacy_explanation:
         out.append(Paragraph(_rich(gm.corpus_adequacy_explanation), st["note"]))
     if gm.structured_gaps:
@@ -333,8 +335,10 @@ def _gap_section(req: ExportRequest, st: dict) -> list:
         data = [[Paragraph(h, st["cellh"]) for h in head]]
         for sg in gm.structured_gaps:
             refs = ", ".join(f"[{i}]" for i in sg.supporting_study_indices) or "none in the selected studies"
+            reason = ROBINSON_LABELS.get(sg.robinson_reason, "")
             title = f"<b>{_clean(sg.gap_title)}</b><br/><font color='#64748b'>{_clean(sg.primary_gap_type)}; " \
-                    f"{_clean(gap_status_label(sg.verification_status))}</font>"
+                    + (f"reason: {_clean(reason)}; " if reason else "") \
+                    + f"{_clean(gap_status_label(sg.verification_status))}</font>"
             data.append([
                 Paragraph(title, st["cell"]),
                 Paragraph(_rich(sg.current_knowledge), st["cellj"]),

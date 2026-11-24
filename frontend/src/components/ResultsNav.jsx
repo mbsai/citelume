@@ -3,6 +3,7 @@
 
 export function resultSections(result) {
   const gaps = result?.gap_matrix?.structured_gaps?.length || 0;
+  const quickGaps = result?.gap_matrix?.scope === 'included_studies';
   return [
     {
       id: 'synthesis',
@@ -25,8 +26,10 @@ export function resultSections(result) {
       icon: '🧩',
       title: 'Open Questions',
       short: 'Open questions',
-      desc: 'Open questions and thin areas in these studies (exploratory)',
-      count: `${gaps} gap${gaps === 1 ? '' : 's'}`,
+      desc: quickGaps
+        ? 'Open questions the authors state, and where the studies disagree'
+        : 'Open questions and thin areas in these studies (exploratory)',
+      count: quickGaps ? `${gaps} item${gaps === 1 ? '' : 's'}` : `${gaps} gap${gaps === 1 ? '' : 's'}`,
     },
     {
       id: 'network',

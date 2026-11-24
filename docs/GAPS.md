@@ -18,6 +18,15 @@ corpus's analysis.
   contradict it.
 - The **candidate pool**: the records the searches found but the selection left out, used only to check gaps.
 
+## What each mode reports
+
+- **Quick answer (20 studies): only what holds at any number of studies.** Its studies were chosen to answer the
+  question, not to map what has been studied, so they cannot show that something is missing. It reports the open
+  questions the authors of these studies state (3 below) and disagreements among them (2 below), headed "Open
+  questions stated by the authors, and where the studies disagree". No grid, design-profile gaps, sub-question
+  coverage or research opportunities; the model is not asked for a grid.
+- **Deep review and guided review: the full analysis below**, labelled exploratory.
+
 ## Where the gaps come from
 
 Up to six gaps are reported. Each one names the studies it rests on and the kind of evidence behind it.
@@ -40,11 +49,27 @@ Up to six gaps are reported. Each one names the studies it rests on and the kind
 
 Nothing uses fixed per-field wording that could appear unchanged for an unrelated question.
 
+## Why the evidence cannot answer it
+
+Every gap names one of the four reasons of Robinson et al. (2011), *Frameworks for determining research gaps during
+systematic reviews* (AHRQ Methods Future Research Needs Report 2), shown on the page and in the exports:
+
+| Reason | Used for |
+|---|---|
+| Too little or imprecise evidence | no or one study in a grid cell; evidence absent; open mechanistic or theoretical questions |
+| Evidence at risk of bias | methodological limitations; an intervention question with no randomised trial |
+| Inconsistent results | studies that disagree; results on incompatible measures (consistency unknown) |
+| Not the population, setting or outcome asked about | only cell or animal models; no external validation; a single site or population |
+
+The reason comes from the gap's kind by fixed rules (`ROBINSON_BY_CATEGORY` and `ROBINSON_BY_DESIGN_KIND` in
+`gap_matrix_engine.py`). Risk-of-bias judgements, which run alongside the gap step, are not yet used for it.
+
 ## How each gap is checked
 
 - **Verification against the candidate pool** (`execute_targeted_gap_verification`). The gap's own search terms are
-  compared with records that were found but not included, to see whether any of them already addresses it. This
-  does not run a new database search: it is bounded by what the searches returned.
+  compared with every record that was found but not included, to see whether any of them already addresses it; the
+  three best matches are shown. (Before 24 November 2026 only the first ten such records, in the order the searches
+  returned them, were read.) This does not run a new database search: it is bounded by what the searches returned.
 - **Adversarial check** (`run_adversarial_gap_check`). Each gap is challenged by fixed questions, for example
   whether an included study already answers it, or whether a domain-specific result (such as an established proof)
   contradicts it. A gap that fails is marked as resolved by the retrieved evidence.
@@ -60,7 +85,7 @@ not prove universal field-wide absence") and says whether it rests on full text 
 
 ## Limits
 
-- **A gap drawn from 20 to 150 studies is not a gap in the literature.** "No study here did X" is often a sampling
+- **A gap drawn from 20 to 150 studies is not a gap in the literature** (which is why a quick answer reports none). "No study here did X" is often a sampling
   artefact: the selection was built to answer the question, not to map everything done on it.
 - **Verification does not search.** Checking a gap against the leftover candidate records is weaker than asking
   the databases whether the gap is real.

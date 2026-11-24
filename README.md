@@ -26,8 +26,10 @@ ranks what it finds. It then reads open-access full text where it is available, 
   - what the mix of study designs leaves out;
   - disagreements between studies;
   - thin areas of a question-specific evidence grid.
-  The gap view is exploratory: it reflects the included studies, not the whole literature. See
-  [docs/GAPS.md](docs/GAPS.md).
+  Each gap names why the evidence cannot answer it (too little, at risk of bias, inconsistent, or not the right
+  population or outcome; Robinson et al. 2011). A Standard answer reports only the first and third kinds: its 20
+  studies are too few to show what is missing. The gap view is exploratory: it reflects the included studies, not
+  the whole literature. See [docs/GAPS.md](docs/GAPS.md).
 - **A literature network** with citation links and topic clusters.
 - **A transparent choice of studies.** The 20 or 60 included studies are picked by fixed, published rules: eligibility
   checks, a 100-point score (relevance, study type, citations, recency, search agreement) and balanced selection

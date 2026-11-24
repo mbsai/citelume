@@ -1739,6 +1739,8 @@ class StructuredKnowledgeGap(BaseModel):
     # Classification
     taxonomy_code: GapTaxonomyCode = "G1"
     primary_gap_type: GapCategoryType = "Evidence absence"
+    # Why the evidence cannot answer this (Robinson et al. 2011, AHRQ framework for identifying research gaps)
+    robinson_reason: Literal["insufficient_or_imprecise", "biased", "inconsistent", "not_the_right_information", ""] = ""
     secondary_gap_types: List[GapCategoryType] = Field(default_factory=list)
     domain_profile: str = "universal_fallback"
     methodological_profile: str = "general_scientific"
@@ -1833,6 +1835,9 @@ class GapMatrixValidationReport(BaseModel):
 
 class KnowledgeGapMatrix(BaseModel):
     matrix_version: str = "section3-gap-matrix/2.0"
+    # "included_studies": a quick answer, which reports only what its studies' authors leave open and where its
+    # studies disagree (too few studies to claim gaps in coverage); "review": the full gap analysis
+    scope: Literal["included_studies", "review"] = "review"
     domain_profile: str = "universal_fallback"
     row_dimension_title: str = "Methodologies & Architectures"
     col_dimension_title: str = "Evaluation Domains, Datasets & Outcomes"

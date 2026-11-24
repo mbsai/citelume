@@ -1768,8 +1768,12 @@ async def build_knowledge_gap_matrix(
     synthesis_package: Optional[SynthesisEvidencePackage] = None,
     evidence_matrix: Optional[StructuredEvidenceMatrix] = None,
     all_candidate_pool: Optional[List[PaperRecord]] = None,
+    quick: bool = False,
 ) -> KnowledgeGapMatrix:
     """
+    quick (a quick answer): no model-built grid; only author-stated open questions and disagreements among the
+    included studies are reported (gap_matrix_engine.build_universal_knowledge_gap_matrix).
+
     Phase 8 & Section 3 — Universal Evidence-Gap Identification, Verification, and Research Prioritization Engine:
     - Builds a question-driven evidence coverage model and domain-adaptive 4x4 grid.
     - Classifies every gap into G1-G9 (`GapCategoryType`) with primary and secondary categories.
@@ -1779,11 +1783,11 @@ async def build_knowledge_gap_matrix(
     if synthesis_package is None:
         synthesis_package = get_last_synthesis_package()
 
-    if not papers:
+    if not papers or quick:
         return await build_universal_knowledge_gap_matrix(
             query=query, papers=papers, hf_resources=hf_resources, config=config,
             decomposition_plan=decomposition_plan, synthesis_package=synthesis_package,
-            evidence_matrix=evidence_matrix, all_candidate_pool=all_candidate_pool,
+            evidence_matrix=evidence_matrix, all_candidate_pool=all_candidate_pool, quick=quick,
         )
 
     prim_domain = "biomedical_clinical"

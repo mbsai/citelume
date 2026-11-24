@@ -90,6 +90,20 @@ def gap_status_label(status: str) -> str:
     return GAP_STATUS_LABELS.get(status, status)
 
 
+# Why the evidence cannot answer a gap (Robinson et al. 2011); the same wording as the page
+ROBINSON_LABELS = {
+    "insufficient_or_imprecise": "Too little or imprecise evidence",
+    "biased": "Evidence at risk of bias",
+    "inconsistent": "Inconsistent results",
+    "not_the_right_information": "Not the population, setting or outcome asked about",
+}
+
+
+def gap_section_title(gm) -> str:
+    return ("Open Questions Stated by the Authors, and Where the Studies Disagree"
+            if getattr(gm, "scope", "review") == "included_studies" else "Open Questions and Thin Areas in These Studies")
+
+
 def _is_prisma(req: ExportRequest) -> bool:
     return bool(req.review_protocol and req.review_protocol.framework_id == "systematic_prisma")
 
@@ -305,7 +319,7 @@ def generate_markdown_report(req: ExportRequest) -> str:
         lines.append("")
 
     if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
-        lines.append("## Open Questions and Thin Areas in These Studies")
+        lines.append(f"## {gap_section_title(req.gap_matrix)}")
         lines.append("")
         if req.gap_matrix.corpus_adequacy_explanation:
             lines.append(f"> {req.gap_matrix.corpus_adequacy_explanation}")
@@ -314,7 +328,9 @@ def generate_markdown_report(req: ExportRequest) -> str:
             lines.append("| Open Question | What Is Known | What Remains Unresolved | Evidence Basis | Checked Against | Research Direction |")
             lines.append("|---|---|---|---|---|---|")
             for sg in req.gap_matrix.structured_gaps:
-                g_title = f"**[{sg.gap_id}] {sg.gap_title}** ({sg.taxonomy_code}: {sg.primary_gap_type})".replace("|", "/")
+                reason = ROBINSON_LABELS.get(sg.robinson_reason, "")
+                g_title = (f"**[{sg.gap_id}] {sg.gap_title}** ({sg.taxonomy_code}: {sg.primary_gap_type}"
+                           + (f"; reason: {reason}" if reason else "") + ")").replace("|", "/")
                 known = (sg.current_knowledge or "").replace("|", "/")
                 unres = (sg.unresolved_issue or "").replace("|", "/")
                 ev_basis = (
@@ -453,7 +469,7 @@ def generate_txt_report(req: ExportRequest) -> str:
             lines.append("")
 
     if req.include_gap_matrix and req.gap_matrix and (req.gap_matrix.structured_gaps or req.gap_matrix.top_opportunities):
-        lines.extend(["OPEN QUESTIONS AND THIN AREAS IN THESE STUDIES", subsep, ""])
+        lines.extend([gap_section_title(req.gap_matrix).upper(), subsep, ""])
         for item in _gap_text_items(req.gap_matrix):
             lines.append(f"* {item[0]}")
             lines.extend(f"  {label:<20}: {value}" for label, value in item[1])
@@ -515,6 +531,7 @@ def _gap_text_items(gm) -> list:
             f"[{sg.gap_id}] {sg.gap_title} ({sg.taxonomy_code}: {sg.primary_gap_type})",
             [("What is known", sg.current_knowledge), ("What is unresolved", sg.unresolved_issue),
              ("Why it matters", sg.why_it_matters), ("Studies", refs),
+             *([("Reason", ROBINSON_LABELS[sg.robinson_reason])] if sg.robinson_reason in ROBINSON_LABELS else []),
              ("Checked against", f"{gap_status_label(sg.verification_status)}; {sg.priority_assessment}"),
              ("Research direction", sg.recommended_study_or_approach)],
         ))

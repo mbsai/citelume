@@ -576,26 +576,32 @@ async def execute_targeted_gap_verification(
             # evidence that the gap has been addressed
             topic = set(re.findall(r"[a-z][a-z0-9-]{3,}", (query or "").lower()))
             gap_toks = [t for t in q_toks if t not in topic]
-            for op in (overflow_papers[:10] if gap_toks else []):
+            # Every record left out is checked, and the best matches are kept (most of the gap's own words, then
+            # most of the query's words); the order the searches returned them in plays no part
+            matches = []
+            for op in (overflow_papers if gap_toks else []):
                 op_text = f"{op.title} {op.abstract or ''}".lower()
                 gap_hits = sum(1 for t in gap_toks if t in op_text)
-                if gap_hits >= max(1, (len(gap_toks) + 1) // 2) and sum(1 for t in q_toks if t in op_text) >= max(2, len(q_toks) // 2):
-                    supp_records.append(
-                        SupplementaryVerificationRecord(
-                            verification_source_id=f"SUPP-{op.id}",
-                            gap_id=gap.gap_id,
-                            query_executed=gap.verification_queries[0] if gap.verification_queries else "",
-                            source_database=op.source or "Supplementary Pool",
-                            title=op.title,
-                            authors=list(op.authors[:3]),
-                            year=op.year,
-                            persistent_id=op.doi or op.pmid or op.arxiv_id or op.id,
-                            url=op.url,
-                            abstract_excerpt=(op.abstract or "")[:240],
-                            relevance_to_gap="partially_addresses",
-                            assessment_note="Identified in supplementary candidate pool outside the primary 20/60 study cap.",
-                        )
+                q_hits = sum(1 for t in q_toks if t in op_text)
+                if gap_hits >= max(1, (len(gap_toks) + 1) // 2) and q_hits >= max(2, len(q_toks) // 2):
+                    matches.append((-gap_hits, -q_hits, op.id, op))
+            for _, _, _, op in sorted(matches, key=lambda m: m[:3])[:_MAX_SUPPLEMENTARY_PER_GAP]:
+                supp_records.append(
+                    SupplementaryVerificationRecord(
+                        verification_source_id=f"SUPP-{op.id}",
+                        gap_id=gap.gap_id,
+                        query_executed=gap.verification_queries[0] if gap.verification_queries else "",
+                        source_database=op.source or "Supplementary Pool",
+                        title=op.title,
+                        authors=list(op.authors[:3]),
+                        year=op.year,
+                        persistent_id=op.doi or op.pmid or op.arxiv_id or op.id,
+                        url=op.url,
+                        abstract_excerpt=(op.abstract or "")[:240],
+                        relevance_to_gap="partially_addresses",
+                        assessment_note="Found among the records the searches retrieved but the selection left out.",
                     )
+                )
         _GAP_VERIFICATION_CACHE[cache_key] = list(supp_records)
 
     # Evaluate verification outcome (Phase 6 Step 4 & 5, Phase 7 States 1-6)
@@ -860,6 +866,25 @@ def validate_knowledge_gap_matrix(
 # ============================================================================
 
 _MAX_STRUCTURED_GAPS = 6
+_MAX_SUPPLEMENTARY_PER_GAP = 3  # left-out records shown against one gap
+
+# Why the evidence cannot answer a gap, after Robinson et al. 2011 (AHRQ, "Frameworks for determining research gaps
+# during systematic reviews"): insufficient or imprecise information, biased information, inconsistency or unknown
+# consistency, or not the right information (population, setting, outcome or design not the one asked about)
+ROBINSON_BY_CATEGORY: Dict[str, str] = {
+    "Evidence absence": "insufficient_or_imprecise",
+    "Mechanistic uncertainty": "insufficient_or_imprecise",
+    "Theoretical or formal unresolved problems": "insufficient_or_imprecise",
+    "Methodological limitations": "biased",
+    "Inconsistent findings": "inconsistent",
+    "Measurement/standardization limitations": "inconsistent",
+    "Population or contextual limitations": "not_the_right_information",
+    "Validation deficiencies": "not_the_right_information",
+    "Translational deficiencies": "not_the_right_information",
+}
+# Design-profile gaps whose reason differs from their category's: an intervention question answered only by
+# non-randomised designs is a problem of risk of bias, not of missing studies
+ROBINSON_BY_DESIGN_KIND: Dict[str, str] = {"no_trials": "biased"}
 _RECOMMENDED_BY_CATEGORY = {
     "Theoretical or formal unresolved problems": "A proof, counterexample or sharper bound for the stated case.",
     "Mechanistic uncertainty": "Mechanistic studies (perturbation, pathway or mediation analyses) that test the proposed mechanism.",
@@ -913,9 +938,14 @@ def _derive_evidence_gaps(
     subq_coverage: List[SubquestionCoverageRecord],
     now_iso: str,
     coverage_cells: List[GapOpportunity],
+    quick: bool = False,
 ) -> None:
     """Append gap records grounded in this corpus: design profile, disagreements, author-stated open questions,
-    and (when the model built the grid) under-covered cells of the question-specific grid."""
+    and (when the model built the grid) under-covered cells of the question-specific grid.
+
+    quick: a quick answer's 20 studies were chosen to answer the question, not to map what exists, so they cannot
+    show that something is missing. Only what holds at any number of studies is reported: disagreements among
+    them and the open questions their authors state."""
     scope = f"Primary {len(papers)}-study corpus + bounded supplementary verification pool"
     subq_ids = [subq_coverage[0].subquestion_id] if subq_coverage else ["Q1"]
 
@@ -934,6 +964,7 @@ def _derive_evidence_gaps(
         idxs = [i for i in kw.pop("study_indices") if i in papers_by_idx]
         units = [units_by_idx[i] for i in idxs if i in units_by_idx]
         cat = kw.pop("category")
+        robinson = kw.pop("robinson", "") or ROBINSON_BY_CATEGORY.get(cat, "insufficient_or_imprecise")
         search_terms = kw.pop("search_terms")
         v_q, v_queries = _gap_search(query, search_terms)
         gid = f"GAP-{len(candidate_gaps) + 1}"
@@ -944,6 +975,7 @@ def _derive_evidence_gaps(
             subquestion_ids=subq_ids,
             taxonomy_code=CATEGORY_TO_CODE.get(cat, "G1"),
             primary_gap_type=cat,
+            robinson_reason=robinson,
             secondary_gap_types=kw.pop("secondary", []),
             domain_profile=module_key,
             supporting_study_indices=idxs,
@@ -966,7 +998,7 @@ def _derive_evidence_gaps(
             **kw,
         ))
 
-    design_gaps = derive_design_gaps(papers, query, module_key)
+    design_gaps = [] if quick else derive_design_gaps(papers, query, module_key)
 
     # 1. Prediction models without external validation
     for dg in [d for d in design_gaps if d.kind == "external_validation"]:
@@ -1022,7 +1054,7 @@ def _derive_evidence_gaps(
             study_indices=idxs, search_terms=["conflicting", "heterogeneity"],
             provenance=["Study stances from the synthesis extraction"])
     def add_measurement_gap() -> None:
-        if contradicting or not (mixed or len(kinds) >= 2):
+        if quick or contradicting or not (mixed or len(kinds) >= 2):
             return
         measured = "; ".join(f"{k} in {', '.join(f'[{i}]' for i in v[:4])}" for k, v in list(kinds.items())[:4])
         idxs = sorted({i for v in kinds.values() for i in v} | {p.citation_index for p in mixed})
@@ -1079,6 +1111,7 @@ def _derive_evidence_gaps(
             evidence_needed=dg.evidence_needed, recommended_study_or_approach=dg.recommended_approach,
             expected_knowledge_contribution="Fills a design gap in the current evidence base.",
             study_indices=dg.study_indices, search_terms=dg.search_terms,
+            robinson=ROBINSON_BY_DESIGN_KIND.get(dg.kind, ""),
             provenance=["Design profile of the included studies"])
 
     # 5. Question-specific grid cells (model-built axes) with no or one study
@@ -1100,6 +1133,8 @@ def _derive_evidence_gaps(
             unresolved_issue=cell.why_gap_exists,
             why_it_matters=f"This part of the question rests on {n} stud{'y' if n == 1 else 'ies'} in the retrieved evidence.",
             origin_type="A_missing_direct_evidence" if n == 0 else "E_unexplored_relevant_conditions",
+            robinson="inconsistent" if cell.coverage_classification == "Conflicting evidence identified"
+            else "insufficient_or_imprecise",
             suggested_research_question=f"What is known about {cell.method_row} in {cell.domain_col}?",
             evidence_needed=f"Primary studies of {cell.method_row} in {cell.domain_col}.",
             recommended_study_or_approach=cell.proposed_hypothesis,
@@ -1133,10 +1168,14 @@ async def build_universal_knowledge_gap_matrix(
     evidence_matrix: Optional[StructuredEvidenceMatrix] = None,
     all_candidate_pool: Optional[List[PaperRecord]] = None,
     llm_grid: Optional[Any] = None,
+    quick: bool = False,
 ) -> KnowledgeGapMatrix:
     """
     Build the complete Section 3 Universal Evidence-Gap Identification, Verification,
     and Research Prioritization Matrix.
+
+    quick (a quick answer): no coverage grid, sub-question coverage, design gaps or research opportunities, only
+    the disagreements among the included studies and the open questions their authors state (_derive_evidence_gaps).
     """
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     module_key = resolve_domain_module_key(query, decomposition_plan)
@@ -1196,8 +1235,8 @@ async def build_universal_knowledge_gap_matrix(
     )
 
     # Phase 4 & 12: Construct Adaptive 4x4 Evidence-Coverage Grid
-    rows: List[str] = list(fw["rows"][:4])
-    cols: List[str] = list(fw["cols"][:4])
+    rows: List[str] = [] if quick else list(fw["rows"][:4])
+    cols: List[str] = [] if quick else list(fw["cols"][:4])
     # A model-built grid (Task H-I) has axes written for this question; its cells become coverage gaps.
     # The fixed per-domain axes are only a coverage overview and never produce gap records on their own.
     llm_cells: Dict[Tuple[int, int], Any] = {}
@@ -1408,12 +1447,15 @@ async def build_universal_knowledge_gap_matrix(
             subq_coverage=subq_coverage,
             now_iso=now_iso,
             coverage_cells=[c for _, _, c in candidate_cell_coords] if grid_from_model else [],
+            quick=quick,
         )
 
     # ========================================================================
     # PHASE 8: Separate Constructive Research Opportunities from Knowledge Gaps
     # ========================================================================
-    if hf_names:
+    if quick:
+        pass  # a quick answer reports no research opportunities: they would be generic, not drawn from its studies
+    elif hf_names:
         research_opportunities.append(
             ResearchOpportunityRecord(
                 opportunity_id="OPP-1",
@@ -1528,7 +1570,15 @@ async def build_universal_knowledge_gap_matrix(
     )
 
     # Case A / Case C / Case F explanation when active_gaps is empty
-    if not active_gaps:
+    if quick:
+        adequacy_explanation = (
+            (f"{len(active_gaps)} open question(s) stated by the authors of these {len(papers)} studies, or "
+             "disagreement(s) among them." if active_gaps else
+             f"The authors of these {len(papers)} studies state no open question, and the studies do not disagree.")
+            + " A quick answer's studies are chosen to answer the question, not to map what has been studied, so "
+            "it does not report gaps in the literature; a deep review does."
+        )
+    elif not active_gaps:
         adequacy_explanation = (
             f"All candidate gaps examined across the {len(papers)} studies were either directly addressed by established "
             f"evidence/proofs in the primary corpus or resolved during targeted verification ({len(resolved_gaps)} archived in audit trail). "
@@ -1542,6 +1592,9 @@ async def build_universal_knowledge_gap_matrix(
         )
 
     disclosures = [
+        f"Quick answer: only what the authors of these {len(papers)} studies say is unresolved, and where the studies "
+        "disagree. Too few studies, chosen to answer the question, to show what the literature lacks.",
+    ] if quick else [
         f"Search & Selection Scope: Primary analysis is bounded to {len(papers)} selected studies; "
         "open questions and thin areas describe these studies only and do not show that the wider literature lacks an answer.",
         "Verification Separation: Supplementary verification records are inspected to falsify candidate gaps without silently expanding the primary 20/60 synthesis study cap.",
@@ -1550,6 +1603,7 @@ async def build_universal_knowledge_gap_matrix(
 
     matrix = KnowledgeGapMatrix(
         matrix_version="section3-gap-matrix/2.0",
+        scope="included_studies" if quick else "review",
         domain_profile=module_key,
         row_dimension_title=fw["row_title"],
         col_dimension_title=fw["col_title"],
@@ -1557,7 +1611,7 @@ async def build_universal_knowledge_gap_matrix(
         cols=cols,
         cells=cells,
         top_opportunities=top_opps[:6],
-        subquestion_coverage=subq_coverage,
+        subquestion_coverage=[] if quick else subq_coverage,
         structured_gaps=active_gaps,
         resolved_or_invalidated_gaps=resolved_gaps,
         research_opportunities=research_opportunities,

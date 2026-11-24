@@ -57,6 +57,14 @@ const VERIFICATION_BADGE = {
   'Verification Unavailable': 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
+// Why the evidence cannot answer the question (Robinson et al. 2011, AHRQ framework for identifying research gaps)
+const ROBINSON_LABEL = {
+  insufficient_or_imprecise: 'Too little or imprecise evidence',
+  biased: 'Evidence at risk of bias',
+  inconsistent: 'Inconsistent results',
+  not_the_right_information: 'Not the population, setting or outcome asked about',
+};
+
 const PRIORITY_BADGE = {
   'High relevance to the research question': 'bg-rose-50 text-rose-800 border-rose-200',
   'Moderate relevance': 'bg-amber-50 text-amber-800 border-amber-200',
@@ -71,7 +79,8 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
   const [expandedGapIds, setExpandedGapIds] = useState({});
   const [activeSubView, setActiveSubView] = useState('gaps'); // 'gaps' | 'opportunities' | 'resolved'
 
-  if (!gapMatrix || (!gapMatrix.rows?.length && !gapMatrix.subquestion_coverage?.length)) {
+  const quick = gapMatrix?.scope === 'included_studies';
+  if (!gapMatrix || (!quick && !gapMatrix.rows?.length && !gapMatrix.subquestion_coverage?.length)) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
         Run a search to see the open questions in the included studies.
@@ -98,7 +107,9 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-bold text-slate-900">
-                Open Questions and Thin Areas in These Studies
+                {quick
+                  ? 'Open Questions Stated by the Authors, and Where the Studies Disagree'
+                  : 'Open Questions and Thin Areas in These Studies'}
               </h2>
               {gapMatrix.domain_profile && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -106,7 +117,9 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                 </span>
               )}
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                Exploratory: describes the included studies, not the field
+                {quick
+                  ? 'Quick answer: about these studies only'
+                  : 'Exploratory: describes the included studies, not the field'}
               </span>
             </div>
             <p className="text-xs text-slate-600 mt-1">
@@ -116,11 +129,13 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 font-semibold">
-              Active Gaps: {structuredGaps.length}
+              {quick ? 'Open questions and disagreements' : 'Active Gaps'}: {structuredGaps.length}
             </span>
-            <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
-              Research Opportunities: {opportunities.length}
-            </span>
+            {!quick && (
+              <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
+                Research Opportunities: {opportunities.length}
+              </span>
+            )}
             {resolvedGaps.length > 0 && (
               <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
                 Resolved in Verification: {resolvedGaps.length}
@@ -181,7 +196,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              Open Questions, Research Opportunities and Checks
+              {quick ? 'Open Questions, Disagreements and Checks' : 'Open Questions, Research Opportunities and Checks'}
             </h3>
             <p className="text-xs text-slate-500">
               Click a row to see the kind of gap, the studies it rests on, how it was checked against the records found, its priority and why, and the challenge questions it was put to.
@@ -199,7 +214,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
             >
               Open Questions ({structuredGaps.length})
             </button>
-            <button
+            {!quick && <button
               type="button"
               onClick={() => setActiveSubView('opportunities')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
@@ -209,7 +224,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
               }`}
             >
               Separated Research Opportunities ({opportunities.length})
-            </button>
+            </button>}
             <button
               type="button"
               onClick={() => setActiveSubView('resolved')}
@@ -228,7 +243,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
           <>
             {structuredGaps.length === 0 ? (
               <div className="p-6 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-900">
-                <strong>No open questions found in these studies:</strong>{' '}
+                <strong>{quick ? 'Nothing to report:' : 'No open questions found in these studies:'}</strong>{' '}
                 {gapMatrix.corpus_adequacy_explanation ||
                   'All candidate questions were adequately addressed by existing proofs/evidence or resolved during targeted verification.'}
               </div>
@@ -262,6 +277,14 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                                 </span>
                               </div>
                               <div className="font-semibold text-slate-900 mt-1">{g.gap_title}</div>
+                              {ROBINSON_LABEL[g.robinson_reason] && (
+                                <div
+                                  className="inline-block mt-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px]"
+                                  title="Why the evidence cannot answer this (Robinson et al. 2011)"
+                                >
+                                  Reason: {ROBINSON_LABEL[g.robinson_reason]}
+                                </div>
+                              )}
                               <div className="text-[10px] text-slate-500 mt-1">
                                 {isExp ? '▾ Hide verification & adversarial audit' : '▸ Inspect verification & priority details'}
                               </div>

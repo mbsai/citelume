@@ -1097,6 +1097,9 @@ async def _analyse(run: CorpusRun) -> ResearchResponse:
             synthesis_package=claim_evidence_pkg,
             evidence_matrix=downstream["evidence_matrix"],
             all_candidate_pool=corpus.records,
+            # A quick answer's 20 studies cannot show what the literature lacks: only author-stated open
+            # questions and disagreements among them are reported (docs/GAPS.md)
+            quick=req.mode != "deep_research",
         )
 
     # Systematic-style review: risk of bias from the full text, alongside the synthesis
