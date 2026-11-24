@@ -1,0 +1,83 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Principal findings}
+
+Separating a rule-based, stored selection from the steps where a model helps made \tool{}'s study selection exactly
+reproducible from its stored records, while the model's contribution stayed measurable and bounded. Repeating a run
+does not give the same records: the model's search plan varies in its synonyms, and databases differ in what they
+return on a given day. The corpus turns this from an unknown into a record: it holds what was found, what was
+asked, and every decision, so a review can be audited and its selection replayed even when a new search would
+differ. The model's screening was highly consistent with itself on the same records ($\kappa$ above 0.9), and the
+score's constants could be changed by half without moving recall by more than a third of a percentage point.
+
+On held-out Cochrane intervention reviews, the systematic-style mode found about half of each review's included
+studies and selected a quarter. This is far from what a systematic search achieves, and we do not suggest it can
+replace one. The loss analysis shows why, and where to improve: four in five lost studies were lost at search, half
+of them because they ranked beyond the 500 PubMed records retrieved by queries that do match them. Ranking and
+screening, the steps most LLM tools focus on, accounted for less of the loss; the model screen kept 87\% of the
+included studies it saw.
+
+\subsection{What the design costs}
+
+Keeping the selection independent of the model has a price, which the evaluation makes visible. Selection reads a
+rule-based parse of the question, and where the parse was poor (a verb or participle joined to a concept, a class
+named where studies name its members) included studies were judged off topic even though the model's search plan
+had named the concept correctly. Two of 22 reviews selected nothing for this reason. In the evaluation each question
+was the review's title, run with the default protocol and no person confirming it; in \tool{}'s guided review the
+user sees and edits the parsed concepts before anything is searched, which is the intended remedy. The recall
+reported here is therefore that of the tool used without that step.
+
+\subsection{Comparison with other work}
+
+Tools that rank records for screening are usually evaluated on a fixed set of records, by the work saved before a
+target recall is reached \citep{omara2015using,vandeschoot2021open}; that measures ranking and not search. Studies of
+LLM screening report agreement with human decisions on given records \citep{guo2024automated,khraisha2024can}, and
+studies of LLM-written search strings report precision and recall of the strings \citep{wang2023can}. Our evaluation
+follows the whole path from question to selected studies against the included studies of published reviews, and
+attributes each lost study to a stage, which is what a reviewer needs to judge where the tool can be trusted. The
+repeatability problem reported for a commercial LLM assistant \citep{elicit2025repeat} is addressed here not by
+making the search deterministic, which the evidence suggests is not possible with live databases and models, but by
+storing what each run found and making the selection a replayable function of it.
+
+\subsection{Implications}
+
+For tool developers, the largest gains lie in retrieval depth and query sensitivity rather than ranking: deeper
+paging of the queries that already match, and better handling of intervention classes (for example through
+pharmacological-action headings). For users, the quick-answer mode of such tools, which held 4\% of a review's
+included studies, should not be mistaken for a literature search, and a systematic-style result should be read with
+its pool recall in mind. Consistent with recent guidance on AI in evidence synthesis \citep{raise2026}, \tool{}
+labels its results, shows its search strings and counts, keeps every screening decision open to the user's override
+with a recorded reason, and marks a review that synthesised fewer than all its eligible studies as not complete.
+
+\subsection{Limitations}
+\label{sec:limits}
+
+The benchmark covers Cochrane intervention reviews published before mid-2019, and recall may differ for other
+questions, fields and review types. Cochrane reviews search sources \tool{} does not (Embase, CENTRAL, trial
+registers, grey literature) and screen full texts, so their included studies are a demanding reference standard for
+a tool limited to open databases. One model was used throughout; a second screening model could not be measured,
+and the model screened titles and abstracts truncated to 420 characters. Search and selection were developed on the
+development reviews and frozen after the systematic-style test results had been seen (no change was made to them on
+account of those results). Repeats of the record search were made with rule-based planning only. Risk-of-bias
+suggestions were not compared with published judgements, because the benchmark does not include them and few
+included studies have open full text; they are reported as exploratory. \PENDING{claim-accuracy limitation: single
+main annotator, abstracts only, sample of 200 of 881 sentences}. Finally, the software and this evaluation were built
+by a single author with extensive AI assistance (Section~\ref{sec:ai}); every result is produced by scripts from
+stored runs, and the code, corpora and results are public so that they can be checked.
+
+\subsection{Future work}
+
+Planned work includes deeper and more sensitive searches, a second screening model, a comparison of the risk-of-bias
+suggestions with published judgements, and a study of the guided review with reviewers. A count-based evidence gap
+map, which fills a grid of interventions by outcomes with dated database counts rather than with the selected
+studies \citep{snilstveit2016evidence}, has been added to \tool{} since the evaluation and will be evaluated
+separately against published evidence gap maps.
+
+\section{Conclusion}
+
+Making study selection a replayable function of stored records, with a bounded and recorded role for the model,
+makes LLM-assisted study selection auditable and reproducible without requiring live searches or models to behave
+deterministically. Measured honestly against Cochrane reviews, such a tool finds about half of a review's included
+studies, and most of what it misses is lost at search, which points to where these tools should improve and confirms
+that they support, rather than replace, a systematic search.

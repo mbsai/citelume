@@ -1,0 +1,192 @@
+\section{Design of \tool{}}
+\label{sec:design}
+
+\subsection{Principles}
+
+\tool{} is a web application and Python library (FastAPI back end, React front end, MIT licence). Three principles
+shape it:
+\begin{enumerate}
+\item \textbf{Protocol first.} A question is turned into a review protocol before anything is searched: the review
+  type, the parts of the question (concepts) with their synonyms, the populations or places every study must name,
+  and the eligibility criteria. The tool proposes a protocol from the question's own words; in the guided review
+  the user confirms or edits each part. The protocol is stored with the results.
+\item \textbf{A bounded role for the model.} A model may propose synonyms and search aspects, screen titles and
+  abstracts against the protocol's criteria, extract study details and write the synthesis. It never writes search
+  strings, and the rule-based steps that decide inclusion (duplicate merging, eligibility and ranking) do not read
+  its output: they match studies against the concepts parsed from the question by fixed rules, so the same records
+  give the same candidates with any model or none.
+\item \textbf{Everything stored, selection replayable.} Each run is stored as a \emph{corpus}: every record the
+  searches returned (before and after merging), the search plan and strings, the protocol, every eligibility and
+  screening decision with its reason and the model's name, the selection protocol version and the code commit,
+  under a content hash. A replay function re-runs the selection from the stored records alone, with no network
+  and no model, and checks that it reproduces the included studies, in order, with the same hash.
+\end{enumerate}
+Figure~\ref{fig:pipeline} shows the pipeline. The full selection rules are published in the repository
+(\texttt{docs/RANKING.md}, generated from the code) and summarised below; they are those of selection protocol
+\texttt{citelume-selection/2.5}, the version evaluated.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, align=center, font=\scriptsize, minimum height=12mm, text width=25mm},
+  model/.style={box, fill=orange!15},
+  rule/.style={box, fill=blue!8},
+  store/.style={draw, rounded corners=2pt, align=center, font=\scriptsize, fill=gray!15, text width=112mm,
+    minimum height=8mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+\node[rule]  (q)       at (0,0)    {Question $\rightarrow$ review protocol (user confirms)};
+\node[model] (plan)    at (3.6,0)  {Search plan: concepts, synonyms, aspects};
+\node[rule]  (strings) at (7.2,0)  {Search strings compiled by rules (+ MeSH)};
+\node[rule]  (search)  at (10.8,0) {Database searches; citation searching};
+\node[rule]  (merge)   at (10.8,-2.2) {Merge duplicates; eligibility rules; 100-point score};
+\node[model] (screen)  at (7.2,-2.2)  {Model screens titles and abstracts against criteria};
+\node[rule]  (incl)    at (3.6,-2.2)  {Included studies: every eligible, up to the limit};
+\node[model] (synth)   at (0,-2.2)    {Extraction, synthesis and checks};
+\node[store] (corpus)  at (5.4,-4.1)  {Stored corpus: records, plan, strings, every decision and reason, model names,
+  versions, content hash $\rightarrow$ \emph{the selection replays without search or model}};
+\draw[arr] (q) -- (plan); \draw[arr] (plan) -- (strings); \draw[arr] (strings) -- (search);
+\draw[arr] (search) -- (merge); \draw[arr] (merge) -- (screen); \draw[arr] (screen) -- (incl);
+\draw[arr] (incl) -- (synth);
+\draw[arr, dashed, gray] (merge.south) -- (merge.south |- corpus.north);
+\draw[arr, dashed, gray] (screen.south) -- (screen.south |- corpus.north);
+\draw[arr, dashed, gray] (incl.south) -- (incl.south |- corpus.north);
+\end{tikzpicture}
+\caption{The \tool{} pipeline. Orange steps may use a model; blue steps follow fixed rules. The rule-based steps that
+decide which studies are candidates do not read the model's plan. Everything is stored in a corpus from which the
+selection can be replayed.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Search}
+
+The question is reduced to one to three concepts that every relevant record must be about, each with synonyms;
+a population or place named in the question is also required. With a model configured, the model proposes the
+concepts, synonyms and four to six search aspects (for example mechanisms, adverse effects), and its concepts are
+accepted only if the leading one is anchored in the question's words; otherwise fixed rules built for questions
+written as review titles derive them. Search strings are then compiled by rules, never written by the model. For
+each concept, PubMed is asked once how it maps the words to its controlled vocabulary, and the returned MeSH
+headings and pharmacological actions are added as alternatives \citep{lefebvre2023searching}. Each database (PubMed
+with its Europe PMC mirror, Semantic Scholar with OpenAlex as a fallback, bioRxiv/medRxiv and arXiv) receives a core
+search (the concepts), a reviews search and one search per aspect. For systematic-style reviews the core PubMed
+search can be paged deeper (500 records in the evaluation). After a first selection, the reference lists and citing
+papers of up to 60 selected studies are fetched from Semantic Scholar (records linked to at least two are added),
+and the reference lists of on-topic reviews set aside by the eligibility rules are added, as records identified by
+other methods \citep{page2021prisma}. The strings, the number of records each PubMed search matched and how many
+were retrieved are stored and shown.
+
+\subsection{Selection}
+
+Records for the same paper are merged by DOI, PubMed ID, arXiv ID or normalised title. Eligibility rules then
+remove, each under its own reason: records outside a population or place the question names; records whose main
+concept appears nowhere in the title, abstract or (for PubMed records) MeSH indexing; records that are not research
+reports (corrections, retraction notices, protocols without results, meeting abstracts); and records outside the
+protocol's years or designs. In a systematic-style review, reviews of all kinds are set aside and listed for the
+discussion. Each remaining record receives a published 100-point score: relevance to the question (50 points:
+concept matches in title and abstract, and BM25 wording overlap ranked among the candidates), study type (20 points,
+from the database's publication type where available, otherwise from wording), citations per year ranked among the
+candidates (15), recency (10) and the number of independent searches that found it (5).
+
+For a quick answer the 20 highest-scoring studies are chosen with simple coverage rules (each search aspect is
+represented; reviews limited to a share of places). For a systematic-style review there are no quotas: every
+eligible primary study whose title or abstract addresses every part of the question is a candidate, and records
+that match the main concepts but not every part go to model screening rather than being excluded by word matching.
+The model then screens candidates in score order, in batches of 12, answering each protocol criterion as yes, no
+or unclear for each record from its title and the first 420 characters of its abstract; a record is excluded only
+if a criterion is clearly not met (``unclear'' never excludes). Screening continues until the study limit is filled
+(150 in the evaluation), up to the larger of 240 records or twice the limit per review. Each decision is stored
+with its reason and can be overturned by the user, with a recorded reason. Every exclusion is counted at its PRISMA
+2020 stage for the flow diagram \citep{page2021prisma}.
+
+\subsection{After selection}
+
+A model extracts each included study's design, population, results and stated limitations (from open-access full
+text where available) and writes a synthesis in which every sentence cites the studies it rests on; rule-based
+checks compare figures and citations with the extracted details. Risk of bias is suggested only for studies with
+open full text, each judgement resting on a quotation checked against the text and, for randomised trials, on the
+RoB 2 algorithm \citep{sterne2019rob2}; it is presented as a suggestion for the reviewer and was not evaluated
+against published judgements (Section~\ref{sec:limits}). This paper evaluates search and selection, the
+repeatability of each step, and the accuracy of the written claims.
+
+\section{Evaluation}
+\label{sec:eval}
+
+The evaluation protocol was written and committed on 18 November 2026, before any benchmark review was loaded or
+run; changes were made only by dated amendments (Supplementary Material S2). The search methods are reported
+following PRISMA-S \citep{rethlefsen2021prismas} (Supplementary Material S1). All code, stored corpora and results
+are available (Section~\ref{sec:availability}).
+
+\subsection{Benchmark}
+
+We used the 40 Cochrane intervention reviews of CLEF eHealth TAR 2019, Task~2 \citep{kanoulas2019clef}, each with
+the PubMed IDs of the studies the review included after full-text screening. Intervention reviews were chosen
+because they ask effect questions, the kind \tool{}'s systematic-style protocol is built for; diagnostic and
+prognostic topics were not used. Two reviews listed in both parts of the track were counted once, and five were
+excluded by rules fixed beforehand (fewer than two included studies resolving to a PubMed record), leaving 33
+reviews with 785 included studies (141 in the development set and 644 in the test set). The reviews were sorted by ID, shuffled with a fixed seed (20261118), and the first third formed the
+development set (11 reviews); the other 22 formed the test set. Development reviews were used to change the
+pipeline; test reviews were run only after the protocol was fixed.
+
+\subsection{Runs}
+
+Each review's title, unchanged, was the question; searches were limited to records published up to the year of the
+review version CLEF used. Each test review was run in the systematic-style mode (Deep Research, PubMed core search
+500 records deep, citation searching and review reference lists on, study limit 150) and in the quick-answer mode.
+The model for planning, screening and analysis was NVIDIA Nemotron 3 Ultra (\url{nvidia/nemotron-3-ultra-550b-a55b})
+through OpenRouter, on its free endpoint for the systematic-style runs and its paid endpoint for the quick-answer
+runs (total cost 0.77~USD). All 22 searches in each mode were planned by the model. Every run went through a batch
+runner that stores the corpus, result, timings, model and code commit, and fails a run in which more than 5\% of the
+records due for screening were not screened.
+
+\subsection{Freezing the measured code}
+
+Search and selection were frozen at selection protocol 2.5 (code commit 47e40ef, git tag
+\texttt{eval-freeze-2.5}) on 23 November 2026, after the systematic-style test runs and before any further run
+(protocol amendment, Supplementary Material S2). The hashes of the frozen files and functions are recorded and
+checked by an automated test, so any later change to search or selection fails the test suite until it is
+recorded as a post-freeze change. One post-freeze fix was made (a bioRxiv connector error that did not occur in any
+evaluation run).
+
+\subsection{Measures}
+
+The primary measure was \emph{pool recall}: the share of a review's included studies present in the candidate pool
+after duplicate merging. Secondary measures were the share in the top 20 and top 60 of the screening order, the
+share selected after model screening, screening sensitivity (included studies kept by the model, of those it
+screened) and precision, and the loss of included studies at each stage (search, merging, eligibility, screening and
+study limit). A study counted as found when a record carried its PubMed ID or DOI (case-insensitive) or, for records
+with neither, the same normalised title. Each measure was computed per review and summarised as the mean with a 95\%
+bootstrap confidence interval over reviews (10,000 resamples, seed 20261118) and the median, over all reviews and
+over the reviews with at most 60 included studies. Baselines ranked the same pools by BM25 against the question, by
+citation count alone, and at random.
+
+\subsection{Repeatability and sensitivity}
+
+On the stored test corpora we measured (E2a) whether the selection replays exactly from the stored records;
+(E2b) the agreement of model screening with itself, by screening a sample of 1,638 records (up to 96 per review,
+every screened included study first) three more times with the same model and prompt; (E2c) the variation in
+records found when each question is searched twice more; (E2d) the effect of model planning, by repeating the
+searches with rule-based planning and re-planning each question three times with the model; and (E3) the
+sensitivity of the selection to its constants, by setting each score weight and cap to half and one and a half
+times its value and comparing the selections (Jaccard overlap) and recall.
+
+\subsection{Component checks}
+
+We checked the study-type classifier against the publication types PubMed indexers assigned to 26,114 records from
+the evaluation runs, with those types removed so the classifier had to rely on wording, as it does for most
+preprint and some Semantic Scholar records. We sampled 100 duplicate merges from the test runs (1,351 merges on title
+alone and 99 merges of records sharing an identifier with differing titles), weighted to the harder kinds, for a
+person to judge whether each pair was the same study \PENDING{merge check result}. To measure the accuracy of the
+written synthesis, 200 cited sentences were drawn at random (seed 20261118) from the 881 shown to readers in 33
+model-written analyses (the 22 test questions and the 11 development questions, quick-answer mode), and a person
+judged each against the abstracts of the studies it cites as supported, partly supported, not supported or cannot
+tell, using a written guide and blinded to how each analysis was produced; a second person judged 50 of them
+independently \PENDING{annotators and agreement}.
+
+\subsection{Deviations from the protocol}
+
+(1) The rule for which review version to use was amended before any run, because CLEF used nine reviews whose only
+PubMed version is dated March 2019. (2) The ranking change in selection protocol 2.5 was measured on the
+development set without the model before the test runs. (3) One review was re-run after dropped connections lost
+two screening batches; in the final runs two reviews each have 12 records the model did not screen (under the 5\%
+threshold). (4) Development runs used the paid endpoint for 9 of 11 reviews; test systematic-style runs used the
+free endpoint and quick-answer runs the paid one. (5) Search and selection were frozen after the systematic-style
+test results had been seen; no change was made to them on account of those results.

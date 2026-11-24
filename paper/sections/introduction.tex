@@ -1,0 +1,44 @@
+\section{Introduction}
+\label{sec:intro}
+
+Systematic reviews answer questions about the effects of health interventions by finding, appraising and combining
+every study that meets criteria set in advance \citep{higgins2023handbook,page2021prisma}. Finding and selecting
+those studies is the most labour-intensive part: searches across several databases return thousands of records,
+and two reviewers screen each one \citep{borah2017analysis,lefebvre2023searching}. Automating parts of this work
+has been studied for two decades, mostly as text classification that ranks or filters records for human screeners
+\citep{cohen2006reducing,omara2015using,marshall2019toward,vandeschoot2021open}.
+
+Large language models (LLMs) have widened the scope of such tools from ranking records to writing search strings,
+screening titles and abstracts, extracting data and writing the synthesis \citep{wang2023can,guo2024automated,
+khraisha2024can,asai2024openscholar}. They also bring a problem that ranking models did not: the same question can
+produce a different set of studies each time it is asked, because the model's plan, the database responses and the
+model's judgements all vary between runs. A study of a commercial LLM research assistant found that its search and
+screening results varied between repeated runs of the same question \citep{elicit2025repeat}. A review whose
+included studies cannot be reproduced cannot be audited or updated, and recent guidance on the responsible use of
+AI in evidence synthesis asks tool developers to report how their tools were evaluated, to keep people in control
+of decisions, and to label tools without robust evaluation as such \citep{raise2026,jointstatement2025}.
+
+Most evaluations of LLM-based tools report agreement with human screening decisions on a fixed set of records
+\citep{guo2024automated,khraisha2024can}. Fewer measure the whole path from question to included studies: how many
+of the studies a published review included would the tool have found, at which step are the others lost, and does
+a repeat of the same run give the same result? These are the questions a reviewer needs answered before relying on
+such a tool for a search, and they have a clear reference standard in the included studies of published
+systematic reviews \citep{kanoulas2019clef}.
+
+This paper describes \tool{}, an open-source tool that separates the two kinds of work. The parts where a model
+helps but may vary (planning searches, screening against criteria, writing) are bounded and recorded, and the part
+that decides which studies are included (merging duplicates, eligibility and ranking) follows fixed, published
+rules applied to stored records, so that it can be replayed exactly. Our contributions are:
+\begin{enumerate}
+\item A \emph{protocol-first, replayable} design for LLM-assisted study selection: the review protocol is set
+  before searching; search strings are compiled by fixed rules; the rule-based selection does not read the model's
+  plan; every record, decision and model judgement is stored in a corpus with a content hash, from which the
+  selection can be reproduced without searching again or calling a model (Section~\ref{sec:design}).
+\item A \emph{pre-registered evaluation} on 33 Cochrane intervention reviews with a development and held-out test
+  split, in which the measured code was frozen before test results were used, reporting recall at each stage,
+  where included studies are lost, baselines, and the repeatability of each step (Sections~\ref{sec:eval}
+  and~\ref{sec:results}).
+\item An analysis of the trade-off this design makes: keeping the selection independent of the model makes it
+  reproducible but costs recall when the rule-based reading of the question is poor
+  (Section~\ref{sec:discussion}).
+\end{enumerate}

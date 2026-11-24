@@ -1,0 +1,31 @@
+% Structured abstract (JBI: Objective, Methods, Results, Conclusion; about 300 words -- \TODO{confirm limit in the
+% Guide for Authors}). Currently about 300 words.
+\begin{abstract}
+\textbf{Objective:} Tools that use large language models (LLMs) to find and select studies for literature reviews
+can return different studies on repeated runs and rarely report how many of a review's studies they find. We
+describe a design in which study selection is rule-based, stored and replayable, and the model's role is limited to
+planning searches and screening against stated criteria, and we evaluate its recall and repeatability.
+
+\textbf{Methods:} \tool{} turns a question into a review protocol, searches PubMed, Europe PMC, Semantic Scholar or
+OpenAlex, bioRxiv/medRxiv and arXiv with search strings compiled by fixed rules (with MeSH headings), adds
+citation searching, merges duplicates, applies eligibility rules and a published 100-point score and, for
+systematic-style reviews, has a model screen titles and abstracts against the protocol's criteria. Every record and
+decision is stored in a corpus from which the selection can be replayed. We evaluated it, under a protocol
+registered before any data were loaded, on 33 Cochrane intervention reviews from CLEF TAR 2019 (11 development, 22
+held-out test), freezing search and selection before test results were used.
+
+\textbf{Results:} On the 22 test reviews, the candidate pool held a mean of 54\% (95\% CI 41--67\%) of each review's
+included studies, and the selection 25\% (15--35\%); model screening kept 87\% (72--99\%) of the included studies it
+saw. Of the 538 included studies not selected, 80\% were lost at search (49\% beyond the retrieval depth, 31\%
+matched by no query). Selection replayed exactly from the stored records in 44 of 44 corpora; repeated screening of
+the same records agreed with Cohen's $\kappa$ 0.91--0.94; halving or increasing the score weights by half changed
+recall by at most 0.3 percentage points. \PENDING{claim accuracy: share of 200 cited sentences supported by the
+cited studies (Session 8 annotation)}
+
+\textbf{Conclusion:} Separating a replayable, rule-based selection from model-assisted search and screening makes
+LLM-assisted study selection auditable and exactly reproducible from stored records. Recall is limited mainly by
+search depth and query sensitivity, which shows where such tools need to improve and that they support, rather
+than replace, a systematic search.
+\end{abstract}
+
+% Graphical abstract: \TODO{required at submission (separate file); draft from Fig. 1 and Fig. 2}

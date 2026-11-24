@@ -1,0 +1,60 @@
+% Supplementary Material S1: PRISMA-S checklist (Rethlefsen et al., Syst Rev 2021;10:39) for the searches CiteLume
+% ran in the evaluation. Build: latexmk -pdf prisma_s.tex
+% \TODO: check the item wording against the official PRISMA-S checklist before submission.
+\documentclass[11pt]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\newcommand{\TODO}[1]{\textcolor{red}{[TODO: #1]}}
+\begin{document}
+\section*{Supplementary Material S1. PRISMA-S checklist}
+
+The searches reported here are those \textsc{CiteLume} ran for each of the 22 test reviews (and 11 development
+reviews) in the evaluation, as stored in each run's corpus. Item numbers follow PRISMA-S.
+
+\small
+\begin{tabularx}{\linewidth}{@{}p{0.5cm}p{3.6cm}X@{}}
+\toprule
+\# & Item & Where and how reported \\
+\midrule
+1 & Database name & PubMed (NCBI E-utilities) with Europe PMC as its mirror; Semantic Scholar with OpenAlex as a
+fallback; bioRxiv/medRxiv (through Europe PMC); arXiv. Methods, Section 2.2. \\
+2 & Multi-database searching & Each database searched separately with its own compiled string; not searched on one
+platform. Methods 2.2. \\
+3 & Study registries & None searched. Limitations. \\
+4 & Online resources and browsing & None. \\
+5 & Citation searching & Forward and backward citation searching of up to 60 selected studies through Semantic
+Scholar (records linked to at least 2 added), and the reference lists of on-topic reviews set aside at eligibility.
+Methods 2.2; counts in each flow diagram. \\
+6 & Contacts & None. \\
+7 & Other methods & None. \\
+8 & Full search strategies & Compiled by fixed rules from the question (review title); every string run, for every
+database and review, is stored in the run's corpus in the evaluation archive (S3) and shown with each result. An
+example is given below the table. \\
+9 & Limits and restrictions & Publication year up to the year of the review version used, added to each PubMed
+string as \texttt{AND (1900:YYYY[dp])}; no language limit. Methods 3.2. \\
+10 & Search filters & A reviews search with review and meta-analysis publication-type filters; no validated
+study-design filter for trials. Methods 2.2. \\
+11 & Prior work & Strings are not reused from earlier reviews; Cochrane's own strategies were not used. \\
+12 & Updates & Not applicable (single search per run). \\
+13 & Dates of searches & 18--24 November 2026; the date and time of every run are stored in its run record. \\
+14 & Peer review & The compiled strings were not peer reviewed (PRESS); they are rule-generated and published. \\
+15 & Total records & Per review and per database in each corpus and flow diagram (S3). \\
+16 & Deduplication & Automatic, by DOI, PubMed ID, arXiv ID or normalised title (Methods 2.3); every merge is stored
+and replayable. \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Example: the core PubMed search for test review CD011436}
+
+Question (the review title): \emph{The use of ultrasound guidance for perioperative neuraxial and peripheral nerve
+blocks in children}; run on 23 November 2026, limited to records up to 2019. The string as compiled (planned by the
+model, MeSH alternatives added by PubMed's own mapping), before the date limit was added:
+
+\begin{flushleft}\footnotesize\ttfamily\raggedright
+("ultrasound guidance"[Title/Abstract] OR (ultrasound[Title/Abstract] AND guidance[Title/Abstract]) OR ultrasound-guided[Title/Abstract] OR ultrasonography[Title/Abstract] OR sonography[Title/Abstract] OR "US guidance"[Title/Abstract] OR (us[Title/Abstract] AND guidance[Title/Abstract]) OR ("ultrasonography"[MeSH Terms] OR "ultrasonography"[Title/Abstract]) OR ("ultrasonography"[MeSH Terms] OR "sonography"[Title/Abstract])) AND ("neuraxial block"[Title/Abstract] OR (neuraxial[Title/Abstract] AND block[Title/Abstract]) OR "spinal anesthesia"[Title/Abstract] OR (spinal[Title/Abstract] AND anesthesia[Title/Abstract]) OR "epidural anesthesia"[Title/Abstract] OR (epidural[Title/Abstract] AND anesthesia[Title/Abstract]) OR "caudal block"[Title/Abstract] OR (caudal[Title/Abstract] AND block[Title/Abstract]) OR "neuraxial anesthesia"[Title/Abstract] OR (neuraxial[Title/Abstract] AND anesthesia[Title/Abstract]) OR ("anesthesia, spinal"[MeSH Terms] OR "spinal anesthesia"[Title/Abstract]) OR ("anesthesia, epidural"[MeSH Terms] OR "epidural anesthesia"[Title/Abstract]) OR ("anesthesia"[MeSH Terms] OR "anesthesia"[Title/Abstract])) AND (children[Title/Abstract] OR child[Title/Abstract] OR pediatric[Title/Abstract] OR paediatric[Title/Abstract])
+\end{flushleft}
+\end{document}

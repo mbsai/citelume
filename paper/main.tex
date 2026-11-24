@@ -1,0 +1,59 @@
+% CiteLume manuscript for the Journal of Biomedical Informatics (Elsevier elsarticle template).
+% Build: latexmk -pdf main.tex   (from this folder)
+% Every item still to be filled in is marked \TODO{...} (owner) or \PENDING{...} (a result not yet available);
+% `grep -n "TODO\|PENDING" main.tex sections/*.tex` lists them.
+\documentclass[preprint,12pt,authoryear]{elsarticle}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{lineno}
+\usepackage[hidelinks]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,calc}
+
+\newcommand{\TODO}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\PENDING}[1]{\textcolor{orange}{[PENDING: #1]}}
+\newcommand{\tool}{CiteLume}
+
+\journal{Journal of Biomedical Informatics}
+\linenumbers
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Protocol-first, replayable study selection for LLM-assisted evidence synthesis:
+design of \tool{} and a pre-registered evaluation on Cochrane intervention reviews}
+
+\author[aff1]{Bhargava \TODO{family name}\corref{cor1}}
+\ead{\TODO{e-mail}}
+\cortext[cor1]{Corresponding author.}
+\address[aff1]{\TODO{affiliation, or ``Independent researcher'', city, country}}
+% ORCID: \TODO{ORCID}
+
+\input{sections/abstract}
+
+\begin{keyword}
+systematic reviews \sep literature search \sep study selection \sep large language models \sep
+reproducibility \sep PRISMA
+\end{keyword}
+
+\end{frontmatter}
+
+\input{sections/introduction}
+\input{sections/methods}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/statements}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
+
+\end{document}
