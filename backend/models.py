@@ -954,6 +954,10 @@ class SynthesisEvidencePackage(BaseModel):
     excluded_claims: List[SynthesisClaim] = Field(default_factory=list)
     quality: SynthesisQualityReport = Field(default_factory=SynthesisQualityReport)
     disclosures: List[str] = Field(default_factory=list)
+    # The narrative as the model wrote it, before the section quality gate removed sentences or replaced it
+    # (evaluation of the gates, Session 8): {"executive_answer": str, "sections": [{"heading", "content"}],
+    # "model_written": bool}. Empty when no model wrote the narrative.
+    ungated_narrative: Dict[str, Any] = Field(default_factory=dict)
 
 
 # ============================================================================

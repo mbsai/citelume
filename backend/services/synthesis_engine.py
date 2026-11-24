@@ -1481,10 +1481,14 @@ async def generate_synthesis_and_extractions(
             extra_source_text=reviews_text,
         )
 
+    llm_narrative = exec_answer is not det_exec
+    # Kept for evaluating the gates: the narrative before the quality gate acts on it
+    ungated_narrative = {"executive_answer": exec_answer, "model_written": llm_narrative,
+                         "sections": [{"heading": sec.heading, "content": sec.content} for sec in sections_out]} \
+        if llm_narrative else {}
     s1_quality = run_gate()
     failed = [c for c in s1_quality.checks if not c.passed]
     hard_failed = [c for c in failed if c.name in HARD_QUALITY_CHECKS]
-    llm_narrative = exec_answer is not det_exec
     if llm_narrative and [c.name for c in hard_failed] == ["quantitative_accuracy"]:
         # One untraceable figure does not justify discarding the whole model-written review: remove the sentences
         # that carry it, then check again
@@ -1549,6 +1553,7 @@ async def generate_synthesis_and_extractions(
         excluded_claims=excluded_synth_claims,
         quality=s1_quality,
         disclosures=disclosures,
+        ungated_narrative=ungated_narrative,
     )
     set_last_synthesis_package(pkg)
 

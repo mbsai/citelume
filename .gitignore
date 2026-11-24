@@ -22,3 +22,5 @@ frontend/dist/
 runs/
 # Evaluation downloads (CLEF files, PubMed summaries, review abstracts)
 eval/.cache/
+# Annotation sheets carry abstract excerpts; keep them local (judgements.csv and key.json are committed)
+eval/annotation/sheet*.csv
