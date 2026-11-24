@@ -146,11 +146,22 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack, on
           About {minutes(value)} minutes with a free hosted model; every analysed study is read by the model.
         </span>
       </div>
-      {notAnalysed > 0 && (
+      {notAnalysed > 0 && eligibleBased && (
+        <div className="text-xs bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-2.5" role="alert">
+          <strong>
+            The review will not be complete: {value} of {summary.eligible} eligible studies analysed.
+          </strong>{' '}
+          A {summary.selection_method === 'scoping' ? 'scoping' : 'systematic'} review includes every eligible study.
+          The other {notAnalysed} will be listed as eligible but not synthesised, and the review will be labelled a
+          PRISMA-informed rapid review on the page and in every export.
+          {value < included && ' Analyse all of them for a complete review.'}
+          {included < summary.eligible &&
+            ` This install analyses at most ${summary.max_study_limit} studies for this review type; a local install can raise the limit.`}
+        </div>
+      )}
+      {notAnalysed > 0 && !eligibleBased && (
         <p className="text-xs text-slate-600">
-          {eligibleBased
-            ? `${notAnalysed} eligible ${notAnalysed === 1 ? 'study' : 'studies'} will be listed but not analysed.`
-            : `${notAnalysed} eligible ${notAnalysed === 1 ? 'study is' : 'studies are'} not chosen by the ranking; they are counted under "How the studies were chosen".`}
+          {`${notAnalysed} eligible ${notAnalysed === 1 ? 'study is' : 'studies are'} not chosen by the ranking; they are counted under "How the studies were chosen".`}
         </p>
       )}
       <ScreeningReview report={summary.selection_report} onApply={onOverride} busy={running} />

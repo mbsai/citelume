@@ -86,6 +86,22 @@ GAP_STATUS_LABELS = {
 }
 
 
+def incompleteness_note(selection_report) -> str:
+    """For a systematic-style or scoping review that synthesised fewer than all its eligible studies (the user chose
+    fewer, or the ceiling was reached), the label shown on the page and at the top of every export; otherwise "".
+    Such reviews include every eligible study by definition (PRISMA 2020, PRISMA-ScR), so one that does not is not
+    complete and is better read as a PRISMA-informed rapid review."""
+    sel = selection_report
+    if sel is None or sel.selection_method not in ("systematic_prisma", "scoping") or not sel.eligible_over_limit:
+        return ""
+    left = len(sel.eligible_over_limit)
+    total = sel.included + left
+    kind = "scoping review" if sel.selection_method == "scoping" else "systematic review"
+    return (f"Not complete: {sel.included} of {total} eligible studies were synthesised. A {kind} includes every "
+            f"eligible study, so read this as a PRISMA-informed rapid review; the other {left} are listed as eligible "
+            "but not synthesised.")
+
+
 def gap_status_label(status: str) -> str:
     return GAP_STATUS_LABELS.get(status, status)
 
@@ -256,6 +272,7 @@ def generate_markdown_report(req: ExportRequest) -> str:
         f"# {req.query}",
         f"**Report Type:** {mode_label} | **Generated:** {now_str} | **Papers Evaluated:** {len(req.papers)}",
         "",
+        *([f"> **{incompleteness_note(req.selection_report)}**", ""] if incompleteness_note(req.selection_report) else []),
         "---",
         "",
         "## Abstract" if _is_prisma(req) else "## 1. Evidence Agreement & Executive Synthesis",
@@ -437,6 +454,7 @@ def generate_txt_report(req: ExportRequest) -> str:
         f"CITELUME — {mode_label}",
         f"QUERY: {req.query}",
         f"GENERATED: {now_str} | PAPERS EVALUATED: {len(req.papers)}",
+        *([incompleteness_note(req.selection_report)] if incompleteness_note(req.selection_report) else []),
         sep,
         "",
         "EVIDENCE AGREEMENT & EXECUTIVE SYNTHESIS",

@@ -39,6 +39,7 @@ from reportlab.platypus import (
 from models import ExportRequest
 from services.fulltext import repair_ligatures
 from services.export_service import (
+    incompleteness_note,
     ROBINSON_LABELS,
     gap_section_title,
     _gap_text_items,
@@ -574,6 +575,8 @@ def generate_pdf_report(req: ExportRequest) -> bytes:
         Paragraph("CiteLume Literature Synthesis", st["title"]),
         Paragraph(_clean(req.query), st["query"]),
         Paragraph(f"{mode_label} · {len(req.papers)} studies · generated {now_str}", st["meta"]),
+        *([Paragraph(f"<b>{_clean(incompleteness_note(req.selection_report))}</b>", st["note"])]
+          if incompleteness_note(req.selection_report) else []),
         Paragraph("Abstract" if _is_prisma(req) else "Summary of the Evidence", st["h1"]),
         _agreement_table(req, st),
         Spacer(1, 6),

@@ -181,6 +181,25 @@ function DeepResearchModelNote({ model, hasLlm, scale, override, onOverride }) {
 }
 
 // Relevance screening and full-text coverage, so users can see which studies informed the synthesis
+// A systematic-style or scoping review includes every eligible study; one that synthesised fewer (the user chose
+// fewer, or the install's ceiling was reached) is labelled not complete (same wording as the exports:
+// services/export_service.incompleteness_note)
+function IncompleteReviewBanner({ report }) {
+  const left = report?.eligible_over_limit?.length || 0;
+  if (!report || !['systematic_prisma', 'scoping'].includes(report.selection_method) || !left) return null;
+  const total = report.included + left;
+  const kind = report.selection_method === 'scoping' ? 'scoping review' : 'systematic review';
+  return (
+    <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-3 text-xs" role="note">
+      <strong>
+        Not complete: {report.included} of {total} eligible studies were synthesised.
+      </strong>{' '}
+      A {kind} includes every eligible study, so read this as a PRISMA-informed rapid review; the other {left} are
+      listed as eligible but not synthesised.
+    </div>
+  );
+}
+
 function ScreeningNotes({ warnings, papers }) {
   const relevance = warnings.filter(
     (w) => w.startsWith('Query interpreted') || w.startsWith('Relevance screening') || w.startsWith('Source unavailable') ||
@@ -913,6 +932,7 @@ export default function App() {
           {result && !loading && (
             <div ref={resultsRef} className="space-y-3">
               <ResultsCards result={result} activeTab={activeTab} onSelect={selectTab} />
+              <IncompleteReviewBanner report={result.selection_report} />
               <LlmStatusBanner auditTrail={result.evidence_base?.task_audit_trail || []} />
               <ScreeningNotes warnings={result.warnings || []} papers={result.papers || []} />
               <SelectionPanel

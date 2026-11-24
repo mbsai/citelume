@@ -17,7 +17,9 @@ ranks what it finds. It then reads open-access full text where it is available, 
 
 - **A cited synthesis.** Choose a **Standard** answer from up to 20 studies, or a **Deep Research** review from up to
   60 studies. Deep reviews can be narrative, PRISMA-informed systematic or scoping, organised thematically,
-  chronologically, methodologically or theoretically.
+  chronologically, methodologically or theoretically. Systematic-style and scoping reviews include every eligible
+  study (up to a cost ceiling: 150, or 200 for scoping, on a local install; 60 on the demo). One that synthesises
+  fewer is labelled "Not complete" on the page and in every export, as a PRISMA-informed rapid review.
 - **An evidence table.** It gives design, sample, results, limitations and a framework-informed appraisal for each study.
   Appraisal frameworks include RoB 2, ROBINS-I/E, QUADAS-3, PROBAST+AI, SYRCLE and REFORMS. See
   [docs/FRAMEWORKS.md](docs/FRAMEWORKS.md).

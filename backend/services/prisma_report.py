@@ -150,7 +150,9 @@ def _study_selection(protocol: ReviewProtocolReport, sel: SelectionReport) -> st
     ]
     if f.beyond_study_limit:
         sentences.append(f"The {f.study_limit} highest-scoring eligible studies were synthesised; the other "
-                         f"{f.beyond_study_limit} are listed in the appendix as eligible but not synthesised.")
+                         f"{f.beyond_study_limit} are listed in the appendix as eligible but not synthesised. "
+                         "Because not every eligible study was synthesised, the review is not complete; "
+                         "it is better read as a PRISMA-informed rapid review.")
     if f.excluded_at_extraction:
         sentences.append(f"During data extraction {_n(f.excluded_at_extraction, 'study', 'studies')} "
                          f"{'was' if f.excluded_at_extraction == 1 else 'were'} found not to address the question and "
