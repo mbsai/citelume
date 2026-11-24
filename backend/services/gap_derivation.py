@@ -259,6 +259,9 @@ _EXTERNAL_VALIDATION_RE = re.compile(
 _SINGLE_SITE_RE = re.compile(
     r"\b(single[- ]cent(?:er|re)|single[- ]institution|tertiary care|tertiary hospital|hospital-based|"
     r"one hospital|a teaching hospital|outpatient clinic of)\b", re.I)
+_MODEL_QUESTION_RE = re.compile(
+    r"\b(predict\w*|prognos\w*|risk (?:score|model|tool|calculator)s?|machine learning|deep learning|"
+    r"artificial intelligence|AI|algorithms?|classif\w*|nomograms?|scor(?:e|es|ing) systems?)\b", re.I)
 _INTERVENTION_QUESTION_RE = re.compile(
     r"\b(effect(?:iveness)?|efficacy|treatments?|therap(?:y|ies)|interventions?|drugs?|reduce|improve|prevent(?:ion)?|"
     r"management|outcomes? of)\b", re.I)
@@ -321,9 +324,14 @@ def derive_design_gaps(
         return f"{p.title} {p.abstract or ''} {sections.get('methods', '')} {sections.get('results', '')}"
 
     # Prediction / ML models without external validation
+    # Only when models are part of what the question is about, or a real share of the evidence: a few risk-score
+    # studies picked up at the edge of an unrelated question (3 of 148 in a vitamin D and fractures review,
+    # 24 Nov 2026) do not make external validation a gap in the answer
     models = profile.get("prediction_model", [])
     unvalidated = [i for i in models if not _EXTERNAL_VALIDATION_RE.search(text_of(i))]
-    if unvalidated:
+    models_matter = bool(_MODEL_QUESTION_RE.search(query or "")) or (
+        len(models) >= 3 and len(models) >= 0.25 * n_primary)
+    if unvalidated and models_matter:
         lab_context = module_key in ("molecular_biology_omics",) or bool(profile.get("lab"))
         gaps.append(DesignGap(
             kind="external_validation",

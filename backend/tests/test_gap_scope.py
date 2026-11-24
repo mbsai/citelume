@@ -107,3 +107,43 @@ class TestExportsShowScopeAndReason(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestExternalValidationGap(unittest.TestCase):
+    """The external-validation gap needs models to matter to the question (live guided review, 24 Nov 2026:
+    3 risk-score studies among 148 on vitamin D and fractures produced it)."""
+
+    def _models(self, n):
+        return [_p(100 + i, f"A machine learning model to predict outcome {i}",
+                   "We developed a prediction model; the area under the curve (AUC) was 0.81 in cross-validation.")
+                for i in range(n)]
+
+    def _trials(self, n):
+        return [_p(i, f"Randomised controlled trial {i} of vitamin D and fractures",
+                   "A randomised placebo-controlled trial in older adults.") for i in range(1, n + 1)]
+
+    def test_few_models_in_an_unrelated_question(self):
+        from services.gap_derivation import derive_design_gaps, design_family
+        papers = self._trials(20) + self._models(3)
+        self.assertEqual(design_family(papers[-1]), "prediction_model")
+        kinds = [g.kind for g in derive_design_gaps(papers, "Does vitamin D reduce fractures in older adults?",
+                                                    "biomedical_clinical")]
+        self.assertNotIn("external_validation", kinds)
+
+    def test_question_about_prediction_or_many_models(self):
+        from services.gap_derivation import derive_design_gaps
+        about = derive_design_gaps(self._trials(20) + self._models(1),
+                                   "How well do models predict fracture risk?", "biomedical_clinical")
+        share = derive_design_gaps(self._trials(6) + self._models(3),
+                                   "Does vitamin D reduce fractures in older adults?", "biomedical_clinical")
+        self.assertIn("external_validation", [g.kind for g in about])
+        self.assertIn("external_validation", [g.kind for g in share])
+
+
+class TestAuthorQuestionSubject(unittest.TestCase):
+    def test_subject_words_skip_the_question_and_research_phrasing(self):
+        from services.gap_matrix_engine import _subject_terms
+        q = "Does vitamin D supplementation reduce fractures in older adults?"
+        s = ("Future studies should explore the long-term impact of vitamin D supplementation on muscle function in "
+             "younger populations.")
+        self.assertEqual(_subject_terms(s, q)[:3], ["muscle", "function", "younger"])

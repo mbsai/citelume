@@ -40,6 +40,7 @@ from services.evidence_table_engine import (
     resolve_domain_module_key,
 )
 from services.gap_derivation import (
+    _words,
     derive_design_gaps,
     find_author_open_questions,
     key_terms,
@@ -547,7 +548,23 @@ _GENERAL_GAP_WORDS = {
     "remains", "definitively", "determine", "whether", "effect", "effects", "role", "data", "trials", "trial",
     "randomised", "randomized", "longitudinal", "prospective", "cohort", "translation", "human", "humans",
     "single", "site", "centre", "center", "several", "factors", "however", "among",
+    "future", "explore", "investigate", "should", "impact", "long-term", "short-term", "targeted", "combined",
+    "therapy", "interventions", "intervention", "outcomes", "outcome", "patients", "population", "populations",
+    "attributed", "them", "they", "both", "other", "most", "only", "whose", "what", "when", "where", "because",
 }
+
+
+def _subject_terms(sentence: str, query: str, n: int = 4) -> List[str]:
+    """The words of an author's sentence that name what is open: not the question's own words and not general
+    words about research (a sentence's first words are often "future studies should explore the impact of")."""
+    q_words = set(re.findall(r"[a-z][a-z0-9-]{3,}", (query or "").lower()))
+    q_stems = {_stem(w) for w in q_words}
+    out: List[str] = []
+    for w in _words(sentence):
+        if len(w) < 4 or w in q_words or _stem(w) in q_stems or w in _GENERAL_GAP_WORDS or w in out:
+            continue
+        out.append(w)
+    return out[:n]
 
 
 def _stem(word: str) -> str:
@@ -1131,7 +1148,8 @@ def _derive_evidence_gaps(
             evidence_needed=f"Studies that directly address: {title.rstrip(' …')}.",
             recommended_study_or_approach=_RECOMMENDED_BY_CATEGORY.get(cat, _RECOMMENDED_BY_CATEGORY["Evidence absence"]),
             expected_knowledge_contribution="Answers an open question the field itself has identified.",
-            study_indices=oq.citation_indices, search_terms=key_terms(title, 4),
+            study_indices=oq.citation_indices,
+            search_terms=_subject_terms(oq.sentence, query) or key_terms(title, 4),
             provenance=[f"Author statement in {'full text' if oq.from_full_text else 'abstract'} of {cites}"])
 
     # 4. What the design profile shows is missing

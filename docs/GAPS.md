@@ -33,7 +33,10 @@ Up to six gaps are reported. Each one names the studies it rests on and the kind
 
 1. **Design profile** (rules, `derive_design_gaps`). It looks at which kinds of study the included set contains and
    lacks, for example an intervention question with no randomised trial, only cross-sectional data for a causal
-   question, only cell or animal models, or prediction models with no external validation.
+   question, only cell or animal models, or prediction models with no external validation. Each rule needs a real
+   share of the included studies (for example half are laboratory studies), not one study at the edge of the
+   question; the external-validation gap needs the question to be about prediction, or at least 3 model studies
+   making up a quarter of the included studies.
 2. **Disagreements between studies** (from the synthesis). When the synthesis finds studies that support a claim
    and others that contradict it, the disagreement is a gap: what would resolve it is a head-to-head comparison or
    a meta-analysis that explains it.
