@@ -12,3 +12,7 @@
 backend/.cache/
 frontend/node_modules/
 frontend/dist/
+# Evaluation data and builds: not part of the demo image, and several GB to upload
+runs/
+eval/
+dist/
