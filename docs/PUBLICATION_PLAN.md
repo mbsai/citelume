@@ -78,7 +78,10 @@ selections and recall by at most 0.3 points. Session 7 done 24 Nov 2026 (eval/re
 repeats agree 96-97% (kappa 0.91-0.94); two identical rule-planned searches share a median 63% of records, the gap
 coming from sources that timed out or were rate-limited; model planning adds about 20 points of pool recall (37% ->
 54%) and names stable concepts with varying synonyms. A second screening model was not measured (free models
-rate-limited upstream). Next: Session 8 (verification gates; needs your annotation).
+rate-limited upstream). Session 8 runs done 24 Nov 2026 (eval/results/8_findings.md): over 33 analyses
+the gates changed no narrative and excluded no claim (one corrective retry, ten soft notes); the annotation now
+measures claim accuracy of the shown narratives (200 claims, 50 double-coded). Next: your annotation of
+eval/annotation/sheet.csv, then `python -m eval.annotation_sheet score`.
 Session 3c notes: the source check matches sentences by shared words (a reading aid, not proof); the guided review is
 the page's Deep Research mode (backend mode name unchanged: `deep_research`).
 Session 3 note: the evidence table and gaps still share one stored analysis with the synthesis, because both depend
@@ -98,16 +101,12 @@ State: Sessions 1-7 done (results in eval/results/: 6_test.md, 6_findings.md, 6_
 the current search; docs/GAPS.md the gap module. Nothing pushed or deployed since 35da30c. OpenRouter key: about
 7.50 USD left of its 10 USD limit.
 
-**Session 8, verification gates** (needs your annotation)
-1. Build the runs: 30 questions with the verification gates on and off (the gates are the deterministic checks of
-   citation numbers and figures against the source text in services/verification_gates.py). The synthesis does not
-   change the frozen selection, so the questions can reuse stored corpora (the 22 test corpora plus 8 development
-   ones) and only re-run the analysis, once with the gates and once without (a switch to add in the analysis, not
-   in search or selection).
-2. Sample about 200 claims across both arms (seeded), and export an annotation sheet: claim, cited study, the
-   source sentence the claim rests on, and a blank "supported / partly / not supported" column. Blind the arm.
-3. Your step: annotate the sheet (ideally a second annotator for a subset, for agreement).
-4. Report claim-level error rates with and without gates, with inter-annotator agreement.
+**Session 8: your annotation** (the runs and the sheet are ready; eval/results/8_findings.md)
+1. Annotate `eval/annotation/sheet.csv` (200 claims) following `eval/annotation/GUIDE.md`; ideally a second
+   annotator does `sheet_second.csv` (50 claims), independently. Do not open `key.json` first.
+2. `python -m eval.annotation_sheet score` writes eval/results/8_gates.md; then finish 8_findings.md and commit.
+
+**Then**: Session 9 (component checks), then 13-15.
 
 **Optional, if free models are available**: a second screening model for Session 7
 (`python -m eval.rescreen run ... --label gemma4-31b --model google/gemma-4-31b-it:free`, then the report).

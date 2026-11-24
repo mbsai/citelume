@@ -1,0 +1,1415 @@
+{
+ "seed": 20261118,
+ "strata_sizes": {
+  "both": 881,
+  "ungated_only": 0,
+  "gated_only": 0
+ },
+ "sampled": {
+  "both": 200,
+  "ungated_only": 0,
+  "gated_only": 0
+ },
+ "units": {
+  "C001": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C002": {
+   "question_id": "CD010038",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C003": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C004": {
+   "question_id": "CD012930",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C005": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C006": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C007": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C008": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C009": {
+   "question_id": "CD012455",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C010": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C011": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C012": {
+   "question_id": "CD012455",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C013": {
+   "question_id": "CD011571",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C014": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C015": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C016": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C017": {
+   "question_id": "CD005253",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C018": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C019": {
+   "question_id": "CD010753",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C020": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C021": {
+   "question_id": "CD008170",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C022": {
+   "question_id": "CD010558",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C023": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C024": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C025": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C026": {
+   "question_id": "CD012069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C027": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C028": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C029": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C030": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C031": {
+   "question_id": "CD007867",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C032": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C033": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C034": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C035": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C036": {
+   "question_id": "CD011380",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C037": {
+   "question_id": "CD012347",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C038": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C039": {
+   "question_id": "CD010558",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C040": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C041": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C042": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C043": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C044": {
+   "question_id": "CD005253",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C045": {
+   "question_id": "CD007867",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C046": {
+   "question_id": "CD009642",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C047": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C048": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C049": {
+   "question_id": "CD004414",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C050": {
+   "question_id": "CD010558",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C051": {
+   "question_id": "CD009642",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C052": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C053": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C054": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C055": {
+   "question_id": "CD011380",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C056": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C057": {
+   "question_id": "CD010778",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C058": {
+   "question_id": "CD000996",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C059": {
+   "question_id": "CD012347",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C060": {
+   "question_id": "CD011436",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C061": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C062": {
+   "question_id": "CD012455",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C063": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C064": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C065": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C066": {
+   "question_id": "CD010778",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C067": {
+   "question_id": "CD010778",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C068": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C069": {
+   "question_id": "CD000996",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C070": {
+   "question_id": "CD007867",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C071": {
+   "question_id": "CD008170",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C072": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C073": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C074": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C075": {
+   "question_id": "CD000996",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C076": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C077": {
+   "question_id": "CD011380",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C078": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C079": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C080": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C081": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C082": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C083": {
+   "question_id": "CD012930",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C084": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C085": {
+   "question_id": "CD005253",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C086": {
+   "question_id": "CD011571",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C087": {
+   "question_id": "CD010753",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C088": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C089": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C090": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C091": {
+   "question_id": "CD011571",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C092": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C093": {
+   "question_id": "CD008170",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C094": {
+   "question_id": "CD007867",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C095": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C096": {
+   "question_id": "CD011436",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C097": {
+   "question_id": "CD010753",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C098": {
+   "question_id": "CD004414",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C099": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C100": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C101": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C102": {
+   "question_id": "CD008170",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C103": {
+   "question_id": "CD007867",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C104": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C105": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C106": {
+   "question_id": "CD008170",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C107": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C108": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C109": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C110": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C111": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C112": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C113": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C114": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C115": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C116": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C117": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C118": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C119": {
+   "question_id": "CD012069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C120": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C121": {
+   "question_id": "CD010753",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C122": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C123": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C124": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C125": {
+   "question_id": "CD011436",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C126": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C127": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C128": {
+   "question_id": "CD005253",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C129": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C130": {
+   "question_id": "CD012455",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C131": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C132": {
+   "question_id": "CD004414",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C133": {
+   "question_id": "CD011571",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C134": {
+   "question_id": "CD010778",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C135": {
+   "question_id": "CD005253",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C136": {
+   "question_id": "CD011380",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C137": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C138": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C139": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C140": {
+   "question_id": "CD004414",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C141": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C142": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C143": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C144": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C145": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C146": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C147": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C148": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C149": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C150": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C151": {
+   "question_id": "CD000996",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C152": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C153": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C154": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C155": {
+   "question_id": "CD011571",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C156": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C157": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C158": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C159": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C160": {
+   "question_id": "CD012069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C161": {
+   "question_id": "CD004414",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C162": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C163": {
+   "question_id": "CD001261",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C164": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C165": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C166": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C167": {
+   "question_id": "CD009642",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C168": {
+   "question_id": "CD010355",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C169": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C170": {
+   "question_id": "CD011768",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C171": {
+   "question_id": "CD011977",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C172": {
+   "question_id": "CD010526",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C173": {
+   "question_id": "CD012455",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C174": {
+   "question_id": "CD010753",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C175": {
+   "question_id": "CD010239",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C176": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C177": {
+   "question_id": "CD009069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C178": {
+   "question_id": "CD012223",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C179": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C180": {
+   "question_id": "CD012069",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C181": {
+   "question_id": "CD012347",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C182": {
+   "question_id": "CD011436",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C183": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C184": {
+   "question_id": "CD006715",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C185": {
+   "question_id": "CD009642",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C186": {
+   "question_id": "CD008201",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C187": {
+   "question_id": "CD010038",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C188": {
+   "question_id": "CD006468",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C189": {
+   "question_id": "CD012347",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C190": {
+   "question_id": "CD010558",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C191": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C192": {
+   "question_id": "CD008018",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C193": {
+   "question_id": "CD011436",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C194": {
+   "question_id": "CD010778",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C195": {
+   "question_id": "CD007868",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C196": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C197": {
+   "question_id": "CD010038",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C198": {
+   "question_id": "CD012551",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C199": {
+   "question_id": "CD005139",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  },
+  "C200": {
+   "question_id": "CD012164",
+   "stratum": "both",
+   "in_gated": true,
+   "in_ungated": true,
+   "weight": 4.405
+  }
+ }
+}

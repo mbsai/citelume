@@ -159,11 +159,17 @@ def score(a) -> int:
         print(f"unrecognised judgements: {sorted(set(bad))}; use one of {JUDGEMENTS}")
         return 1
 
-    def rate(arm: str, judged: Dict[str, str], harsh: bool) -> tuple:
+    from eval.scoring import load_split
+    split = load_split()
+    which_set = {q: s for s in ("development", "test") for q in split[s]}
+
+    def rate(arm: str, judged: Dict[str, str], harsh: bool, only_set: Optional[str] = None) -> tuple:
         by_q: Dict[str, List[tuple]] = defaultdict(list)
         for uid, j in judged.items():
             k = key[uid]
             if not k[f"in_{arm}"] or j == "cannot tell":
+                continue
+            if only_set and which_set.get(k["question_id"]) != only_set:
                 continue
             wrong = j == "not supported" or (harsh and j == "partly")
             by_q[k["question_id"]].append((k["weight"], wrong))
@@ -180,19 +186,27 @@ def score(a) -> int:
 
     common = sorted(set(first) & set(second))
     kap = kappa([first[u] for u in common], [second[u] for u in common])
-    lines = ["# Session 8, E4: claims with and without the verification gates", "",
+    gate_changed = any(k["in_gated"] != k["in_ungated"] for k in key.values())
+    lines = ["# Session 8, E4: are the claims supported by the studies they cite?", "",
              f"{len(first)} claims judged by the first annotator, {len(second)} by the second ({len(common)} by both). "
              "Rates are weighted by each stratum's sampling fraction; 95% intervals are bootstrap intervals over "
              "questions. 'cannot tell' is left out.", "",
-             "| Narrative | Claims judged | Not supported (95% CI) | Partly or not supported (95% CI) |",
+             "| Claims | Judged | Not supported (95% CI) | Partly or not supported (95% CI) |",
              "|---|---|---|---|"]
     out = {}
-    for arm, label in (("ungated", "As the model wrote it (no gate)"), ("gated", "As shown (after the gate)")):
-        p1, c1, n = rate(arm, first, False)
-        p2, c2, _ = rate(arm, first, True)
-        out[arm] = {"not_supported": p1, "ci": c1, "partly_or_not": p2, "ci2": c2, "claims": n}
-        f = lambda v: "" if v is None else f"{100 * v:.1f}%"
+    f = lambda v: "" if v is None else f"{100 * v:.1f}%"
+    rows = [("gated", "As shown to the reader", None), ("gated", "  test reviews", "test"),
+            ("gated", "  development reviews", "development")]
+    if gate_changed:  # the gates changed some narratives: report the model's own narrative too
+        rows.insert(0, ("ungated", "As the model wrote it (before the gate)", None))
+    for arm, label, only in rows:
+        p1, c1, n = rate(arm, first, False, only)
+        p2, c2, _ = rate(arm, first, True, only)
+        out[label.strip()] = {"not_supported": p1, "ci": c1, "partly_or_not": p2, "ci2": c2, "claims": n}
         lines.append(f"| {label} | {n} | {f(p1)} ({f(c1[0])}-{f(c1[1])}) | {f(p2)} ({f(c2[0])}-{f(c2[1])}) |")
+    if not gate_changed:
+        lines += ["", "The verification gates changed none of the sampled narratives, so the model's own narrative and "
+                      "the one shown are the same claims; only the shown narrative is reported."]
     lines += ["", f"Agreement between annotators on {len(common)} claims: "
               + ("not available" if kap is None else f"Cohen's kappa {kap:.2f}, raw agreement "
                  f"{100 * sum(first[u] == second[u] for u in common) / len(common):.0f}%") + "."]
@@ -210,6 +224,51 @@ def score(a) -> int:
     return 0
 
 
+def activity(a) -> int:
+    """How often each verification gate changed what the reader sees, over the analysis results."""
+    counts = defaultdict(int)
+    notes = defaultdict(int)
+    for folder in a.results:
+        for res_path in sorted(folder.glob("*/result.json")):
+            r = json.loads(res_path.read_text())
+            se = r.get("synthesis_evidence") or {}
+            u = se.get("ungated_narrative") or {}
+            if not u.get("model_written"):
+                continue
+            counts["questions"] += 1
+            shown = claims_of(r.get("executive_answer", ""), r.get("sections") or [])
+            before = claims_of(u.get("executive_answer", ""), u.get("sections") or [])
+            counts["claims shown"] += len(shown)
+            counts["narratives changed by the section gate"] += shown != before
+            counts["structured claims kept"] += len(se.get("claims") or [])
+            counts["structured claims excluded by the claim gate"] += len(se.get("excluded_claims") or [])
+            for w in r.get("warnings") or []:
+                if "corrective retr" in w:
+                    counts["narratives that needed a corrective retry"] += 1
+                if w.startswith("Quality notes on the synthesis"):
+                    counts["narratives with soft quality notes (kept)"] += 1
+                    notes[re.sub(r"\[\d+(?:,\s*\d+)*\]", "[n]", w.split(":", 1)[1].strip())[:90]] += 1
+                if "replaced by the rule-based synthesis" in w:
+                    counts["narratives replaced by the rule-based one"] += 1
+                if "could not be traced to a study record were removed" in w:
+                    counts["narratives with untraceable figures removed"] += 1
+    lines = ["# Session 8: how often the verification gates acted", "",
+             f"Over {counts['questions']} model-written analyses ({', '.join(str(f) for f in a.results)}); counted from "
+             "the stored results (`python -m eval.annotation_sheet activity`).", "", "| | Count |", "|---|---|"]
+    for k in ("questions", "claims shown", "narratives changed by the section gate",
+              "narratives with untraceable figures removed", "narratives replaced by the rule-based one",
+              "structured claims kept", "structured claims excluded by the claim gate",
+              "narratives that needed a corrective retry", "narratives with soft quality notes (kept)"):
+        lines.append(f"| {k} | {counts[k]} |")
+    if notes:
+        lines += ["", "Soft quality notes:", ""] + [f"- {v} x {k}" for k, v in sorted(notes.items(), key=lambda x: -x[1])]
+    md = "\n".join(lines) + "\n"
+    (ROOT / "results" / "8_gate_activity.md").write_text(md)
+    (ROOT / "results" / "8_gate_activity.json").write_text(json.dumps({"counts": counts, "notes": notes}, indent=1))
+    print(md)
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="python -m eval.annotation_sheet")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -218,8 +277,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     b.add_argument("--n", type=int, default=200)
     b.add_argument("--second", type=int, default=50)
     sub.add_parser("score")
+    act = sub.add_parser("activity")
+    act.add_argument("--results", type=Path, nargs="+", required=True)
     a = p.parse_args(argv)
-    return build(a) if a.cmd == "build" else score(a)
+    return {"build": build, "score": score, "activity": activity}[a.cmd](a)
 
 
 if __name__ == "__main__":
