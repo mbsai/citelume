@@ -1,0 +1,231 @@
+{
+ "records": 26151,
+ "gold_distribution": {
+  "review": 5629,
+  "synthesis": 1275,
+  "other primary": 13776,
+  "protocol": 15,
+  "rct": 2576,
+  "commentary": 792,
+  "case report": 2032,
+  "correction": 19
+ },
+ "wording_only": {
+  "rows": {
+   "correction": {
+    "n": 19,
+    "precision": 0.3333333333333333,
+    "recall": 0.15789473684210525,
+    "f1": 0.21428571428571427
+   },
+   "protocol": {
+    "n": 15,
+    "precision": 0.14285714285714285,
+    "recall": 0.8,
+    "f1": 0.24242424242424243
+   },
+   "synthesis": {
+    "n": 1275,
+    "precision": 0.8231368186874305,
+    "recall": 0.5803921568627451,
+    "f1": 0.6807727690892365
+   },
+   "rct": {
+    "n": 2576,
+    "precision": 0.8795782463928968,
+    "recall": 0.6152950310559007,
+    "f1": 0.7240749200548197
+   },
+   "case report": {
+    "n": 2032,
+    "precision": 0.8361445783132531,
+    "recall": 0.17076771653543307,
+    "f1": 0.28361258684102986
+   },
+   "commentary": {
+    "n": 792,
+    "precision": null,
+    "recall": 0.0,
+    "f1": null
+   },
+   "review": {
+    "n": 5629,
+    "precision": 0.7436527436527437,
+    "recall": 0.3226150293124889,
+    "f1": 0.45000619501920464
+   },
+   "other primary": {
+    "n": 13776,
+    "precision": 0.6409128671260323,
+    "recall": 0.9520180023228804,
+    "f1": 0.7660854581033324
+   }
+  },
+  "accuracy": 0.6746572719614,
+  "n": 26114,
+  "confusion": {
+   "correction": {
+    "review": 1,
+    "other primary": 8,
+    "rct": 6,
+    "correction": 3,
+    "synthesis": 1
+   },
+   "protocol": {
+    "protocol": 12,
+    "rct": 2,
+    "other primary": 1
+   },
+   "synthesis": {
+    "other primary": 314,
+    "synthesis": 740,
+    "review": 201,
+    "correction": 4,
+    "rct": 16
+   },
+   "rct": {
+    "rct": 1585,
+    "other primary": 922,
+    "review": 6,
+    "protocol": 55,
+    "case report": 1,
+    "synthesis": 7
+   },
+   "case report": {
+    "case report": 347,
+    "other primary": 1618,
+    "review": 62,
+    "synthesis": 2,
+    "rct": 2,
+    "correction": 1
+   },
+   "commentary": {
+    "other primary": 741,
+    "review": 17,
+    "rct": 13,
+    "synthesis": 20,
+    "case report": 1
+   },
+   "review": {
+    "other primary": 3744,
+    "review": 1816,
+    "synthesis": 49,
+    "rct": 17,
+    "case report": 3
+   },
+   "other primary": {
+    "other primary": 13115,
+    "rct": 161,
+    "review": 339,
+    "synthesis": 80,
+    "protocol": 17,
+    "case report": 63,
+    "correction": 1
+   }
+  }
+ },
+ "semantic_scholar": {
+  "rows": {
+   "correction": {
+    "n": 4,
+    "precision": 0.5,
+    "recall": 0.25,
+    "f1": 0.3333333333333333
+   },
+   "protocol": {
+    "n": 3,
+    "precision": 0.17647058823529413,
+    "recall": 1.0,
+    "f1": 0.3
+   },
+   "synthesis": {
+    "n": 349,
+    "precision": 0.9144736842105263,
+    "recall": 0.7965616045845272,
+    "f1": 0.8514548238897397
+   },
+   "rct": {
+    "n": 343,
+    "precision": 0.888268156424581,
+    "recall": 0.46355685131195334,
+    "f1": 0.6091954022988506
+   },
+   "case report": {
+    "n": 114,
+    "precision": 0.90625,
+    "recall": 0.7631578947368421,
+    "f1": 0.8285714285714286
+   },
+   "commentary": {
+    "n": 92,
+    "precision": 0.9701492537313433,
+    "recall": 0.7065217391304348,
+    "f1": 0.8176100628930817
+   },
+   "review": {
+    "n": 648,
+    "precision": 0.6692650334075724,
+    "recall": 0.9274691358024691,
+    "f1": 0.7774902975420439
+   },
+   "other primary": {
+    "n": 1266,
+    "precision": 0.7953821656050956,
+    "recall": 0.7890995260663507,
+    "f1": 0.7922283901665346
+   }
+  },
+  "accuracy": 0.7779354380986165,
+  "n": 2819,
+  "confusion": {
+   "correction": {
+    "correction": 1,
+    "other primary": 2,
+    "rct": 1
+   },
+   "protocol": {
+    "protocol": 3
+   },
+   "synthesis": {
+    "synthesis": 278,
+    "other primary": 11,
+    "review": 59,
+    "correction": 1
+   },
+   "rct": {
+    "other primary": 163,
+    "rct": 159,
+    "protocol": 12,
+    "review": 7,
+    "commentary": 2
+   },
+   "case report": {
+    "other primary": 24,
+    "case report": 87,
+    "review": 2,
+    "synthesis": 1
+   },
+   "commentary": {
+    "review": 4,
+    "commentary": 65,
+    "rct": 2,
+    "other primary": 18,
+    "synthesis": 3
+   },
+   "review": {
+    "review": 601,
+    "synthesis": 7,
+    "other primary": 39,
+    "case report": 1
+   },
+   "other primary": {
+    "other primary": 999,
+    "review": 225,
+    "rct": 17,
+    "synthesis": 15,
+    "case report": 8,
+    "protocol": 2
+   }
+  }
+ }
+}

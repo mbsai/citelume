@@ -24,3 +24,4 @@ runs/
 eval/.cache/
 # Annotation sheets carry abstract excerpts; keep them local (judgements.csv and key.json are committed)
 eval/annotation/sheet*.csv
+eval/annotation/merge_sheet.csv

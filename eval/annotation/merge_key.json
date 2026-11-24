@@ -1,0 +1,409 @@
+{
+ "seed": 20261118,
+ "population": {
+  "title only": 1351,
+  "identifier, titles differ": 99
+ },
+ "units": {
+  "M001": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M002": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M003": {
+   "kind": "title only",
+   "question_id": "CD009642"
+  },
+  "M004": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M005": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M006": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD010558"
+  },
+  "M007": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M008": {
+   "kind": "title only",
+   "question_id": "CD010239"
+  },
+  "M009": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M010": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M011": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M012": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M013": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M014": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M015": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M016": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M017": {
+   "kind": "title only",
+   "question_id": "CD008201"
+  },
+  "M018": {
+   "kind": "title only",
+   "question_id": "CD010239"
+  },
+  "M019": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M020": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M021": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M022": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M023": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD011380"
+  },
+  "M024": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M025": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M026": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M027": {
+   "kind": "title only",
+   "question_id": "CD007867"
+  },
+  "M028": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M029": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M030": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M031": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M032": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD008170"
+  },
+  "M033": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M034": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M035": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M036": {
+   "kind": "title only",
+   "question_id": "CD006468"
+  },
+  "M037": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD007867"
+  },
+  "M038": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M039": {
+   "kind": "title only",
+   "question_id": "CD010239"
+  },
+  "M040": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M041": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M042": {
+   "kind": "title only",
+   "question_id": "CD008170"
+  },
+  "M043": {
+   "kind": "title only",
+   "question_id": "CD001261"
+  },
+  "M044": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M045": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M046": {
+   "kind": "title only",
+   "question_id": "CD009642"
+  },
+  "M047": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M048": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M049": {
+   "kind": "title only",
+   "question_id": "CD009642"
+  },
+  "M050": {
+   "kind": "title only",
+   "question_id": "CD006715"
+  },
+  "M051": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD006715"
+  },
+  "M052": {
+   "kind": "title only",
+   "question_id": "CD012164"
+  },
+  "M053": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M054": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD008201"
+  },
+  "M055": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M056": {
+   "kind": "title only",
+   "question_id": "CD000996"
+  },
+  "M057": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M058": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M059": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M060": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M061": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M062": {
+   "kind": "title only",
+   "question_id": "CD006468"
+  },
+  "M063": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD000996"
+  },
+  "M064": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M065": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M066": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M067": {
+   "kind": "title only",
+   "question_id": "CD009642"
+  },
+  "M068": {
+   "kind": "title only",
+   "question_id": "CD007867"
+  },
+  "M069": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M070": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD000996"
+  },
+  "M071": {
+   "kind": "title only",
+   "question_id": "CD005139"
+  },
+  "M072": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M073": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M074": {
+   "kind": "title only",
+   "question_id": "CD010558"
+  },
+  "M075": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD000996"
+  },
+  "M076": {
+   "kind": "title only",
+   "question_id": "CD001261"
+  },
+  "M077": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M078": {
+   "kind": "title only",
+   "question_id": "CD005139"
+  },
+  "M079": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD000996"
+  },
+  "M080": {
+   "kind": "title only",
+   "question_id": "CD009069"
+  },
+  "M081": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M082": {
+   "kind": "title only",
+   "question_id": "CD005139"
+  },
+  "M083": {
+   "kind": "title only",
+   "question_id": "CD000996"
+  },
+  "M084": {
+   "kind": "title only",
+   "question_id": "CD008170"
+  },
+  "M085": {
+   "kind": "title only",
+   "question_id": "CD001261"
+  },
+  "M086": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD010778"
+  },
+  "M087": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M088": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M089": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M090": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD004414"
+  },
+  "M091": {
+   "kind": "title only",
+   "question_id": "CD010778"
+  },
+  "M092": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M093": {
+   "kind": "title only",
+   "question_id": "CD005253"
+  },
+  "M094": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M095": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD012930"
+  },
+  "M096": {
+   "kind": "identifier, titles differ",
+   "question_id": "CD005139"
+  },
+  "M097": {
+   "kind": "title only",
+   "question_id": "CD011380"
+  },
+  "M098": {
+   "kind": "title only",
+   "question_id": "CD011436"
+  },
+  "M099": {
+   "kind": "title only",
+   "question_id": "CD000996"
+  },
+  "M100": {
+   "kind": "title only",
+   "question_id": "CD011380"
+  }
+ }
+}

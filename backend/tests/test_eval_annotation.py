@@ -45,5 +45,20 @@ class TestClaims(unittest.TestCase):
         self.assertTrue(all(k["weight"] == 1.0 for k in key["units"].values()))
 
 
+
+class TestMergePairs(unittest.TestCase):
+    def test_kinds_of_merged_pairs(self):
+        from eval.merge_check import merged_pairs
+        from models import PaperRecord
+        raw = [PaperRecord(id="a", title="Vitamin D and fractures: a randomised trial", doi="10.1/x", source="PubMed"),
+               PaperRecord(id="b", title="Vitamin D and fractures - a randomised trial", doi="10.1/x",
+                           source="Semantic Scholar"),  # same identifier, same normalised title: not sampled
+               PaperRecord(id="c", title="Vitamin D and fractures: a randomised trial", source="arXiv"),  # title only
+               PaperRecord(id="d", title="Different title entirely", doi="10.1/y", source="PubMed"),
+               PaperRecord(id="e", title="Another wording of the same paper", doi="10.1/y", source="Semantic Scholar")]
+        kinds = sorted(k for k, _, _ in merged_pairs(raw))
+        self.assertEqual(kinds, ["identifier, titles differ", "title only", "title only"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -106,7 +106,14 @@ the current search; docs/GAPS.md the gap module. Nothing pushed or deployed sinc
    annotator does `sheet_second.csv` (50 claims), independently. Do not open `key.json` first.
 2. `python -m eval.annotation_sheet score` writes eval/results/8_gates.md; then finish 8_findings.md and commit.
 
-**Then**: Session 9 (component checks), then 13-15.
+**Session 9, component checks** (started 24 Nov 2026; eval/results/9_findings.md)
+- Done: study-type classifier against PubMed publication types (wording only: accuracy 0.67; with Semantic
+  Scholar's types: 0.78, with 225 primary studies labelled "Review").
+- Your step: `eval/annotation/merge_sheet.csv` (100 merged pairs, about 30 minutes), then
+  `python -m eval.merge_check score`.
+- Decide: risk of bias against Cochrane judgements (extract for a small set of trials, or report as exploratory).
+
+**Then**: Sessions 13-15 (release, manuscript, pre-submission review).
 
 **Optional, if free models are available**: a second screening model for Session 7
 (`python -m eval.rescreen run ... --label gemma4-31b --model google/gemma-4-31b-it:free`, then the report).
