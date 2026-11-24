@@ -32,6 +32,11 @@ ranks what it finds. It then reads open-access full text where it is available, 
   population or outcome; Robinson et al. 2011). A Standard answer reports only the first and third kinds: its 20
   studies are too few to show what is missing. The gap view is exploratory: it reflects the included studies, not
   the whole literature. See [docs/GAPS.md](docs/GAPS.md).
+- **An evidence gap map** (the third option, next to the quick answer and the guided review). A grid of
+  interventions by outcomes, with an optional population, filled by database counts: PubMed by study design
+  (all records, randomised trials, systematic reviews, observational studies) and OpenAlex, with every query and
+  its date shown and no model used. Cells with no records, few records, no trials, or trials but no systematic
+  review are flagged. See [docs/GAPS.md](docs/GAPS.md).
 - **A literature network** with citation links and topic clusters.
 - **A transparent choice of studies.** The 20 or 60 included studies are picked by fixed, published rules: eligibility
   checks, a 100-point score (relevance, study type, citations, recency, search agreement) and balanced selection

@@ -11,7 +11,7 @@ Environment variables:
   CITELUME_DEMO=1                    turn demo mode on
   DEMO_OPENROUTER_API_KEY          server-side OpenRouter key (set as a Space secret)
   DEMO_MODEL                       default model (must be an NVIDIA ':free' model)
-  DEMO_STANDARD_PER_DAY=3, DEMO_DEEP_PER_DAY=1, DEMO_OWN_KEY_PER_DAY=30
+  DEMO_STANDARD_PER_DAY=3, DEMO_DEEP_PER_DAY=1, DEMO_GAP_MAP_PER_DAY=1, DEMO_OWN_KEY_PER_DAY=30
   DEMO_MAX_CONCURRENT=2            searches running at once (free CPU Spaces are small)
   DEMO_PROXY_HOPS=1                trusted reverse proxies in front of the app (for X-Forwarded-For)
   DEMO_OPENALEX_API_KEY, DEMO_S2_API_KEY, DEMO_PUBMED_API_KEY   optional literature-source keys
@@ -55,6 +55,9 @@ def demo_limits() -> Dict[str, int]:
     return {
         "standard": _env_int("DEMO_STANDARD_PER_DAY", 3),
         "deep_research": _env_int("DEMO_DEEP_PER_DAY", 1),
+        # An evidence gap map runs a few hundred database queries on the shared literature keys, so it has its
+        # own allowance whatever LLM key the visitor brings (it uses no model)
+        "gap_map": _env_int("DEMO_GAP_MAP_PER_DAY", 1),
         "own_key": _env_int("DEMO_OWN_KEY_PER_DAY", 30),
     }
 
@@ -243,6 +246,8 @@ def fill_source_keys(cfg: ApiKeysConfig) -> ApiKeysConfig:
 
 
 def bucket_for(mode: str, uses_server_key: bool) -> str:
+    if mode == "gap_map":
+        return "gap_map"
     if not uses_server_key:
         return "own_key"
     return "deep_research" if mode == "deep_research" else "standard"
@@ -255,6 +260,11 @@ def take_quota(ip: str, bucket: str) -> None:
     if bucket == "own_key":
         raise DemoLimitError(f"Daily limit of {limit} searches reached for this address. Please try again tomorrow, "
                              "or install CiteLume locally for unlimited use.")
+    if bucket == "gap_map":
+        raise DemoLimitError(
+            f"The free demo allows {limit} evidence gap map{'s' if limit != 1 else ''} per day per address, and you "
+            f"have used {'it' if limit == 1 else 'them'}. Try again tomorrow (limits reset at 00:00 UTC), or install "
+            "CiteLume locally for unlimited use.")
     label = "Deep Research review" if bucket == "deep_research" else "Standard search"
     raise DemoLimitError(
         f"The free demo allows {limit} {label}{'s' if limit != 1 else ''} per day per address, and you have used "
@@ -268,8 +278,9 @@ def status_for(ip: str) -> Dict[str, object]:
     return {
         "demo": True,
         "server_key_configured": server_key_configured(),
-        "limits": {"standard": limits["standard"], "deep_research": limits["deep_research"]},
-        "remaining": {b: max(0, limits[b] - used.get(b, 0)) for b in ("standard", "deep_research")},
+        "limits": {"standard": limits["standard"], "deep_research": limits["deep_research"],
+                   "gap_map": limits["gap_map"]},
+        "remaining": {b: max(0, limits[b] - used.get(b, 0)) for b in ("standard", "deep_research", "gap_map")},
         "allowed_models": allowed_models(),
         "default_model": default_model(),
         "resets": "00:00 UTC",

@@ -406,6 +406,9 @@ chasing adds to the candidate pool and so affects the recall measured in Session
 **Session 11. Count-based coverage gaps.** Grid of population x exposure or intervention x outcome x design; one
 count query per cell on PubMed, Europe PMC and OpenAlex; report counts, query string and date; no model in this step.
 Author-stated open questions get a real, dated verification search.
+*Done 24 Nov 2026 (brought forward at the owner's request), as the "Evidence gap map" option on the page: PubMed by
+design and OpenAlex totals (Europe PMC dropped: unreliable MeSH field, slow field queries), one a day on the demo;
+see docs/GAPS.md. Not yet done: the dated search for author-stated open questions.*
 
 **Session 12. Validate gaps against published evidence gap maps.** This is the basis of a possible second paper.
 

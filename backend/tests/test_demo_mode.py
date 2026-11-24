@@ -49,7 +49,7 @@ class TestDemoMode(unittest.TestCase):
             with self.assertRaises(demo_mode.DemoLimitError):
                 demo_mode.take_quota("1.2.3.4", "deep_research")
             demo_mode.take_quota("5.6.7.8", "standard")  # another address has its own allowance
-            self.assertEqual(demo_mode.status_for("1.2.3.4")["remaining"], {"standard": 0, "deep_research": 0})
+            self.assertEqual(demo_mode.status_for("1.2.3.4")["remaining"], {"standard": 0, "deep_research": 0, "gap_map": 1})
 
     def test_client_ip_ignores_spoofed_left_entries(self):
         with mock.patch.dict(os.environ, {"DEMO_PROXY_HOPS": "1"}):

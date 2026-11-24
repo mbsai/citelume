@@ -103,9 +103,36 @@ not prove universal field-wide absence") and says whether it rests on full text 
 For these reasons the gap view is labelled exploratory, and the publication plan (`docs/PUBLICATION_PLAN.md`)
 describes gaps as exploratory in the first paper.
 
-## What is planned instead
+## Evidence gap map (the third option on the page)
 
-Sessions 11 and 12 of the publication plan rebuild coverage gaps on counts: a grid of population by intervention
-or exposure by outcome by design, with one count query per cell against PubMed, Europe PMC and OpenAlex, reported
-with its query string and date and no model in that step; then a validation against published evidence gap maps.
-Author-stated open questions and disagreements would stay, labelled as what the included studies say.
+Built 24 November 2026 (Session 11 of the publication plan). It answers a different question from the gap view of a
+review: not "what do these studies leave open" but "how much research exists for each combination", counted by the
+databases themselves, so it does not depend on which studies were selected.
+
+- **Grid, fixed before counting.** Rows are interventions, exposures or approaches; columns are outcomes; an
+  optional population limits every cell; optional publication years. The page proposes them (the model if one is
+  set up, otherwise the question's own words, as in the guided review) and the user edits every term and its
+  synonyms. At most 8 by 8 (5 by 5 on the demo).
+- **Counts, no model** (`services/gap_map.py`). For each cell, PubMed is asked for all records, randomised trials,
+  systematic reviews and meta-analyses, and observational studies (publication types and MeSH); each term is
+  searched in the title or abstract with its synonyms, or by its MeSH heading where PubMed maps one. OpenAlex gives
+  an independent total from words in the title and abstract, which also covers preprints and journals outside
+  MEDLINE. Each row and column also gets its own PubMed total. Every count is shown with its exact query (and a
+  link that runs it in PubMed) and the date; the whole map downloads as CSV or JSON.
+- **Europe PMC is not used**: tested on 24 November 2026, its MeSH field gave counts that changed with the order of
+  the terms (127, 1 or 0 for the same query) and field-scoped queries took 15 to 25 seconds each or timed out.
+- **Gap rules, fixed**: no records in any database; fewer than 5 records; no randomised trials; at least 3 trials
+  but no systematic review or meta-analysis (evidence not yet synthesised). "No randomised trials" is expected for
+  exposures that cannot be randomised; the page says so.
+- **Limits.** Counts are records that match a query, not screened studies: a broad term over-counts, a missing
+  synonym under-counts, and publication types lag behind for recent records. The map shows where research is
+  likely thin, to be confirmed by screening; it follows the evidence gap map method (Snilstveit et al. 2016) but
+  fills cells by counts instead of coded studies.
+- **Demo**: one gap map a day per address (`DEMO_GAP_MAP_PER_DAY`), whatever model key the visitor brings, since it
+  runs a few hundred queries on the shared database keys.
+
+## Still planned
+
+- Author-stated open questions get a real, dated database search (part of Session 11, not yet built).
+- Session 12: validate gap maps against published evidence gap maps (3ie, Campbell) on the same topics, the basis
+  of a possible second paper.

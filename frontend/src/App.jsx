@@ -17,9 +17,11 @@ import {
   fetchModelScale,
   fetchSearchProgress,
   reselectCorpus,
+  runGapMap,
   runLiteratureSearch,
 } from './utils/api';
 import AnalysisChoice from './components/AnalysisChoice';
+import { GapMapSetup, GapMapView } from './components/GapMap';
 import GuidedReview from './components/GuidedReview';
 
 // Default LLM: NVIDIA Nemotron 3 Ultra (free) on OpenRouter, the model the public demo runs without a key.
@@ -228,12 +230,17 @@ function DemoBanner({ demo, hasOwnKey, onOpenConfig }) {
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-900 space-y-1">
       <div className="font-semibold">Free public demo</div>
       {hasOwnKey ? (
-        <div>You are using your own LLM key, so the daily demo limits do not apply. Your key is sent with each search and is not stored on the server.</div>
+        <div>
+          You are using your own LLM key, so the daily search limits do not apply (evidence gap maps, which use the
+          shared database keys, stay at {l.gap_map ?? 1} a day: {r.gap_map ?? 0} left). Your key is sent with each
+          search and is not stored on the server.
+        </div>
       ) : (
         <div>
           Runs on NVIDIA's free models via OpenRouter. Left today from this address:{' '}
           <strong>{r.standard ?? 0} of {l.standard ?? 3} Standard</strong> and{' '}
-          <strong>{r.deep_research ?? 0} of {l.deep_research ?? 1} guided review{(l.deep_research ?? 1) === 1 ? '' : 's'}</strong> (resets {demo.resets || '00:00 UTC'}).{' '}
+          <strong>{r.deep_research ?? 0} of {l.deep_research ?? 1} guided review{(l.deep_research ?? 1) === 1 ? '' : 's'}</strong>{' '}
+          and <strong>{r.gap_map ?? 0} of {l.gap_map ?? 1} evidence gap map{(l.gap_map ?? 1) === 1 ? '' : 's'}</strong> (resets {demo.resets || '00:00 UTC'}).{' '}
           <button type="button" onClick={onOpenConfig} className="underline font-medium">Add your own LLM key</button> for unlimited use.
         </div>
       )}
@@ -257,6 +264,15 @@ export default function App() {
   const [deepOverride, setDeepOverride] = useState(false);
   // The guided review's set-up steps (shown instead of searching straight away)
   const [guidedOpen, setGuidedOpen] = useState(false);
+  // Evidence gap map: its set-up, and the last map (kept in this browser so a once-a-day demo map is not lost)
+  const [gapSetupOpen, setGapSetupOpen] = useState(false);
+  const [gapMap, setGapMap] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('citelume_gap_map') || 'null');
+    } catch (_) {
+      return null;
+    }
+  });
   // A guided review's built corpus, waiting for the choice of how many studies to analyse
   const [pendingCorpus, setPendingCorpus] = useState(null);
   const [activeTab, setActiveTab] = useState('synthesis');
@@ -390,7 +406,29 @@ export default function App() {
       setGuidedOpen(true);
       return;
     }
+    if (mode === 'gap_map') {
+      setError('');
+      setGapSetupOpen(true);
+      return;
+    }
     handleSearch();
+  };
+
+  const handleRunGapMap = async (request) => {
+    const pid = startRun();
+    try {
+      const map = await runGapMap({ ...request, config, progress_id: pid });
+      setGapMap(map);
+      setGapSetupOpen(false);
+      try {
+        localStorage.setItem('citelume_gap_map', JSON.stringify(map));
+      } catch (_) {}
+    } catch (err) {
+      setError(err.message || 'The evidence gap map failed');
+    } finally {
+      setLoading(false);
+      if (demo.demo) refreshDemo();
+    }
   };
 
   const showResult = (data) => {
@@ -615,7 +653,7 @@ export default function App() {
             </button>
           </div>
         </div>
-        {result && !loading && <ResultsTabStrip result={result} activeTab={activeTab} onSelect={selectTab} />}
+        {result && !loading && mode !== 'gap_map' && <ResultsTabStrip result={result} activeTab={activeTab} onSelect={selectTab} />}
       </header>
 
       {/* Main Layout: Left Query History Side Box + Right Workspace */}
@@ -715,6 +753,7 @@ export default function App() {
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setGuidedOpen(false); // a changed question needs a new protocol
+                  setGapSetupOpen(false);
                   setPendingCorpus(null);
                 }}
                 placeholder="Ask a research question, list keywords, or paste a DOI / PubMed / arXiv link..."
@@ -729,9 +768,13 @@ export default function App() {
                 {loading
                   ? mode === 'deep_research'
                     ? 'Running the guided review...'
+                    : mode === 'gap_map'
+                    ? 'Counting records...'
                     : 'Synthesizing (≤20 Papers)...'
                   : mode === 'deep_research'
                   ? 'Set up the guided review'
+                  : mode === 'gap_map'
+                  ? 'Set up the gap map'
                   : 'Synthesize & Map Literature (Up to 20 Papers)'}
               </button>
             </div>
@@ -763,6 +806,21 @@ export default function App() {
                 >
                   🧭 Guided review
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('gap_map')}
+                  aria-describedby="gap-map-hint"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                    mode === 'gap_map'
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                      : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  🗺 Evidence gap map
+                </button>
+                <span id="gap-map-hint" className="sr-only">
+                  Count how much research exists for each intervention and outcome, by study design
+                </span>
                 <span id="guided-review-hint" className="sr-only">
                   Set the purpose, the parts of the question and the eligibility criteria before searching
                 </span>
@@ -820,8 +878,9 @@ export default function App() {
                 />
               )}
 
-              {/* Interactive Checkboxes to Tick / Untick Repositories Before Search */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
+              {/* Interactive Checkboxes to Tick / Untick Repositories Before Search (a gap map always counts in
+                  PubMed and OpenAlex) */}
+              {mode !== 'gap_map' && <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-slate-500 font-medium mr-1">Include Repositories:</span>
                 {[
                   ['enable_pubmed', 'PubMed'],
@@ -858,10 +917,21 @@ export default function App() {
                     </label>
                   );
                 })}
-              </div>
+              </div>}
               </>)}
             </div>
           </form>
+
+          {gapSetupOpen && mode === 'gap_map' && !loading && (
+            <GapMapSetup
+              topic={query.trim()}
+              config={config}
+              demo={demo}
+              running={loading}
+              onCancel={() => setGapSetupOpen(false)}
+              onRun={handleRunGapMap}
+            />
+          )}
 
           {guidedOpen && mode === 'deep_research' && !loading && (
             <GuidedReview
@@ -899,10 +969,17 @@ export default function App() {
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
                       {mode === 'deep_research'
                         ? 'Guided Review Running...'
+                        : mode === 'gap_map'
+                        ? 'Evidence Gap Map: Counting Records...'
                         : 'Standard Literature Synthesis Running (Up to 20 Papers)...'}
                     </span>
                     <span className="text-[11px] font-mono text-indigo-600 font-semibold">
-                      {progress.stage > 0 ? `Stage ${progress.stage} of ${progress.total}` : 'Starting'} •{' '}
+                      {progress.stage > 0
+                        ? mode === 'gap_map'
+                          ? `${progress.stage} of ${progress.total} queries`
+                          : `Stage ${progress.stage} of ${progress.total}`
+                        : 'Starting'}{' '}
+                      •{' '}
                       {formatElapsed(elapsedSecs)} elapsed
                     </span>
                   </div>
@@ -929,7 +1006,9 @@ export default function App() {
             </div>
           )}
 
-          {result && !loading && (
+          {mode === 'gap_map' && gapMap && !loading && !gapSetupOpen && <GapMapView map={gapMap} />}
+
+          {result && !loading && mode !== 'gap_map' && (
             <div ref={resultsRef} className="space-y-3">
               <ResultsCards result={result} activeTab={activeTab} onSelect={selectTab} />
               <IncompleteReviewBanner report={result.selection_report} />

@@ -219,3 +219,13 @@ export async function downloadReportFromServer(format, researchData, exportOptio
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Evidence gap map: suggested rows, columns and population for a topic (the model if set up, else the question's
+// words), and the counts themselves (one a day per address on the public demo)
+export function suggestGapMapAxes(payload) {
+  return postJson('/api/gap-map/suggest', payload, 'Suggesting the map');
+}
+
+export function runGapMap(payload) {
+  return postJson('/api/gap-map', payload, 'Evidence gap map');
+}

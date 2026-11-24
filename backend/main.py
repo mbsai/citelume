@@ -81,6 +81,8 @@ from services.review_protocol import default_protocol, plan_from_protocol, propo
 from services.search_counts import preview_searches
 from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
 from services import demo_mode
+from services import gap_map
+from pydantic import BaseModel, Field
 from services.citation_enrichment import enrich_citation_counts
 from services import citation_chasing
 from services.paper_selection import REASON_REVIEW, REASON_REVIEW_BY_PROTOCOL
@@ -455,7 +457,11 @@ async def _with_demo_limits(request: Request, mode: str, config: ApiKeysConfig, 
         return await work(config)
     ip = demo_mode.client_ip(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
     try:
-        cfg, uses_server_key = demo_mode.apply_demo_config(config)
+        if mode == "gap_map":
+            # No model is used: only the shared literature-source keys, never the shared model key
+            cfg, uses_server_key = demo_mode.fill_source_keys(config), False
+        else:
+            cfg, uses_server_key = demo_mode.apply_demo_config(config)
         bucket = demo_mode.bucket_for(mode, uses_server_key)
         if charge:
             demo_mode.take_quota(ip, bucket)
@@ -475,6 +481,68 @@ async def _with_demo_limits(request: Request, mode: str, config: ApiKeysConfig, 
     finally:
         if charge and not completed:
             demo_mode.USAGE.give_back(ip, bucket)  # a crashed run does not use up the visitor's allowance
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Evidence gap map (services/gap_map.py): database counts for a grid of interventions by outcomes, no model.
+#
+#   POST /api/gap-map/suggest     proposed rows, columns and population for a topic (the model if one is set up,
+#                                 otherwise the question's own words); free on the demo
+#   POST /api/gap-map             run the counts (one a day per address on the demo)
+
+class GapMapSuggestRequest(BaseModel):
+    topic: str
+    config: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+
+
+def _has_model(cfg: ApiKeysConfig) -> bool:
+    return bool((cfg.llm_api_key or "").strip()) or cfg.llm_provider == "ollama"
+
+
+@app.post("/api/gap-map/suggest", response_model=gap_map.GapMapSuggestion)
+async def suggest_gap_map_axes(req: GapMapSuggestRequest, request: Request) -> gap_map.GapMapSuggestion:
+    topic = req.topic.strip()
+    if not topic:
+        raise HTTPException(400, "Enter a topic first.")
+
+    async def work(cfg: ApiKeysConfig) -> gap_map.GapMapSuggestion:
+        if _has_model(cfg):
+            try:
+                suggested = await gap_map.suggest_axes_with_model(topic, cfg)
+            except Exception:
+                suggested = None
+            if suggested and suggested.rows and suggested.cols:
+                return suggested
+        return await gap_map.suggest_axes_from_rules(topic)
+
+    return await _with_demo_limits(request, "standard", req.config, work, charge=False)
+
+
+@app.post("/api/gap-map", response_model=gap_map.GapMapResult)
+async def run_gap_map(req: gap_map.GapMapRequest, request: Request) -> gap_map.GapMapResult:
+    max_axis = gap_map.DEMO_MAX_AXIS if demo_mode.demo_enabled() else gap_map.MAX_AXIS
+    if not req.rows or not req.cols:
+        raise HTTPException(400, "Add at least one row and one column.")
+    if len(req.rows) > max_axis or len(req.cols) > max_axis:
+        raise HTTPException(400, f"At most {max_axis} rows and {max_axis} columns here.")
+
+    def progress(done: int, total: int) -> None:
+        if req.progress_id:
+            _SEARCH_PROGRESS[req.progress_id] = {"stage": done, "total": total, "label": "Counting records",
+                                                 "detail": f"{done} of {total} database queries"}
+
+    async def work(cfg: ApiKeysConfig) -> gap_map.GapMapResult:
+        result = await gap_map.build_gap_map(req.model_copy(update={"config": cfg}), max_axis, progress)
+        # Timings only: no terms or counts in the log
+        print(f"[gap-map] {len(req.rows)}x{len(req.cols)} grid, {result.queries_run} queries "
+              f"({result.queries_failed} failed) in {result.duration_s:.0f}s", flush=True)
+        return result
+
+    try:
+        return await _with_demo_limits(request, "gap_map", req.config, work)
+    finally:
+        if req.progress_id:
+            _SEARCH_PROGRESS.pop(req.progress_id, None)
 
 
 # ---------------------------------------------------------------------------------------------------------------
