@@ -783,7 +783,7 @@ def validate_knowledge_gap_matrix(
         "Gate 2 (Evidence Grounding): Study, EvidenceUnit, GranularResult, and Claim IDs resolve to Sections 1 & 2",
         "Gate 3 (Verification Integrity): Contradicted/Resolved gaps archived out of active unresolved list",
         "Gate 4 (Scientific Validity): No universal global-absence overclaims or arbitrary numeric priority scores",
-        "Gate 5 (Cross-Section Consistency): Matrix cell counts and study indices align with Section 2 Evidence Matrix",
+        "Cross-check: grid cell counts and study numbers agree with the evidence table",
     ]
     issues: List[str] = []
     repaired = 0
@@ -989,7 +989,7 @@ def _derive_evidence_gaps(
             evidence_needed=dg.evidence_needed, recommended_study_or_approach=dg.recommended_approach,
             expected_knowledge_contribution="Shows whether the reported performance generalises beyond the development data.",
             study_indices=[u.citation_index for u in units], search_terms=dg.search_terms,
-            provenance=[f"Design profile + Section 2 evidence units: {', '.join(u.contribution_id for u in units)}"])
+            provenance=[f"Design profile + evidence table units: {', '.join(u.contribution_id for u in units)}"])
 
     # 2. Disagreement between studies, or outcomes measured in incompatible ways
     contradicting = [p for p in papers if p.stance == "contradicting"]
@@ -1020,7 +1020,7 @@ def _derive_evidence_gaps(
             recommended_study_or_approach=_RECOMMENDED_BY_CATEGORY["Inconsistent findings"],
             expected_knowledge_contribution="Explains or resolves the disagreement.",
             study_indices=idxs, search_terms=["conflicting", "heterogeneity"],
-            provenance=["Study stances from Section 1 extraction"])
+            provenance=["Study stances from the synthesis extraction"])
     def add_measurement_gap() -> None:
         if contradicting or not (mixed or len(kinds) >= 2):
             return
@@ -1044,7 +1044,7 @@ def _derive_evidence_gaps(
             recommended_study_or_approach=_RECOMMENDED_BY_CATEGORY["Measurement/standardization limitations"],
             expected_knowledge_contribution="Allows the studies to be compared or pooled.",
             study_indices=idxs, search_terms=["standardized", "definition"],
-            provenance=["Outcome measures in Section 2 extracted results"])
+            provenance=["Outcome measures in the evidence table results"])
 
     # 3. Open questions the study authors state themselves (most specific to the topic)
     for oq in find_author_open_questions(papers, query, max_questions=3):
@@ -1420,7 +1420,7 @@ async def build_universal_knowledge_gap_matrix(
                 title=f"Transfer & Benchmarking Opportunity with Pretrained Community Artifacts ({', '.join(hf_names[:2])})",
                 description=(
                     f"Evaluate or fine-tune available open-source artifacts ({', '.join(hf_names[:3])}) on standardized domain "
-                    f"benchmarks identified in Section 2 to test whether transfer learning improves sample efficiency."
+                    f"benchmarks identified in the evidence table to test whether transfer learning improves sample efficiency."
                 ),
                 related_gap_id=candidate_gaps[0].gap_id if candidate_gaps else None,
                 related_subquestion_ids=["Q1"],
@@ -1429,7 +1429,7 @@ async def build_universal_knowledge_gap_matrix(
                     "Availability of a pretrained model or architecture represents a constructive engineering/research opportunity; "
                     "kept distinct from unresolved scientific knowledge deficiencies unless paired with a specific validation question."
                 ),
-                distinction_note="Separated per Phase 8: Applying a new model/tool is a Research Opportunity, not automatically a Knowledge Gap.",
+                distinction_note="Applying a new model/tool is a Research Opportunity, not automatically a Knowledge Gap.",
             )
         )
     else:
@@ -1445,7 +1445,7 @@ async def build_universal_knowledge_gap_matrix(
                 related_subquestion_ids=["Q1"],
                 suggested_hf_models_or_datasets=[],
                 rationale="Represents a constructive methodological extension opportunity distinct from an evidential deficiency.",
-                distinction_note="Separated per Phase 8: Methodological extension opportunity vs. verified knowledge gap.",
+                distinction_note="A methodological extension (an opportunity), not a verified knowledge gap.",
             )
         )
 

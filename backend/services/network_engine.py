@@ -600,7 +600,7 @@ def build_multilayer_literature_network(
                 imp_reasons.append(f"Recent ({yr}) contribution introducing/evaluating {p.elicit.methodology[:50]} (low citation count on recent work does not imply low importance).")
             if p.citation_index and p.citation_index in claims_by_study_idx:
                 imp_roles.append("evidence_central_publication")
-                imp_reasons.append(f"Directly contributes evidence to Section 1 Claim(s) {', '.join(claims_by_study_idx[p.citation_index])}.")
+                imp_reasons.append(f"Directly contributes evidence to synthesis claim(s) {', '.join(claims_by_study_idx[p.citation_index])}.")
             if not imp_roles:
                 imp_roles.append("standard_included_study")
                 imp_reasons.append("Primary included synthesis study.")
@@ -786,7 +786,7 @@ def build_multilayer_literature_network(
     limitations_list = [
         f"Corpus Scope: Network represents {n_primary} selected primary studies (mode: {mode}) and {len(all_pub_records) - n_primary} contextual record(s), not an exhaustive map of the entire discipline.",
         f"Reference Metadata Coverage: {studies_with_refs}/{n_primary} primary studies had reference lists available from public APIs; missing reference lists can cause bibliographic sparsity without implying intellectual disconnection.",
-        "Epistemic Separation: Direct citations, bibliographic coupling, and TF-IDF semantic similarity do not establish scientific agreement; claim support and disagreement are represented exclusively in Layer C (Scientific Evidence).",
+        "Epistemic Separation: Direct citations, bibliographic coupling, and TF-IDF semantic similarity do not establish scientific agreement; claim support and disagreement are shown only by the claim links (all-links view).",
     ]
     if small_network_safeguard:
         limitations_list.append(
@@ -815,12 +815,12 @@ def build_multilayer_literature_network(
             )
         ),
         methodological_relationships_summary=(
-            f"Layer B identified {sem_cnt} thresholded semantic/methodological relationship(s) across studies sharing experimental or computational frameworks."
+            f"Word-similarity links: {sem_cnt} thresholded semantic/methodological relationship(s) across studies sharing experimental or computational frameworks."
         ),
         scientific_evidence_relationships_summary=(
-            f"Layer C maps {ev_cnt} verified study-to-claim, shared-dataset, and study-to-gap relationship(s) directly from Sections 1–3."
+            f"Claim and open-question links: {ev_cnt} verified study-to-claim, shared-dataset, and study-to-gap relationship(s) from the synthesis, evidence table and open questions."
             if ev_cnt > 0
-            else "Layer C evidence links populate once Section 1–3 claim and dataset records are attached."
+            else "Claim and open-question links appear once the synthesis, evidence table and open questions are available (switch the map to all links)."
         ),
         cross_theme_connections_summary=(
             f"Bridge publications connecting bibliographic components: {', '.join(n.label for n in bridge_nodes[:3])}."
@@ -828,7 +828,7 @@ def build_multilayer_literature_network(
             else "No high-betweenness bridge nodes detected across separated bibliographic components."
         ),
         research_development_summary=(
-            f"Publication timeline spans {min_year}–{max_year} with {evol_cnt} documented citation-backed lineage link(s) in Layer D."
+            f"Publication timeline spans {min_year}–{max_year} with {evol_cnt} documented citation-backed lineage link(s)."
         ),
         network_limitations_and_disclosures=limitations_list,
     )

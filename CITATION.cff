@@ -1,0 +1,22 @@
+# To fill in before release: your family name and ORCID (and any co-authors); the DOI once Zenodo issues one.
+cff-version: 1.2.0
+message: "If you use CiteLume, please cite it as below."
+title: "CiteLume: protocol-first, reproducible study selection for LLM-assisted literature reviews"
+type: software
+authors:
+  - given-names: "Bhargava"
+    family-names: "FAMILY-NAME"          # replace
+    # orcid: "https://orcid.org/0000-0000-0000-0000"   # add
+repository-code: "https://github.com/mbsai/citelume"
+url: "https://citelume-976737283006.us-central1.run.app"
+license: MIT
+version: "1.0.0"
+# date-released: "YYYY-MM-DD"            # set when v1.0.0 is tagged
+# doi: "10.5281/zenodo.XXXXXXX"          # add when Zenodo issues it
+keywords:
+  - systematic review
+  - literature review
+  - study selection
+  - reproducibility
+  - large language models
+  - PRISMA

@@ -110,7 +110,7 @@ UNIVERSAL_ESSENTIAL_FIELDS: List[ExtractionFieldSpec] = [
         dimension="Relevance",
         priority="Essential",
         domain_module="universal",
-        description="Cross-study comparability status, shared/divergent dimensions, and linked Section 1 claims.",
+        description="Cross-study comparability status, shared/divergent dimensions, and linked synthesis claims.",
     ),
     ExtractionFieldSpec(
         field_key="source_provenance",
@@ -1680,11 +1680,11 @@ def validate_structured_evidence_matrix(
     4. Scientific & cross-section consistency validation (claim IDs match Section 1; appraisal separated from facts)
     """
     checks_performed = [
-        "Level 1: Three-level schema completeness (DocumentRecord -> EvidenceUnitRecord -> GranularFindingRecord)",
-        "Level 2: Bibliographic identity & citation index alignment against retrieved corpus",
-        "Level 3: Factual & numerical source-excerpt verification (no fabricated numbers or page spans)",
-        "Level 4: Scientific comparability & separation of factual extraction vs. methodological appraisal",
-        "Level 5: Cross-section consistency with Section 1 (Cited Synthesis & Bibliography)",
+        "Completeness: every study has its record, its contribution and its reported results",
+        "Citation numbers match the retrieved studies",
+        "Figures and excerpts checked against the source text (no invented numbers)",
+        "Comparability, and what was extracted kept apart from the appraisal",
+        "Consistent with the synthesis and its bibliography",
     ]
     issues: List[str] = []
     repaired_count = 0

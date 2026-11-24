@@ -183,7 +183,7 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-slate-900">
-              Universal, Question-Adaptive, Source-Grounded Scientific Evidence Matrix
+              Evidence table
             </h3>
             {plan && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -203,9 +203,9 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
             )}
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            3-Level Evidence Model: <strong>{papers.length}</strong> Document Records (Level A) •{' '}
-            <strong>{evidenceMatrix?.evidence_units?.length || papers.length}</strong> Research Contributions (Level B) •{' '}
-            <strong>{totalGranularFindings}</strong> Granular Result Records (Level C)
+            <strong>{papers.length}</strong> studies •{' '}
+            <strong>{evidenceMatrix?.evidence_units?.length || papers.length}</strong> study contributions •{' '}
+            <strong>{totalGranularFindings}</strong> reported results
           </p>
         </div>
 
@@ -287,7 +287,7 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
         </div>
 
         <span className="text-[11px] text-slate-500">
-          Showing <strong>{filtered.length}</strong> of <strong>{papers.length}</strong> studies (click any row to inspect Level A/B/C records & provenance)
+          Showing <strong>{filtered.length}</strong> of <strong>{papers.length}</strong> studies (click a row to see the study's record, design and results, with their sources)
         </span>
       </div>
 
@@ -317,10 +317,10 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
             <tr className="border-b border-slate-200 text-slate-600 bg-slate-50">
               <th className="py-2.5 px-3 font-semibold w-14">Ref</th>
               <th className="py-2.5 px-3 font-semibold min-w-[230px]">
-                Level A: Document & Access Provenance
+                Record and access
               </th>
               <th className="py-2.5 px-3 font-semibold min-w-[160px]">
-                Level B: Design & Methodology
+                Design and methods
               </th>
               <th className="py-2.5 px-3 font-semibold min-w-[160px]">
                 System / Dataset & Scale
@@ -339,7 +339,7 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
                   </th>
                 ))}
               <th className="py-2.5 px-3 font-semibold min-w-[250px]">
-                Level C: Source-Grounded Findings & Metrics
+                Findings and figures, with their sources
               </th>
               <th className="py-2.5 px-3 font-semibold min-w-[220px]">
                 Separated Limitations & Appraisal
@@ -560,7 +560,7 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
                           <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
                               <span className="font-bold text-slate-900">
-                                Level A & B: Document & Study Contribution
+                                Record and study
                               </span>
                               <span className="text-[10px] font-mono text-slate-500">
                                 {doc.document_id} / {unit.contribution_id}
@@ -622,7 +622,7 @@ export default function EvidenceTable({ papers = [], evidenceMatrix = null, quer
                           <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
                               <span className="font-bold text-slate-900">
-                                Level C: Granular Result Records ({allResults.length})
+                                Reported results ({allResults.length})
                               </span>
                               <span className="text-[10px] text-emerald-700 font-semibold">
                                 Factual vs. Interpretive Separated

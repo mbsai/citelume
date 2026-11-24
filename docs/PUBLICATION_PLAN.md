@@ -114,7 +114,17 @@ the current search; docs/GAPS.md the gap module. Nothing pushed or deployed sinc
 - Decided 24 Nov 2026: risk of bias is reported as exploratory (no agreement figure claimed; comparison with
   published Cochrane judgements listed as future work).
 
-**Then**: Sessions 13-15 (release, manuscript, pre-submission review).
+**Session 13, release hygiene** (24 Nov 2026; most done, committed locally)
+- Done: pinned dependencies (backend/requirements-lock.txt) and a CI workflow (.github/workflows/tests.yml); a fresh
+  clone installs from the lock and passes all tests; CITATION.cff (fill in your family name and ORCID); evaluation
+  archive builder (eval/build_archive.py; 765 files, 285 MB, checksums; the recall table reproduces from it in a
+  fresh clone); internal labels removed from the page and exports; docs/RAISE.md (RAISE 1 v4, items 2.1-2.27);
+  docs/AI_USAGE.md (draft for you to correct).
+- Your steps: push so CI runs on GitHub; fill in CITATION.cff; review AI_USAGE.md; declare funding and interests;
+  connect the repository to Zenodo and tag v1.0.0 (code DOI); upload the evaluation archive to Zenodo (data DOI;
+  decide on including abstracts, see its README); label the public demo as a research version (RAISE 2.17).
+
+**Then**: Session 14 (manuscript), Session 15 (pre-submission review).
 
 **Optional, if free models are available**: a second screening model for Session 7
 (`python -m eval.rescreen run ... --label gemma4-31b --model google/gemma-4-31b-it:free`, then the report).

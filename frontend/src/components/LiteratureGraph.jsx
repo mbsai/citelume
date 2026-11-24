@@ -62,7 +62,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
   if (!graph || !graph.nodes || graph.nodes.length === 0) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
-        No literature network nodes available. Run a query to generate the Multilayer Scientific Literature Map.
+        No literature network nodes available. Run a search to draw the literature map.
       </div>
     );
   }
@@ -334,7 +334,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">
-                Multilayer Scientific Literature & Knowledge Network
+                Literature map
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                 {visibleNodes.length} Visible Nodes • {visibleEdges.length} Active Links
@@ -342,7 +342,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {graph.view === 'all'
-                ? 'Links among the included studies: citations (Layer A), wording similarity (Layer B), claims and open questions (Layer C) and research lineage (Layer D).'
+                ? 'Links among the included studies: citations, wording similarity, claims and open questions, and research lineage.'
                 : 'Citation links among the included studies: one cites another, they share references, or they are cited together.'}{' '}
               It is not a map of the whole field; the panel below shows the whole candidate pool.
             </p>
@@ -412,7 +412,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
               { id: 'all', label: `All Layers (${graph.edges.length})` },
               {
                 id: 'bibliographic',
-                label: `Layer A: Bibliographic (${
+                label: `Citations (${
                   (cs.direct_citation_edges_count || 0) +
                   (cs.bibliographic_coupling_edges_count || 0) +
                   (cs.co_citation_edges_count || 0)
@@ -420,15 +420,15 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
               },
               {
                 id: 'semantic_conceptual',
-                label: `Layer B: Semantic (${cs.semantic_edges_count || 0})`,
+                label: `Word similarity (${cs.semantic_edges_count || 0})`,
               },
               {
                 id: 'scientific_evidence',
-                label: `Layer C: Claims & Gaps (${cs.evidence_edges_count || 0})`,
+                label: `Claims and open questions (${cs.evidence_edges_count || 0})`,
               },
               {
                 id: 'research_evolution',
-                label: `Layer D: Lineage (${cs.evolution_edges_count || 0})`,
+                label: `Lineage (${cs.evolution_edges_count || 0})`,
               },
             ].map((tab) => (
               <button
@@ -725,19 +725,19 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
           <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-0.5 bg-sky-600 inline-block" /> Directed Citation (Layer A)
+                <span className="w-3 h-0.5 bg-sky-600 inline-block" /> Citation
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-0.5 bg-violet-600 inline-block" /> Lineage Extension (Layer D)
+                <span className="w-3 h-0.5 bg-violet-600 inline-block" /> Lineage
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-0.5 border-b border-dashed border-slate-500 inline-block" /> Semantic Similarity (Layer B)
+                <span className="w-3 h-0.5 border-b border-dashed border-slate-500 inline-block" /> Word similarity
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-teal-700 inline-block" /> Synthesized Claim (Layer C)
+                <span className="w-2.5 h-2.5 rounded-sm bg-teal-700 inline-block" /> Claim
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rotate-45 bg-amber-700 inline-block" /> Open question (Layer C)
+                <span className="w-2.5 h-2.5 rotate-45 bg-amber-700 inline-block" /> Open question
               </span>
             </div>
             <span className="text-slate-400">
@@ -942,7 +942,7 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
             </div>
           ) : (
             <div className="text-xs text-slate-500 space-y-3">
-              <h3 className="text-sm font-bold text-slate-900">Multilayer Node & Edge Inspector</h3>
+              <h3 className="text-sm font-bold text-slate-900">Details</h3>
               <p>
                 Click any <strong>Study</strong>, <strong>Synthesized Claim</strong>, <strong>Knowledge Gap</strong>, or <strong>Hugging Face Artifact</strong> node to inspect its structural role, rationale, and metadata completeness.
               </p>
@@ -969,10 +969,10 @@ export default function LiteratureGraph({ graph, papers = [], config, onGraphExp
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Grounded Scientific Network Interpretation & Intellectual Structure
+                What the map shows
               </h3>
               <p className="text-xs text-slate-500">
-                Computed strictly from observed network topology, citation metadata coverage, and cross-referenced Section 1–3 evidence.
+                Computed strictly from observed network topology, citation metadata coverage, and the synthesis, evidence table and open questions.
               </p>
             </div>
             {graph.validation_report && (

@@ -74,7 +74,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
   if (!gapMatrix || (!gapMatrix.rows?.length && !gapMatrix.subquestion_coverage?.length)) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
-        Run a research query to generate the Universal Evidence-Gap & Prioritization Matrix.
+        Run a search to see the open questions in the included studies.
       </div>
     );
   }
@@ -133,7 +133,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
         {subqCoverage.length > 0 && (
           <div className="space-y-2">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Research-Question-Driven Evidence Coverage (Phase 4)
+              Evidence coverage by sub-question
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {subqCoverage.map((sq) => (
@@ -184,7 +184,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
               Open Questions, Research Opportunities and Checks
             </h3>
             <p className="text-xs text-slate-500">
-              Click any gap row to inspect its G1–G9 taxonomy classification, Section 1/2 evidence IDs, targeted verification queries, 6-dimension priority rationale, and 10-point adversarial check.
+              Click a row to see the kind of gap, the studies it rests on, how it was checked against the records found, its priority and why, and the challenge questions it was put to.
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -318,7 +318,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-[11px]">
                                   <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-1.5">
                                     <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
-                                      Phase 6 & 7: Targeted Gap Verification
+                                      Checked against the records found
                                     </div>
                                     <div>
                                       <strong>Verification Question:</strong> {g.verification_question}
@@ -338,7 +338,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                                   </div>
                                   <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-1.5">
                                     <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
-                                      Phase 11: Explainable Priority Evaluation
+                                      Priority, and why
                                     </div>
                                     <div>
                                       <strong>Priority Category:</strong> {g.priority_evaluation?.priority_category}
@@ -357,7 +357,7 @@ export default function KnowledgeGapMatrix({ gapMatrix, papers = [] }) {
                                   </div>
                                   <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-1.5">
                                     <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
-                                      Phase 15: Adversarial Assumption Check
+                                      Challenge questions
                                     </div>
                                     <div>
                                       <strong>Disposition:</strong>{' '}
