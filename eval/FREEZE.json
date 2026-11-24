@@ -19,10 +19,19 @@
   "services/s2_client.py": "9b3c02050fefd0d75a634991ca57f73d3d9c3f972917e1d4fed7df73c05bff16",
   "services/europepmc_client.py": "8e2b5f88ba9c23454588d1c0a1c73597ab2b2d8642527b0415e46fafa1db5a06",
   "services/arxiv_client.py": "4e05b9849b21cc82de8f3f9cf0a8e1cfbeb064eb3ca00b7176bac153f7233626",
-  "services/biorxiv_client.py": "a67eb192be8783a680c8216cbae8dd8f6c5077c562ddcda78f36b1ccfc6d05b7",
+  "services/biorxiv_client.py": "9656ec709697d565633c6640496c43e83bb6c4fb2a876ae1a9898eaa40e9aa84",
   "services/citation_enrichment.py": "1102da8a089ccacdcf06e41424a907bf85dae0d8fcaad82ec8f1044c1e212702",
   "main._build_corpus": "508b7781f31f751026fb61d0d3626c18261473af4b503bbed7a57bbc1531b1bb",
   "main._harvest_facet_queries": "b10debc6fe9b61c56c6c31890b94d7b2dda5b3bd54d3a30fad7cc35149990708",
   "main._prepare_query": "4d17fb528f06a9969c951e5563779b84887dfedcf0a6b28a16d506bb46dc7327"
- }
+ },
+ "post_freeze": [
+  {
+   "date": "2026-11-24",
+   "file": "services/biorxiv_client.py",
+   "previous_hash": "a67eb192be8783a680c8216cbae8dd8f6c5077c562ddcda78f36b1ccfc6d05b7",
+   "change": "A preprint without a DOI raised NameError and ended the bioRxiv search; it now links to its Europe PMC record.",
+   "effect_on_results": "None: the error appears in no evaluation run log (eval/PROTOCOL.md, amendment of 24 Nov 2026)."
+  }
+ ]
 }

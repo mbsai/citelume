@@ -110,7 +110,8 @@ async def search_biorxiv(
                     venue = "bioRxiv"
 
                 cited_by_count = int(item.get("citedByCount") or 0)
-                url = f"https://doi.org/{doi}" if doi else f"https://www.biorxiv.org/search/{cleaned}"
+                # A preprint without a DOI links to its Europe PMC record
+                url = f"https://doi.org/{doi}" if doi else f"https://europepmc.org/article/PPR/{item.get('id', '')}"
                 pdf_url = f"https://www.biorxiv.org/content/{doi}.full.pdf" if doi and "10.1101" in doi else None
 
                 paper_id = f"doi:{doi}" if doi else f"biorxiv:{item.get('id', len(papers))}"

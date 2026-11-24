@@ -96,3 +96,10 @@ Baselines on the same pools: BM25 ranking of the pool by the question, citation 
   Standard-mode test runs, made later, use the same frozen code. Later sessions (repeatability, verification gates,
   component checks, release) build on top without changing what was measured; any later change to search or
   selection gets a new protocol version and is reported as post-freeze, separately from the recall results.
+
+- **24 November 2026, post-freeze fix (no effect on the reported results):** the bioRxiv connector
+  (`services/biorxiv_client.py`) referred to an undefined name when a preprint had no DOI, so such a result ended
+  that search's bioRxiv part with an error. Found in the public demo's logs. It now links the preprint to its Europe
+  PMC record. The error does not appear in any evaluation run log (the one bioRxiv warning there, in a development
+  run, is a different, empty-message failure), so no measured corpus was affected and the selection protocol stays
+  `citelume-selection/2.5`. The new file hash and the old one are recorded in eval/FREEZE.json under `post_freeze`.

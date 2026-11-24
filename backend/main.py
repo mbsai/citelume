@@ -1,5 +1,7 @@
 import time
+import logging
 import re
+import sys
 import asyncio
 import base64
 import binascii
@@ -119,6 +121,46 @@ from services.export_service import (
     generate_txt_report,
 )
 from services.pdf_report import generate_pdf_report
+
+# ---------------------------------------------------------------------------------------------------------------
+# Logs never carry what users searched for. Connector and model warnings print the failing request's URL, whose query
+# string holds the search terms, and the access log prints request paths with their parameters: both are redacted
+# here, once, for every module (the database clients themselves are unchanged).
+# ---------------------------------------------------------------------------------------------------------------
+_URL_QUERY = re.compile(r"(https?://[^\s'\"<>?]+)\?[^\s'\"<>]*")
+
+
+def redact_query_strings(text: str) -> str:
+    return _URL_QUERY.sub(r"\1?[query removed]", text)
+
+
+class _RedactingStream:
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, data):
+        return self._stream.write(redact_query_strings(data) if isinstance(data, str) else data)
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+class _AccessLogFilter(logging.Filter):
+    """Keeps the access log's path and status, without the query string."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) >= 3 and isinstance(record.args[2], str):
+            args = list(record.args)
+            args[2] = args[2].split("?", 1)[0] + ("?[query removed]" if "?" in args[2] else "")
+            record.args = tuple(args)
+        return True
+
+
+if not isinstance(sys.stdout, _RedactingStream):
+    sys.stdout = _RedactingStream(sys.stdout)
+    sys.stderr = _RedactingStream(sys.stderr)
+logging.getLogger("uvicorn.access").addFilter(_AccessLogFilter())
+
 
 app = FastAPI(
     title="CiteLume API",
