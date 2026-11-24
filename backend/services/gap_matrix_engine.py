@@ -540,6 +540,32 @@ def build_verification_question_and_queries(
     return verif_question, queries
 
 
+# Words that describe a kind of gap rather than its subject; a record that uses them is not thereby about the gap
+_GENERAL_GAP_WORDS = {
+    "conflicting", "heterogeneity", "standardized", "standardised", "definition", "external", "validation",
+    "limited", "supporting", "needed", "further", "studies", "study", "evidence", "research", "unclear", "unknown",
+    "remains", "definitively", "determine", "whether", "effect", "effects", "role", "data", "trials", "trial",
+    "randomised", "randomized", "longitudinal", "prospective", "cohort", "translation", "human", "humans",
+    "single", "site", "centre", "center", "several", "factors", "however", "among",
+}
+
+
+def _stem(word: str) -> str:
+    return word[:7]  # "fractures" and "fracture", "supplementation" and "supplements" share a stem
+
+
+def _verification_terms(gap: StructuredKnowledgeGap, query: str) -> Tuple[List[str], List[str]]:
+    """The question's core terms, and this gap's own subject terms (the verification query's words that are
+    neither in the question nor general words about gaps), as stems."""
+    core = extract_core_scientific_terms(query, max_terms=3) if query else []
+    topic_stems = list(dict.fromkeys(_stem(w) for t in core for w in re.findall(r"[a-z][a-z0-9-]{2,}", t.lower())))
+    q_words = set(re.findall(r"[a-z][a-z0-9-]{3,}", (query or "").lower()))
+    q_str = (gap.verification_queries[0] if gap.verification_queries else "").lower()
+    gap_words = [w for w in re.findall(r"[a-z][a-z0-9-]{3,}", q_str)
+                 if w not in q_words and w not in _GENERAL_GAP_WORDS and _stem(w) not in topic_stems]
+    return topic_stems, list(dict.fromkeys(_stem(w) for w in gap_words))
+
+
 async def execute_targeted_gap_verification(
     gap: StructuredKnowledgeGap,
     primary_papers: List[PaperRecord],
@@ -556,8 +582,9 @@ async def execute_targeted_gap_verification(
     4. Corpus-bounded verification when external live API search is not triggered.
     Strictly preserves the 20/60 primary paper limit by storing supplementary records separately.
     """
+    pool_ids = ",".join(sorted(p.id for p in (all_candidate_pool or [])))
     cache_key = hashlib.sha256(
-        f"{gap.gap_id}::{'|'.join(gap.verification_queries)}".encode("utf-8")
+        f"{gap.gap_id}::{'|'.join(gap.verification_queries)}::{pool_ids}".encode("utf-8")
     ).hexdigest()[:16]
 
     if _TEST_GAP_VERIFIER is not None:
@@ -566,25 +593,28 @@ async def execute_targeted_gap_verification(
         supp_records = list(_GAP_VERIFICATION_CACHE[cache_key])
     else:
         supp_records = []
-        # Check if `all_candidate_pool` contains overflow papers beyond the selected 20/60 primary set
         if all_candidate_pool:
             primary_ids = {p.id for p in primary_papers}
-            overflow_papers = [p for p in all_candidate_pool if p.id not in primary_ids]
-            q_str = (gap.verification_queries[0] if gap.verification_queries else "").lower()
-            q_toks = [w for w in re.findall(r"[a-z][a-z0-9-]{3,}", q_str)]
-            # Words that are about this gap rather than the topic: a paper on the same topic is not, by itself,
-            # evidence that the gap has been addressed
-            topic = set(re.findall(r"[a-z][a-z0-9-]{3,}", (query or "").lower()))
-            gap_toks = [t for t in q_toks if t not in topic]
-            # Every record left out is checked, and the best matches are kept (most of the gap's own words, then
-            # most of the query's words); the order the searches returned them in plays no part
+            left_out = [p for p in all_candidate_pool if p.id not in primary_ids]
+            topic_stems, gap_stems = _verification_terms(gap, query)
+            if not gap_stems:
+                # Only general words describe this gap (e.g. "conflicting", "heterogeneity"): a record that uses
+                # them says nothing about whether the gap is answered, so it is not checked by word matching
+                return ([], "Candidate — Not Yet Verified",
+                        "This gap is described only in general terms, so the records the selection left out were not "
+                        "checked against it.")
+            # A record counts only if it is on the question's topic (every core term) and names this gap's own
+            # subject (at least half of its specific terms, one of them in the title). Every record left out is
+            # checked; the best matches come first, and the order the searches returned them in plays no part.
             matches = []
-            for op in (overflow_papers if gap_toks else []):
-                op_text = f"{op.title} {op.abstract or ''}".lower()
-                gap_hits = sum(1 for t in gap_toks if t in op_text)
-                q_hits = sum(1 for t in q_toks if t in op_text)
-                if gap_hits >= max(1, (len(gap_toks) + 1) // 2) and q_hits >= max(2, len(q_toks) // 2):
-                    matches.append((-gap_hits, -q_hits, op.id, op))
+            for op in left_out:
+                title = (op.title or "").lower()
+                text = f"{title} {(op.abstract or '').lower()}"
+                if not all(t in text for t in topic_stems):
+                    continue
+                gap_hits = sum(1 for t in gap_stems if t in text)
+                if gap_hits * 2 >= len(gap_stems) and any(t in title for t in gap_stems):
+                    matches.append((-gap_hits, -sum(1 for t in gap_stems if t in title), op.id, op))
             for _, _, _, op in sorted(matches, key=lambda m: m[:3])[:_MAX_SUPPLEMENTARY_PER_GAP]:
                 supp_records.append(
                     SupplementaryVerificationRecord(
@@ -599,7 +629,8 @@ async def execute_targeted_gap_verification(
                         url=op.url,
                         abstract_excerpt=(op.abstract or "")[:240],
                         relevance_to_gap="partially_addresses",
-                        assessment_note="Found among the records the searches retrieved but the selection left out.",
+                        assessment_note="Left out by the selection; on the question's topic and names this gap's "
+                                        "subject. Not read in full: it may or may not answer the gap.",
                     )
                 )
         _GAP_VERIFICATION_CACHE[cache_key] = list(supp_records)
@@ -641,7 +672,8 @@ async def execute_targeted_gap_verification(
         return (
             supp_records,
             "Partially Addressed",
-            f"Supplementary verification identified partial evidence ({titles_str}) addressing aspects of the question, though methodological or contextual limitations remain.",
+            f"{len(partial_hits)} record(s) the selection left out are on this topic and name this gap's subject "
+            f"({titles_str}). They were matched by words only, not read: check whether they answer it.",
         )
 
     if inaccessible_hits and len(inaccessible_hits) == len(supp_records):

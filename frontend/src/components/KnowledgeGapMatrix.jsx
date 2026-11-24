@@ -41,8 +41,8 @@ const CELL_CLASSIFICATION_STYLES = {
 // Plain descriptions of what a gap was checked against (no search beyond the retrieved records is run)
 const VERIFICATION_LABEL = {
   'Candidate — Not Yet Verified': 'Not checked beyond these studies',
-  'Corroborated Within Search Scope': 'Not answered by the other records retrieved',
-  'Partially Addressed': 'Partly answered by another retrieved record',
+  'Corroborated Within Search Scope': 'No related record among those left out',
+  'Partially Addressed': 'Related records left out: check them',
   'Contradicted / Resolved by Retrieved Evidence': 'Answered by a retrieved record',
   Inconclusive: 'Unclear',
   'Verification Unavailable': 'Not checked',

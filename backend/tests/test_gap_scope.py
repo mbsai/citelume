@@ -54,23 +54,40 @@ class TestVerificationReadsWholePool(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         clear_gap_verification_cache()
 
+    async def _lpa_gap(self, pool):
+        m = await build_universal_knowledge_gap_matrix(CAD_Q, cad_papers(), [], quick=True, all_candidate_pool=pool)
+        return m, next(g for g in m.structured_gaps + m.resolved_or_invalidated_gaps
+                       if "lipoprotein" in g.gap_title.lower())
+
     async def test_matching_record_after_the_first_ten_is_found(self):
         filler = [PaperRecord(id=f"f{i}", title=f"Unrelated record {i}", abstract="Nothing relevant.", source="PubMed")
                   for i in range(40)]
-        base = await build_universal_knowledge_gap_matrix(CAD_Q, cad_papers(), [], quick=True)
-        lpa = next(g for g in base.structured_gaps if "lipoprotein" in g.gap_title.lower())
-        words = " ".join(lpa.verification_queries[0].split())
-        late = PaperRecord(id="late", title=f"Study of {words}", abstract=f"We measured {words} in young adults.",
+        late = PaperRecord(id="late", title="Lipoprotein(a) and premature coronary artery disease in young Indians",
+                           abstract="Coronary artery disease in India: lipoprotein(a) levels in young adults.",
                            source="Europe PMC")
-        clear_gap_verification_cache()
-        m = await build_universal_knowledge_gap_matrix(CAD_Q, cad_papers(), [], quick=True,
-                                                       all_candidate_pool=filler + [late])
-        ids = {r.verification_source_id for r in m.supplementary_verification_records}
-        self.assertIn("SUPP-late", ids)
+        m, g = await self._lpa_gap(filler + [late])
+        self.assertIn("SUPP-late", g.verification_source_ids)
+        self.assertEqual(g.verification_status, "Partially Addressed")
 
+    async def test_off_topic_or_generic_matches_are_not_counted(self):
+        # Live guided review, 24 Nov 2026: a vitamin D paper on respiratory infection was counted against a
+        # fracture gap because it shared "vitamin" and "heterogeneity"
+        off_topic = PaperRecord(id="resp", title="Lipoprotein(a) in respiratory infection",
+                                abstract="Lipoprotein(a) levels in pneumonia; heterogeneity was high.", source="PubMed")
+        no_subject = PaperRecord(id="gen", title="Coronary artery disease in India: a review",
+                                 abstract="Coronary artery disease in India; conflicting results and heterogeneity.",
+                                 source="PubMed")
+        m, g = await self._lpa_gap([off_topic, no_subject])
+        self.assertEqual(g.verification_source_ids, [])
 
-if __name__ == "__main__":
-    unittest.main()
+    async def test_gap_described_only_in_general_words_is_not_checked(self):
+        pool = [PaperRecord(id="x", title="Coronary artery disease in India: conflicting findings",
+                            abstract="Coronary artery disease in India. Heterogeneity across studies.", source="PubMed")]
+        m = await build_universal_knowledge_gap_matrix(CAD_Q, with_disagreement(), [], quick=True,
+                                                       all_candidate_pool=pool)
+        conflict = next(g for g in m.structured_gaps if g.primary_gap_type == "Inconsistent findings")
+        self.assertEqual(conflict.verification_status, "Candidate — Not Yet Verified")
+        self.assertEqual(conflict.verification_source_ids, [])
 
 
 class TestExportsShowScopeAndReason(unittest.IsolatedAsyncioTestCase):

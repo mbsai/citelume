@@ -66,10 +66,15 @@ The reason comes from the gap's kind by fixed rules (`ROBINSON_BY_CATEGORY` and 
 
 ## How each gap is checked
 
-- **Verification against the candidate pool** (`execute_targeted_gap_verification`). The gap's own search terms are
-  compared with every record that was found but not included, to see whether any of them already addresses it; the
-  three best matches are shown. (Before 24 November 2026 only the first ten such records, in the order the searches
-  returned them, were read.) This does not run a new database search: it is bounded by what the searches returned.
+- **Check against the records left out** (`execute_targeted_gap_verification`). Every record the searches found but
+  the selection left out is compared with the gap. A record counts only if it is on the question's topic (it names
+  every core term of the question) and names the gap's own subject (at least half of the gap's specific terms, one
+  of them in its title); up to three are shown, best matches first, as "related records left out: check them".
+  They are matched by words, not read, so they may or may not answer the gap. A gap described only in general words
+  ("conflicting", "heterogeneity", "external validation") is not checked this way, because any review abstract uses
+  them. This does not run a new database search: it is bounded by what the searches returned. (Until 24 November
+  2026 only the first ten records left out were read, and two shared words were enough; a live guided review showed
+  that this matched off-topic papers.)
 - **Adversarial check** (`run_adversarial_gap_check`). Each gap is challenged by fixed questions, for example
   whether an included study already answers it, or whether a domain-specific result (such as an established proof)
   contradicts it. A gap that fails is marked as resolved by the retrieved evidence.
