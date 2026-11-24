@@ -65,7 +65,9 @@ def _request(**overrides):
 
 
 def _text(pdf: bytes) -> str:
-    return "\n".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages)
+    # Line breaks depend on the font installed (DejaVu on Linux, Arial Unicode on macOS), so compare the text with
+    # its whitespace collapsed
+    return " ".join(" ".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages).split())
 
 
 class PdfReportTests(unittest.TestCase):

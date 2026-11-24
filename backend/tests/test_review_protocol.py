@@ -173,7 +173,8 @@ class TestProtocolInResultsAndExports(unittest.TestCase):
         fields = {k: v for k, v in result.model_dump().items() if k in ExportRequest.model_fields}
         req = ExportRequest(**{**fields, "format": "md"})
         md, txt = generate_markdown_report(req), generate_txt_report(req)
-        pdf = "\n".join(pg.extract_text() for pg in PdfReader(io.BytesIO(generate_pdf_report(req))).pages)
+        # Line breaks depend on the installed font; compare with whitespace collapsed
+        pdf = " ".join(" ".join(pg.extract_text() for pg in PdfReader(io.BytesIO(generate_pdf_report(req))).pages).split())
         for text in (md, txt, pdf):
             self.assertIn("Review Protocol".upper() if text is txt else "Review Protocol", text)
             self.assertIn("Randomised controlled trial", text)
