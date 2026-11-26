@@ -103,3 +103,20 @@ Baselines on the same pools: BM25 ranking of the pool by the question, citation 
   PMC record. The error does not appear in any evaluation run log (the one bioRxiv warning there, in a development
   run, is a different, empty-message failure), so no measured corpus was affected and the selection protocol stays
   `citelume-selection/2.5`. The new file hash and the old one are recorded in eval/FREEZE.json under `post_freeze`.
+
+- **26 November 2026, post-freeze: selection protocol `citelume-selection/2.6` (not used for any reported
+  result).** A demo user's question, "Assesment of the atrazine biotransformation by aspergillus hortai", showed
+  four general faults in search: (1) a research action in a title ("assessment of", "evaluation of", "analysis
+  of", ...) was parsed as a concept and required in every search; (2) a third concept (here the organism) was never
+  searched, because each search ANDs at most two; (3) when PubMed mapped only a term's head noun to MeSH
+  ("biotransformation"), the heading became an alternative for the whole term, matching any biotransformation
+  study; (4) environmental questions got biomedical default aspects. Protocol 2.6 treats those nouns as framing,
+  adds a core search of the main concept with each further concept, keeps a substance named before a mapped
+  head noun (one PubMed maps to a Supplementary Concept, such as atrazine) required with that heading, and adds
+  environmental default aspects, and searches a concept ending in biotransformation, biodegradation or degradation
+  under the other two names as well (none of the 33 benchmark reviews has such a concept). A first version that kept every leading word required lost records on two
+  development reviews ("refractory glaucoma", "early childhood vaccination") and was narrowed before release. The files changed and their previous hashes
+  are in eval/FREEZE.json (`post_freeze`). **All recall results reported for the paper remain those of protocol
+  2.5** (tag `eval-freeze-2.5`). Protocol 2.6 is compared with 2.5 on the 11 development reviews only, without a
+  model (rule-based planning, the same day, alternating question by question), in
+  `eval/results/2.6_dev_check.md`; the test reviews are not run with 2.6.

@@ -65,6 +65,9 @@ class TestSourceKeyRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     mode: Literal["standard", "deep_research"] = "standard"
+    # A guided review re-run after the user accepted an offer to broaden the protocol (services/broadening.py):
+    # the corpus it broadens. On the demo the first such re-run is not charged.
+    broadened_from: str = ""
     max_per_source: int = Field(default=8, ge=3, le=35)
     year_from: Optional[int] = None
     year_to: Optional[int] = None
@@ -2101,6 +2104,8 @@ class ModuleRequest(BaseModel):
 class CorpusSummary(BaseModel):
     """What POST /api/corpus returns: the selection, without the full record list (GET /api/corpus/{id} has it)."""
     corpus_id: str
+    # When the search found too little: concepts the user may widen (services/broadening.py), offered, not applied
+    broaden: List[Dict[str, Any]] = Field(default_factory=list)
     corpus_hash: str
     created_at: str = ""
     protocol_version: str = ""

@@ -480,11 +480,13 @@ export default function App() {
       protocol,
       import_ids: extras.import_ids || [],
       user_pdfs: extras.user_pdfs || [],
+      broadened_from: extras.broadened_from || '',
     };
     try {
       if (mode === 'deep_research' && protocol) {
         const summary = await createCorpus(request);
         setGuidedOpen(false);
+        setLastGuided({ protocol, extras });
         setPendingCorpus(summary);
         return;
       }
@@ -495,6 +497,22 @@ export default function App() {
       setLoading(false);
       if (demo.demo) refreshDemo();
     }
+  };
+
+  // The user accepted an offer to widen a concept (a species to its genus): same protocol with that concept widened,
+  // searched again
+  const [lastGuided, setLastGuided] = useState(null);
+  const handleBroaden = (concept, broader) => {
+    if (!lastGuided || !pendingCorpus) return;
+    const protocol = {
+      ...lastGuided.protocol,
+      concepts: (lastGuided.protocol.concepts || []).map((c) =>
+        c.name.toLowerCase() === concept.toLowerCase() ? { ...c, name: broader, synonyms: [], set_by: 'user' } : c
+      ),
+    };
+    const from = pendingCorpus.corpus_id;
+    setPendingCorpus(null);
+    handleSearch(protocol, { ...lastGuided.extras, broadened_from: from });
   };
 
   // The user's changes to the model's screening give a new corpus from the same records (no search, no model)
@@ -952,6 +970,7 @@ export default function App() {
               running={loading}
               onAnalyse={handleAnalyse}
               onOverride={handleOverride}
+              onBroaden={handleBroaden}
               onBack={() => {
                 setPendingCorpus(null);
                 setGuidedOpen(true);

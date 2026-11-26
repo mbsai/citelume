@@ -2,14 +2,14 @@
  "frozen": "2026-11-23",
  "commit": "47e40ef",
  "tag": "eval-freeze-2.5",
- "protocol_version": "citelume-selection/2.5",
+ "protocol_version": "citelume-selection/2.6",
  "note": "Search and selection code measured in Session 6.",
  "hashes": {
-  "services/paper_selection.py": "694e558c173f1861ef53648154d7f9b53f1c1ff2717c0221c296c294d88684db",
-  "services/query_planning.py": "a4d22e2f105e3530c5edfde3f396e585b36b050a26fccfbd3d689d2559556ba8",
-  "services/question_parsing.py": "b9499f2a40b705091c14ae7ba813ef91e61c703d7b99d19e7995f679ff4a2059",
+  "services/paper_selection.py": "ffb10c824afe7de9437c07c95d3fd86935be6ff66352ce9a58915cced7beb1e9",
+  "services/query_planning.py": "f994de2a4f81f62432fe1cfec254ddb2e6502e5654415ae3badc786bbf11fb47",
+  "services/question_parsing.py": "cd0b762aeb4ae3d4a9d1dc6357e520b62b571dfbcf18df781f07f4e1794baab6",
   "services/query_utils.py": "0ffe5b6d55db9da58cdfb1bf3f7baa070ca263b230aa11c07f6dd813606184f1",
-  "services/mesh_terms.py": "e20223882a03bdf5b1a85be48b60044c3f11513334e0fa639c6e7a9f416040b3",
+  "services/mesh_terms.py": "f9d922a1be1d3f082da365c6207b68ddcce7afea8fe20b2733efba9705ecdc7b",
   "services/citation_chasing.py": "ca4c3116ed4a80de11f5857d258518d6b38ead97fe0ed849e58fceb7bce36787",
   "services/ai_screening.py": "aaa5824d1f5e793bd6e8864887bf79a954f7c0f5db4b887e39eba3e0dbc050df",
   "services/corpus.py": "a58223913ba1e464ea09af13763b6b5ce728c8094c391891e10743684694f3b0",
@@ -32,6 +32,25 @@
    "previous_hash": "a67eb192be8783a680c8216cbae8dd8f6c5077c562ddcda78f36b1ccfc6d05b7",
    "change": "A preprint without a DOI raised NameError and ended the bioRxiv search; it now links to its Europe PMC record.",
    "effect_on_results": "None: the error appears in no evaluation run log (eval/PROTOCOL.md, amendment of 24 Nov 2026)."
+  },
+  {
+   "date": "2026-11-26",
+   "protocol_version": "citelume-selection/2.6",
+   "files": [
+    "services/mesh_terms.py",
+    "services/paper_selection.py",
+    "services/query_planning.py",
+    "services/question_parsing.py"
+   ],
+   "previous_hashes": {
+    "services/mesh_terms.py": "e20223882a03bdf5b1a85be48b60044c3f11513334e0fa639c6e7a9f416040b3",
+    "services/paper_selection.py": "694e558c173f1861ef53648154d7f9b53f1c1ff2717c0221c296c294d88684db",
+    "services/query_planning.py": "a4d22e2f105e3530c5edfde3f396e585b36b050a26fccfbd3d689d2559556ba8",
+    "services/question_parsing.py": "b9499f2a40b705091c14ae7ba813ef91e61c703d7b99d19e7995f679ff4a2059"
+   },
+   "change": "Reported by a demo user (atrazine biotransformation by Aspergillus hortai): research-action nouns ('assessment of', 'evaluation of', ...) frame the question and are not concepts; a concept beyond the two every search requires gets its own core search with the main concept; when PubMed maps only a term's head noun, a substance named before it (a Supplementary Concept) stays required with that heading; environmental and microbial questions get their own default search aspects; a concept ending in biotransformation, biodegradation or degradation is also searched under the other two names.",
+   "effect_on_results": "The reported recall results are those of protocol 2.5 (eval-freeze-2.5) and are unchanged. Protocol 2.6 is checked on the development reviews only (eval/results/2.6_dev_check.md)."
   }
- ]
+ ],
+ "measured_protocol_version": "citelume-selection/2.5"
 }

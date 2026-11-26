@@ -218,6 +218,22 @@ ASPECT_TEMPLATES: Dict[str, List[Tuple[str, List[str], str]]] = {
         _A("Measurement and methods", ["measurement", "survey", "methodology", "identification"],
            "How is {t} measured and studied?"),
     ],
+    # Environmental and microbial transformation of chemicals (protocol 2.6): before, such questions were classed
+    # as biomedical and searched for "diagnosis and treatment" and "epidemiology"
+    "environmental": [
+        _A("Organisms and enzymes", ["strain", "fungi", "bacteria", "enzyme", "isolate", "consortium"],
+           "Which organisms and enzymes act on {t}?"),
+        _A("Pathways and metabolites", ["pathway", "metabolite", "intermediate", "dechlorination", "hydroxylation"],
+           "What pathways and products are reported for {t}?"),
+        _A("Kinetics and conditions", ["kinetics", "half-life", "rate", "optimal", "pH", "temperature"],
+           "How fast does {t} proceed, and under which conditions?"),
+        _A("Soil, water and field studies", ["soil", "water", "sediment", "field", "wastewater"],
+           "What do soil, water and field studies show about {t}?"),
+        _A("Toxicity of products", ["toxicity", "ecotoxicity", "detoxification", "risk"],
+           "How toxic are the products of {t}?"),
+        _A("Open problems and limitations", ["limitations", "challenges", "unclear", "future"],
+           "What remains uncertain about {t}?"),
+    ],
     "humanities": [
         _A("Historical context", ["history", "historical", "century", "origins"], "What is the history of {t}?"),
         _A("Interpretation and theory", ["interpretation", "theory", "criticism", "reading"],
@@ -237,6 +253,12 @@ _DOMAIN_TEMPLATE = {
 }
 
 
+_ENVIRONMENTAL_Q = re.compile(
+    r"\b(?:bio-?degradation|biodegrad\w*|biotransform\w*|bioremediation|mycoremediation|phytoremediation|"
+    r"degradation of|pesticides?|herbicides?|insecticides?|fungicides?|pollutants?|contaminants?|xenobiotics?|"
+    r"wastewater|effluents?|sediments?|soil contamination|microplastics?|atrazine|glyphosate|chlorpyrifos)\b", re.I)
+
+
 def default_aspects(understanding: UniversalQuestionUnderstanding, topic: str, n: int) -> List[SearchAspect]:
     """Aspects for the question's field and type, used when no model plans the search."""
     domain, intent = understanding.primary_domain, understanding.primary_intent
@@ -244,6 +266,8 @@ def default_aspects(understanding: UniversalQuestionUnderstanding, topic: str, n
     if key is None and re.search(r"\b(?:machine learning|deep learning|neural networks?|artificial intelligence|"
                                  r"language models?|algorithms?)\b", understanding.raw_query, re.I):
         key = "computing"  # a computational method applied to another field
+    if key is None and _ENVIRONMENTAL_Q.search(understanding.raw_query):
+        key = "environmental"
     focused = detect_breadth(understanding.raw_query, understanding.concepts.concept_phrases) == "focused"
     if key is None:
         if intent in ("causal_intervention", "comparative") or (focused and _INTERVENTION_Q.search(understanding.raw_query)):
@@ -302,7 +326,27 @@ def concepts_from_question(understanding: UniversalQuestionUnderstanding) -> Lis
                and p.lower() not in ("review", "analysis", "data", "survey", "study")]
     if methods and len(concepts) < 3:
         concepts.append(SearchConcept(name=methods[0]))
+    for c in concepts:
+        c.synonyms = list(dict.fromkeys(c.synonyms + process_alternatives(c.name)))
     return concepts
+
+
+# The same process under the names studies use for it (protocol 2.6): "atrazine biotransformation" alone found no
+# study of atrazine degradation by Aspergillus, which PubMed holds under "degradation" and "biodegradation"
+PROCESS_ALTERNATIVES = {
+    "biotransformation": ["biodegradation", "degradation"],
+    "biodegradation": ["degradation", "biotransformation"],
+    "degradation": ["biodegradation", "biotransformation"],
+}
+
+
+def process_alternatives(name: str) -> List[str]:
+    """Alternatives for a concept naming a substance and what happens to it ("atrazine biotransformation" ->
+    "atrazine biodegradation", "atrazine degradation"); [] for anything else."""
+    words = (name or "").lower().split()
+    if len(words) < 2 or words[-1] not in PROCESS_ALTERNATIVES:
+        return []
+    return [" ".join(words[:-1] + [alt]) for alt in PROCESS_ALTERNATIVES[words[-1]]]
 
 
 CATEGORY_HEADS = {"intervention", "interventions", "strategies", "strategy", "approaches", "approach",
@@ -449,9 +493,10 @@ def compile_facet(
     huggingface_query: str,
     subquestion_id: str,
     rank: int,
+    required: Optional[Sequence[SearchConcept]] = None,
 ) -> SearchFacet:
     """One search (for every database) for an aspect of the question, built by fixed rules."""
-    required = list(concepts[:MAX_REQUIRED_CONCEPTS])
+    required = list(required) if required else list(concepts[:MAX_REQUIRED_CONCEPTS])
     names = " ".join(c.name for c in required)
     place = " ".join(c.name for c in constraints)
     terms = [t for t in aspect.terms if t]
@@ -549,6 +594,14 @@ def build_search_plan(
         compile_facet(core, "S1_core", concepts, constraints, huggingface_query, "SQ1", 1),
         compile_facet(reviews, "S2_reviews", concepts, constraints, huggingface_query, "SQ1", 2),
     ]
+    # A concept beyond the two every search requires (for example the organism in "atrazine biotransformation by
+    # Aspergillus hortai") was never searched before protocol 2.6; it now gets its own core search with the main
+    # concept, which adds records and narrows nothing
+    for k, extra in enumerate(concepts[MAX_REQUIRED_CONCEPTS:]):
+        extra_core = SearchAspect(label=f"Core search with {extra.name}", kind="core",
+                                  question=understanding.raw_query.strip())
+        facets.append(compile_facet(extra_core, f"S1{'bcdefg'[k]}_core", concepts, constraints, huggingface_query,
+                                    "SQ1", 2, required=[concepts[0], extra]))
     for i, a in enumerate(aspects):
         facets.append(compile_facet(a, f"A{i + 1}_aspect", concepts, constraints, huggingface_query, f"SQ{i + 2}", i + 3))
     return facets

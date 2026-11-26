@@ -70,6 +70,11 @@ QUESTION_FRAMING_WORDS = {
 _FRAMING_PHRASES = re.compile(
     r"\b(?:state[- ]of[- ]the[- ]art|state of knowledge|current state|what is known|an overview of|"
     r"the latest on|recent advances in|literature review on|systematic review of|review of|"
+    # The research action a title names ("Assessment of the atrazine biotransformation by ...") frames the question;
+    # it is not something the studies are about (protocol 2.6). "Assesment" is a common misspelling.
+    r"(?:an?\s+|the\s+)?(?:assess?ments?|evaluations?|analys[ie]s|investigations?|characteri[sz]ations?|"
+    r"examinations?|explorations?|appraisals?|determinations?|estimations?|quantifications?|"
+    r"identifications?|screening)\s+of|"
     # Purpose in review titles: "... for the prevention of complications" -> the concept is "complications"
     r"(?:the\s+)?(?:prevention|promotion|treatment|management|reduction|improvement|control|relief)\s+of)\b", re.I)
 _NEGATION_RE = re.compile(r"\b(?:NOT|not|without|excluding|exclude|except)\b\s+([^,;:()]+?)(?=\s+(?:AND|OR|and|or)\b|[,;:()]|$)")

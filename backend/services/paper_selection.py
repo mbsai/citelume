@@ -40,7 +40,7 @@ from services.question_parsing import (
     meets_constraint,
 )
 
-PROTOCOL_VERSION = "citelume-selection/2.5"
+PROTOCOL_VERSION = "citelume-selection/2.6"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 3 criteria: points available for each (they add up to 100)

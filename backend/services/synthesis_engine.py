@@ -395,7 +395,7 @@ def _extract_domain_adaptive_study_fields(
     method_keywords = [
         ("Formal Mathematical Proof / Analysis", r"\b(theorem|proof|lemma|conjecture|minimax|banach|hilbert|cohomology|ergodic|pde|ode)\b"),
         ("Quantum / Physical Simulation", r"\b(quantum|hamiltonian|monte carlo|tensor network|dft|density functional|molecular dynamics|lattice|navier-stokes)\b"),
-        ("Transformer / Foundation Model", r"\b(transformer|bert|gpt|llm|language model|esm|attention|pretrained|foundation model)\b"),
+        ("Transformer / Foundation Model", r"\b(transformers?|bert|gpt-?\d*|llms?|large language models?|language models?|self-attention|pretrained models?|foundation models?)\b"),
         ("Graph / Geometric Neural Network", r"\b(graph neural|gnn|message passing|equivariant|egnn|gcn)\b"),
         ("Diffusion / Generative Architecture", r"\b(diffusion|generative|vae|gan|flow matching|autoregressive|de novo)\b"),
         ("Randomized / Clinical Trial", r"\b(randomized|clinical trial|phase i|phase ii|phase iii|placebo|double-blind)\b"),
@@ -898,6 +898,19 @@ def _prisma_introduction_fallback(query: str, previous_reviews: Sequence[Any]) -
 DEEP_SECTION_CONCURRENCY = 4
 
 
+# When the studies do not address the exact subject of the question (a named species, compound or population with
+# no studies), the review says so once and then synthesises the nearest evidence, labelled as indirect, instead of
+# repeating the absence in every section (reported by a demo user, 26 Nov 2026)
+NEAREST_EVIDENCE_FIRST = (
+    "If no study addresses the exact subject of the question (for example a named species, compound or population), "
+    "say so in one sentence, then synthesise the closest evidence the studies do give - the same genus or class, "
+    "related organisms or agents, the same process studied elsewhere - saying for each finding at which level it "
+    "sits and that it is indirect evidence for the question.\n")
+NEAREST_EVIDENCE_LATER = (
+    "Do not restate that no study addresses the exact subject: the opening of the review says it once. Write about "
+    "what the studies show and how closely it bears on the question.\n")
+
+
 def _deep_digest_line(p: PaperRecord) -> str:
     who = p.authors[0] if p.authors else p.source
     return (
@@ -1013,7 +1026,8 @@ async def _write_deep_review_sections(
             + 
             "2. Never invent numbers, percentages or sample sizes that are not in the provided records.\n"
             "3. Do not claim causation from observational or correlational evidence.\n"
-            f"Methodology rules:\n{rules_block}\n"
+            "4. " + (NEAREST_EVIDENCE_FIRST if heading == units[0][0] else NEAREST_EVIDENCE_LATER)
+            + f"Methodology rules:\n{rules_block}\n"
             + ('Return ONLY valid JSON: {"heading": "short descriptive subsection title (max 10 words)", "content": "..."}'
                if proposes_heading else 'Return ONLY valid JSON: {"content": "..."}')
         )
@@ -1305,6 +1319,7 @@ async def generate_synthesis_and_extractions(
         + _index_label(sorted(p.citation_index for p in synth_papers)) + ".\n"
         "3. Never invent numbers, percentages, or sample sizes not present in the provided records.\n"
         "4. If any contradicting studies exist in the corpus, explicitly cite and weigh them.\n"
+        "5. " + NEAREST_EVIDENCE_FIRST + "   In the sections, do not restate the absence; write about what the studies show.\n"
         f"{section_spec}\n"
         "Return ONLY valid JSON matching:\n"
         '{"executive_answer": "...", "consensus_verdict": "...", "consensus_summary": "...", "sections": [{"heading": "...", "content": "...", "cited_indices": [1, 2]}]}'

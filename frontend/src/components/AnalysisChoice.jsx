@@ -92,7 +92,34 @@ function ScreeningReview({ report, onApply, busy }) {
   );
 }
 
-export default function AnalysisChoice({ summary, running, onAnalyse, onBack, onOverride }) {
+// When the search found too little: an offer to widen a species to its genus (backend services/broadening.py).
+// Offered, never applied; accepting it changes the protocol (recorded) and searches again.
+function BroadenOffer({ items, running, onBroaden }) {
+  if (!items?.length || !onBroaden) return null;
+  return (
+    <div className="bg-sky-50 border border-sky-300 rounded-lg p-3 text-xs text-sky-950 space-y-2" role="note">
+      <strong>Few studies matched. You can widen the search.</strong>
+      {items.map((b) => (
+        <div key={b.concept} className="flex flex-wrap items-center gap-2">
+          <span>
+            {b.reason}
+          </span>
+          <button
+            type="button"
+            disabled={running}
+            onClick={() => onBroaden(b.concept, b.broader)}
+            className="px-2.5 py-1 rounded-lg bg-sky-700 hover:bg-sky-600 text-white font-semibold disabled:opacity-50"
+          >
+            Search {b.broader.charAt(0).toUpperCase() + b.broader.slice(1)} instead of {b.concept}
+          </button>
+        </div>
+      ))}
+      <p className="text-sky-800">The change is recorded in the review protocol, and the review says which findings are indirect.</p>
+    </div>
+  );
+}
+
+export default function AnalysisChoice({ summary, running, onAnalyse, onBack, onOverride, onBroaden }) {
   const included = summary.included.length;
   const eligibleBased = summary.selection_method !== 'narrative';
   // An eligibility-based review can only go down (only screened studies can be chosen without the model); a
@@ -128,7 +155,13 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack, on
           </li>
         ))}
       </ul>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+      {max === 0 && (
+        <p className="text-sm text-slate-700">
+          No study met the criteria, so there is nothing to analyse. Widen the search below, or go back to the set-up
+          and change the question or the criteria.
+        </p>
+      )}
+      {max > 0 && <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
         <label className="inline-flex items-center gap-2">
           Analyse
           <input
@@ -145,7 +178,7 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack, on
         <span className="text-xs text-slate-500">
           About {minutes(value)} minutes with a free hosted model; every analysed study is read by the model.
         </span>
-      </div>
+      </div>}
       {notAnalysed > 0 && eligibleBased && (
         <div className="text-xs bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-2.5" role="alert">
           <strong>
@@ -164,19 +197,20 @@ export default function AnalysisChoice({ summary, running, onAnalyse, onBack, on
           {`${notAnalysed} eligible ${notAnalysed === 1 ? 'study is' : 'studies are'} not chosen by the ranking; they are counted under "How the studies were chosen".`}
         </p>
       )}
+      <BroadenOffer items={summary.broaden} running={running} onBroaden={onBroaden} />
       <ScreeningReview report={summary.selection_report} onApply={onOverride} busy={running} />
       <div className="flex gap-2">
         <button type="button" onClick={onBack} className="px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">
           Back to the set-up
         </button>
-        <button
+        {max > 0 && <button
           type="button"
           disabled={running}
           onClick={() => onAnalyse(value)}
           className="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
         >
           {running ? 'Analysing...' : `Analyse ${value} ${value === 1 ? 'study' : 'studies'}`}
-        </button>
+        </button>}
       </div>
     </div>
   );

@@ -58,12 +58,15 @@ def render() -> str:
         "AI model is configured it proposes the concepts and synonyms; they are accepted only if the leading "
         "concept is anchored in the question's own words. Without a model the concepts are taken from the "
         f"question's wording. At most {qp.MAX_REQUIRED_CONCEPTS} concepts are required in every search (more makes "
-        "searches too narrow).",
+        "searches too narrow); a further concept (for example the organism in *atrazine biotransformation by "
+        "Aspergillus hortai*) gets its own core search together with the main concept.",
         "   Reading the question's wording follows fixed rules, built for questions written as review titles: "
         "typographic dashes count as hyphens; a slash between two words names alternatives (*chronic "
         "prostatitis/chronic pelvic pain syndrome*); purpose words frame a concept rather than join it (*for the "
         "prevention of*, *treating*, *protecting*; the full list has "
-        f"{len(ACTION_GERUNDS)} verbs); a label for a class of interventions (*non-pharmacological interventions*, "
+        f"{len(ACTION_GERUNDS)} verbs); the research action a title names (*assessment of*, *evaluation of*, "
+        "*analysis of*, *characterisation of*) frames the question and is not a concept; a label for a class of "
+        "interventions (*non-pharmacological interventions*, "
         "*... strategies*, *... programmes*) is not required when the question names something else; and a term "
         "in brackets after a concept is another name for it (*intraocular lenses (IOLs)*).",
         "2. **Breadth.** The question is classed as a *broad topic* to survey (\"gut microbiome\") or a "
@@ -86,7 +89,10 @@ def render() -> str:
         "alternative in the PubMed query (for example *antidepressants* also searches *Antidepressive Agents* "
         "[Pharmacological Action], which covers trials of doxepin or trazodone). Only parts of two or more words, "
         "and the word the concept ends with, are mapped, so a single leading word does not pull in another sense; "
-        f"at most {mt.MAX_TAGS_PER_WORD} headings per part are used. The headings are stored with the plan, so the "
+        f"at most {mt.MAX_TAGS_PER_WORD} headings per part are used. When only the final word is mapped and a word "
+        "before it is a substance (PubMed maps it to a Supplementary Concept), that word stays required with the "
+        "heading (*atrazine biotransformation* searches *Biotransformation* [MeSH] together with *atrazine*, not any "
+        "biotransformation study). The headings are stored with the plan, so the "
         "query is the same on every run; if PubMed does not answer, the query is used without them.",
         "6. **Other methods** (Deep Research). After a first selection, the reference lists and the citing papers "
         f"of up to {cc.MAX_SEEDS} selected studies are fetched from Semantic Scholar; a paper linked to at least "

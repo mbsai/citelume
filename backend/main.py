@@ -82,6 +82,7 @@ from services.search_counts import preview_searches
 from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
 from services import demo_mode
 from services import gap_map
+from services.broadening import broaden_suggestions
 from pydantic import BaseModel, Field
 from services.citation_enrichment import enrich_citation_counts
 from services import citation_chasing
@@ -587,6 +588,9 @@ def _summary(run: "CorpusRun") -> CorpusSummary:
         eligible=run.selection_report.eligible if run.selection_report else len(run.papers),
         max_study_limit=ceiling(c.mode, c.review_framework), estimated_minutes=estimate_minutes(len(run.papers)),
         imports=c.imports, user_pdfs=c.user_pdfs,
+        broaden=[b.model_dump() for b in broaden_suggestions(
+            c.protocol, run.selection_report.eligible if run.selection_report else len(run.papers), c.records)]
+        if c.mode == "deep_research" else [],
     )
 
 
@@ -721,12 +725,33 @@ def _record_user_pdfs(corpus: Corpus, pdf_records: List[PaperRecord], summaries:
     corpus.user_pdfs = summaries
 
 
+_BROADENED: set = set()
+
+
+def _free_broadening(req: SearchRequest) -> bool:
+    """A re-run that broadens a guided review whose search found too little is not charged on the demo, once per
+    corpus, and only if that corpus did offer to broaden (same question, few eligible studies)."""
+    cid = req.broadened_from
+    if req.mode != "deep_research" or not cid or cid in _BROADENED or not corpus_store.valid_id(cid):
+        return False
+    prev = corpus_store.load(cid)
+    if prev is None or prev.query.strip().lower() != req.query.strip().lower():
+        return False
+    eligible = prev.selection_report.eligible if prev.selection_report else len(prev.included_ids)
+    if not broaden_suggestions(prev.protocol, eligible, prev.records):
+        return False
+    _BROADENED.add(cid)
+    return True
+
+
 @app.post("/api/corpus", response_model=CorpusSummary)
 async def create_corpus(req: SearchRequest, request: Request) -> CorpusSummary:
     req, note = await _prepare_query(req)
+    free = _free_broadening(req)
     try:
         run = await _with_demo_limits(
-            request, req.mode, req.config, lambda cfg: _build_corpus(req.model_copy(update={"config": cfg})))
+            request, req.mode, req.config, lambda cfg: _build_corpus(req.model_copy(update={"config": cfg})),
+            charge=not free)
     finally:
         if req.progress_id:
             _SEARCH_PROGRESS.pop(req.progress_id, None)

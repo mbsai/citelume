@@ -23,7 +23,7 @@ import httpx
 from models import SearchConcept, SearchFacet
 from services.source_health import report_source_failure, retrying_transport
 
-MESH_LOOKUP_VERSION = "citelume-mesh/1.0"
+MESH_LOOKUP_VERSION = "citelume-mesh/1.1"
 ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 _TAG = re.compile(r'"([^"]+)"\[(MeSH Terms|Pharmacological Action)\]')
 # Headings too general to say what a study is about
@@ -31,6 +31,7 @@ _TOO_GENERAL = {"humans", "animals", "male", "female", "adult", "aged", "child",
                 "middle aged", "young adult", "methods", "therapeutics", "research", "disease", "patients",
                 "persons", "population", "time", "time factors"}
 MAX_TAGS_PER_WORD = 4
+_CONNECTIVES = {"and", "the", "for", "with", "from", "into", "onto", "via", "versus", "per"}
 _CACHE: Dict[str, List[str]] = {}
 
 
@@ -41,9 +42,13 @@ def groups_from_translation(translationset: Sequence[dict], term: str = "") -> L
     sense ("adjuvant" -> "Adjuvants, Pharmaceutic", "plaque" -> "Dental Plaque")."""
     groups: List[str] = []
     term_low = re.sub(r"\s+", " ", (term or "").strip().lower())
+    used_parts: List[str] = []
+    substances: List[str] = []
     for entry in translationset or []:
         part = (entry.get("from") or "").strip().lower()
         if term_low and len(part.split()) < 2 and not term_low.endswith(part):
+            if "[Supplementary Concept]" in (entry.get("to") or "") and part and part not in substances:
+                substances.append(part)
             continue
         tags = list(dict.fromkeys((h.lower(), f) for h, f in _TAG.findall(entry.get("to", ""))
                                   if h.lower() not in _TOO_GENERAL))[:MAX_TAGS_PER_WORD]
@@ -54,6 +59,14 @@ def groups_from_translation(translationset: Sequence[dict], term: str = "") -> L
         if words:
             alts.append(f'"{words}"[Title/Abstract]')
         groups.append("(" + " OR ".join(dict.fromkeys(alts)) + ")")
+        used_parts.append(words)
+    # When PubMed mapped only the head noun the term ends with and a word before it is a substance (PubMed maps it to
+    # a Supplementary Concept, NLM's records for chemicals), that word stays required with the heading (protocol
+    # 2.6): for "atrazine biotransformation" only Biotransformation is a heading, and without this the MeSH
+    # alternative matched any biotransformation study. Other leading words ("refractory glaucoma", "early childhood
+    # vaccination", "inhaled corticosteroids") describe the condition or population and are not required, as before.
+    if groups and len(used_parts) == 1 and term_low.endswith(used_parts[0]) and substances:
+        groups.append("(" + " AND ".join(f'"{w}"[Title/Abstract]' for w in substances) + ")")
     return groups
 
 
