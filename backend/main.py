@@ -82,6 +82,8 @@ from services.search_counts import preview_searches
 from services.study_limits import ceiling, estimate_minutes, resolve_study_limit, selection_method
 from services import demo_mode
 from services import gap_map
+from services.clinicaltrials_client import search_clinicaltrials
+from services.openalex_client import search_openalex
 from services.broadening import broaden_suggestions
 from pydantic import BaseModel, Field
 from services.citation_enrichment import enrich_citation_counts
@@ -333,6 +335,16 @@ async def _harvest_facet_queries(
             )
         )
         task_names.append("Semantic Scholar")
+    # Protocol 2.7: OpenAlex as a full source (core and reviews searches) and the ClinicalTrials.gov registry (core
+    # search, health questions), both with search strings compiled by rules like the others
+    if getattr(cfg, "enable_openalex", True) and q_map.openalex:
+        tasks.append(search_openalex(q_map.openalex, max_per_source, req.year_from, req.year_to,
+                                     reviews_only=facet.kind == "reviews"))
+        task_names.append("OpenAlex")
+    if getattr(cfg, "enable_clinicaltrials", True) and q_map.clinicaltrials and domain in CLINICAL_TRIAL_DOMAINS:
+        tasks.append(search_clinicaltrials(q_map.clinicaltrials, max(max_per_source, 50), req.year_from, req.year_to,
+                                           cfg.pubmed_api_key))
+        task_names.append("ClinicalTrials.gov")
 
     async def within_budget(name: str, coro):
         # One slow database must not hold up the others: past the limit its results for this search are skipped
@@ -351,7 +363,8 @@ async def _harvest_facet_queries(
 
     source_query = {"PubMed": q_map.pubmed or fallback_entities, "arXiv": q_map.arxiv or fallback_entities,
                     "bioRxiv": str(q_map.biorxiv_medrxiv or fallback_entities),
-                    "Semantic Scholar": q_map.semantic_scholar or fallback_entities}
+                    "Semantic Scholar": q_map.semantic_scholar or fallback_entities,
+                    "OpenAlex": q_map.openalex, "ClinicalTrials.gov": q_map.clinicaltrials}
     for name, res in zip(task_names, results):
         if isinstance(res, list):
             for p in res:
@@ -363,6 +376,9 @@ async def _harvest_facet_queries(
                       matched_for(name, source_query.get(name, "")))
     return papers, counts
 
+
+# Fields whose questions can be answered by registered clinical trials (protocol 2.7)
+CLINICAL_TRIAL_DOMAINS = {"biomedical_clinical", "interdisciplinary_biomedical_ai", "social_sciences", ""}
 
 # Longest any one database may take for one search before it is skipped for that search
 SOURCE_SEARCH_BUDGET_S = 20.0

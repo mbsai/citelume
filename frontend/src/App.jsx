@@ -49,6 +49,8 @@ const DEFAULT_CONFIG = {
   enable_arxiv: true,
   enable_biorxiv: true,
   enable_s2: true,
+  enable_openalex: true,
+  enable_clinicaltrials: true,
   enable_hf: true,
   enable_fulltext: true,
 };
@@ -862,6 +864,8 @@ export default function App() {
                     ['enable_arxiv', 'arXiv'],
                     ['enable_biorxiv', 'bioRxiv/medRxiv'],
                     ['enable_s2', 'Semantic Scholar'],
+                    ['enable_openalex', 'OpenAlex'],
+                    ['enable_clinicaltrials', 'ClinicalTrials.gov'],
                     ['enable_hf', 'Hugging Face'],
                   ]
                     .filter(([k]) => config[k])
@@ -905,6 +909,8 @@ export default function App() {
                   ['enable_arxiv', 'arXiv (Public)'],
                   ['enable_biorxiv', 'bioRxiv / medRxiv (Public)'],
                   ['enable_s2', 'Semantic Scholar'],
+                  ['enable_openalex', 'OpenAlex'],
+                  ['enable_clinicaltrials', 'ClinicalTrials.gov (trial registry)'],
                   ['enable_hf', 'Hugging Face Hub'],
                   ['enable_fulltext', 'Open-access full text'],
                 ].map(([fieldKey, label]) => {

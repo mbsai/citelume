@@ -2,11 +2,11 @@
  "frozen": "2026-11-23",
  "commit": "47e40ef",
  "tag": "eval-freeze-2.5",
- "protocol_version": "citelume-selection/2.6",
+ "protocol_version": "citelume-selection/2.7",
  "note": "Search and selection code measured in Session 6.",
  "hashes": {
-  "services/paper_selection.py": "ffb10c824afe7de9437c07c95d3fd86935be6ff66352ce9a58915cced7beb1e9",
-  "services/query_planning.py": "f994de2a4f81f62432fe1cfec254ddb2e6502e5654415ae3badc786bbf11fb47",
+  "services/paper_selection.py": "2f86edff96f9f1a0aa2abb30cdf14c078632a264783dc8aef5231b8c04430698",
+  "services/query_planning.py": "a9bb2b8f768325e3c9ab0913d2b15dd42f5e026eb6878cce22adb785b1cd1efc",
   "services/question_parsing.py": "cd0b762aeb4ae3d4a9d1dc6357e520b62b571dfbcf18df781f07f4e1794baab6",
   "services/query_utils.py": "0ffe5b6d55db9da58cdfb1bf3f7baa070ca263b230aa11c07f6dd813606184f1",
   "services/mesh_terms.py": "f9d922a1be1d3f082da365c6207b68ddcce7afea8fe20b2733efba9705ecdc7b",
@@ -22,7 +22,7 @@
   "services/biorxiv_client.py": "9656ec709697d565633c6640496c43e83bb6c4fb2a876ae1a9898eaa40e9aa84",
   "services/citation_enrichment.py": "1102da8a089ccacdcf06e41424a907bf85dae0d8fcaad82ec8f1044c1e212702",
   "main._build_corpus": "508b7781f31f751026fb61d0d3626c18261473af4b503bbed7a57bbc1531b1bb",
-  "main._harvest_facet_queries": "b10debc6fe9b61c56c6c31890b94d7b2dda5b3bd54d3a30fad7cc35149990708",
+  "main._harvest_facet_queries": "fa8b64ea5f66cebddaee7d0b00d9e2c19a10c8f4a7e17a967d124d3f468b1051",
   "main._prepare_query": "4d17fb528f06a9969c951e5563779b84887dfedcf0a6b28a16d506bb46dc7327"
  },
  "post_freeze": [
@@ -50,6 +50,22 @@
    },
    "change": "Reported by a demo user (atrazine biotransformation by Aspergillus hortai): research-action nouns ('assessment of', 'evaluation of', ...) frame the question and are not concepts; a concept beyond the two every search requires gets its own core search with the main concept; when PubMed maps only a term's head noun, a substance named before it (a Supplementary Concept) stays required with that heading; environmental and microbial questions get their own default search aspects; a concept ending in biotransformation, biodegradation or degradation is also searched under the other two names.",
    "effect_on_results": "The reported recall results are those of protocol 2.5 (eval-freeze-2.5) and are unchanged. Protocol 2.6 is checked on the development reviews only (eval/results/2.6_dev_check.md)."
+  },
+  {
+   "date": "2026-11-26",
+   "protocol_version": "citelume-selection/2.7",
+   "files": [
+    "main._harvest_facet_queries",
+    "services/paper_selection.py",
+    "services/query_planning.py"
+   ],
+   "previous_hashes": {
+    "main._harvest_facet_queries": "b10debc6fe9b61c56c6c31890b94d7b2dda5b3bd54d3a30fad7cc35149990708",
+    "services/paper_selection.py": "ffb10c824afe7de9437c07c95d3fd86935be6ff66352ce9a58915cced7beb1e9",
+    "services/query_planning.py": "f994de2a4f81f62432fe1cfec254ddb2e6502e5654415ae3badc786bbf11fb47"
+   },
+   "change": "Two sources added: OpenAlex as a full source for the core and reviews searches (a title-and-abstract Boolean search from the same concepts; before, only a fallback for Semantic Scholar), and the ClinicalTrials.gov registry for the core search of health questions (a trial contributes its linked results publications, fetched from PubMed, or its registry record when it posted results but links no publication). New modules services/openalex_client.py and services/clinicaltrials_client.py.",
+   "effect_on_results": "Reported recall stays protocol 2.5. 2.7 is compared with 2.6 on the development reviews only."
   }
  ],
  "measured_protocol_version": "citelume-selection/2.5"

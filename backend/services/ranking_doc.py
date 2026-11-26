@@ -80,7 +80,11 @@ def render() -> str:
         "(the concepts plus review and meta-analysis filters) and one search per aspect (the concepts plus that "
         f"aspect's terms). The core search requests {std_core} records per database and every other search "
         f"{std_other} (Deep Research: {deep_core} and {deep_other}; a systematic-style review: {prisma_core} and "
-        f"{prisma_other}). A local install can set a deeper PubMed core search (`pubmed_depth`, up to 2,000 "
+        f"{prisma_other}). OpenAlex is also searched in its own right for the core and reviews searches (a "
+        "title-and-abstract Boolean search built from the same concepts), which covers journals outside MEDLINE; and "
+        "for health questions the ClinicalTrials.gov registry is searched with the core concepts: a registered "
+        "trial contributes the publications the registry links as its results (fetched from PubMed), or, when it "
+        "posted results but links no publication, the registry record itself. A local install can set a deeper PubMed core search (`pubmed_depth`, up to 2,000 "
         "records, fetched in batches of 200); the public demo keeps its limits. The search strings are compiled by "
         "fixed rules, never written by the model, and are shown with the results, with the number of records each "
         "PubMed search matched and how many were retrieved (\"retrieved N of M\").",

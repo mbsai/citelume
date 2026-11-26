@@ -119,6 +119,9 @@ def run_search(mode="standard", framework="narrative", llm_key="", responder=Non
         mock.patch.object(main, "search_semantic_scholar", _by_source("Semantic Scholar")),
         mock.patch.object(main, "search_biorxiv", _by_source("bioRxiv")),
         mock.patch.object(main, "search_arxiv", _by_source("arXiv")),
+        # Protocol 2.7 sources: not in the golden record, so they return nothing here
+        mock.patch.object(main, "search_openalex", _empty),
+        mock.patch.object(main, "search_clinicaltrials", _empty),
         mock.patch.object(main, "enrich_citation_counts", _none),
         mock.patch.object(main, "expand_paper_neighbors", _empty),
         mock.patch.object(main.citation_chasing, "_post_batch", _empty),

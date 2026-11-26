@@ -120,3 +120,12 @@ Baselines on the same pools: BM25 ranking of the pool by the question, citation 
   2.5** (tag `eval-freeze-2.5`). Protocol 2.6 is compared with 2.5 on the 11 development reviews only, without a
   model (rule-based planning, the same day, alternating question by question), in
   `eval/results/2.6_dev_check.md`; the test reviews are not run with 2.6.
+
+- **26 November 2026, post-freeze: selection protocol `citelume-selection/2.7` (not used for any reported
+  result).** Two sources are added to search: OpenAlex in its own right for the core and reviews searches (before,
+  only a fallback when Semantic Scholar failed), which covers journals outside MEDLINE; and the ClinicalTrials.gov
+  registry for the core search of health questions, which the PRISMA-S checklist of the evaluation lists as not
+  searched. A registered trial contributes the publications the registry links as its results (fetched from PubMed,
+  so they merge with the same paper found there), or its registry record when it posted results but links no
+  publication. The benchmark counts included studies by PubMed ID, so registry-only records cannot count as found.
+  The comparison with 2.6 on the development reviews is in `eval/results/2.7_dev_check.md`.

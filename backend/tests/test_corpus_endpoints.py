@@ -23,6 +23,8 @@ def fake_sources() -> ExitStack:
     for name, source in (("search_pubmed", "PubMed"), ("search_semantic_scholar", "Semantic Scholar"),
                          ("search_biorxiv", "bioRxiv"), ("search_arxiv", "arXiv")):
         stack.enter_context(mock.patch.object(main, name, golden._by_source(source)))
+    stack.enter_context(mock.patch.object(main, "search_openalex", golden._empty))
+    stack.enter_context(mock.patch.object(main, "search_clinicaltrials", golden._empty))
     stack.enter_context(mock.patch.object(main, "enrich_citation_counts", golden._none))
     stack.enter_context(mock.patch.object(main, "expand_paper_neighbors", golden._empty))
     stack.enter_context(mock.patch.object(main.citation_chasing, "_post_batch", golden._empty))

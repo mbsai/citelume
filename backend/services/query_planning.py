@@ -464,6 +464,36 @@ def _pubmed_constraints(constraints: Sequence[RequiredConstraint]) -> List[str]:
                               for sp in c.spellings[:4]) + ")" for c in constraints]
 
 
+def _boolean_word(text: str) -> str:
+    # Quotes, brackets and commas break OpenAlex filters and ClinicalTrials.gov expressions
+    return re.sub(r"\s+", " ", re.sub(r'["()\[\],;:]', " ", text or "")).strip()
+
+
+def _boolean_concept_block(concept: SearchConcept) -> str:
+    """A concept for OpenAlex and ClinicalTrials.gov (protocol 2.7): each name or synonym as a phrase, or all of its
+    specific words, in any spelling; no MeSH (neither database uses it)."""
+    alts: List[str] = []
+    for name in [concept.name] + list(concept.synonyms):
+        name = _boolean_word(name)
+        if not name:
+            continue
+        words = name.split()
+        if len(words) == 1:
+            alts += [v for v in [name.lower()] + spelling_variants(name)]
+        else:
+            alts.append(f'"{name}"')
+            spec = [_boolean_word(w) for w in specific_words(name) if _boolean_word(w)]
+            if len(spec) > 1:
+                alts.append("(" + " AND ".join(spec) + ")")
+    alts = list(dict.fromkeys(a for a in alts if a))
+    return "(" + " OR ".join(alts) + ")" if alts else ""
+
+
+def _boolean_constraints(constraints: Sequence[RequiredConstraint]) -> List[str]:
+    return ["(" + " OR ".join(f'"{w}"' if " " in w else w for w in (_boolean_word(sp) for sp in c.spellings[:4]) if w)
+            + ")" for c in constraints if c.spellings]
+
+
 def _arxiv_word(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9 _-]", "", text).strip()
 
@@ -522,6 +552,12 @@ def compile_facet(
         s2 = f"{names} {place} {' '.join(terms[:3])}"
         bio = [f"{names} {place} {t}".strip() for t in terms[:2]]
 
+    # OpenAlex for the core and reviews searches, ClinicalTrials.gov for the core search (protocol 2.7)
+    bool_blocks = [b for b in [_boolean_concept_block(c) for c in required] + _boolean_constraints(constraints) if b]
+    boolean = " AND ".join(bool_blocks)
+    openalex = boolean if aspect.kind in ("core", "reviews") else ""
+    clinicaltrials = boolean if aspect.kind == "core" else ""
+
     return SearchFacet(
         facet_code=code,
         facet_name=aspect.label,
@@ -536,6 +572,8 @@ def compile_facet(
             semantic_scholar=" ".join(s2.split()),
             arxiv=" AND ".join(b for b in ax_blocks if b and b != "()"),
             biorxiv_medrxiv=[" ".join(b.split()) for b in bio if b.strip()],
+            openalex=openalex,
+            clinicaltrials=clinicaltrials,
             hugging_face=huggingface_query,
         ),
     )

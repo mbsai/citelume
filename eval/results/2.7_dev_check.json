@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "reviews": 11,
+  "pool_recall_mean": {
+   "v25": 0.487,
+   "v26": 0.524
+  },
+  "pool_recall_median": {
+   "v25": 0.5,
+   "v26": 0.538
+  },
+  "selected_recall_mean": {
+   "v25": 0.326,
+   "v26": 0.322
+  },
+  "concepts_changed": 0
+ },
+ "rows": [
+  {
+   "review": "CD007868",
+   "included": 3,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 951,
+    "pool": 0,
+    "eligible_selected": 0,
+    "concepts": [
+     "fluoride toothpastes",
+     "concentrations",
+     "dental caries"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 843,
+    "pool": 2,
+    "eligible_selected": 0,
+    "concepts": [
+     "fluoride toothpastes",
+     "concentrations",
+     "dental caries"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD008018",
+   "included": 13,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 779,
+    "pool": 10,
+    "eligible_selected": 5,
+    "concepts": [
+     "adjuvant gonadotropin-releasing hormone analogues",
+     "chemotherapy premature ovarian failure",
+     "premenopausal"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 768,
+    "pool": 7,
+    "eligible_selected": 4,
+    "concepts": [
+     "adjuvant gonadotropin-releasing hormone analogues",
+     "chemotherapy premature ovarian failure",
+     "premenopausal"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD010038",
+   "included": 9,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 788,
+    "pool": 0,
+    "eligible_selected": 0,
+    "concepts": [
+     "parents",
+     "early childhood vaccination"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 942,
+    "pool": 0,
+    "eligible_selected": 0,
+    "concepts": [
+     "parents",
+     "early childhood vaccination"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD010355",
+   "included": 6,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 997,
+    "pool": 3,
+    "eligible_selected": 2,
+    "concepts": [
+     "non-invasive positive pressure ventilation",
+     "complications",
+     "pulmonary resection"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 1115,
+    "pool": 3,
+    "eligible_selected": 2,
+    "concepts": [
+     "non-invasive positive pressure ventilation",
+     "complications",
+     "pulmonary resection"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD010526",
+   "included": 8,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 935,
+    "pool": 8,
+    "eligible_selected": 3,
+    "concepts": [
+     "dental cavity liners",
+     "class I",
+     "restorations"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 869,
+    "pool": 8,
+    "eligible_selected": 3,
+    "concepts": [
+     "dental cavity liners",
+     "class I",
+     "restorations"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD010753",
+   "included": 20,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 891,
+    "pool": 11,
+    "eligible_selected": 11,
+    "concepts": [
+     "antidepressants",
+     "insomnia"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 938,
+    "pool": 11,
+    "eligible_selected": 11,
+    "concepts": [
+     "antidepressants",
+     "insomnia"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD011571",
+   "included": 6,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 888,
+    "pool": 1,
+    "eligible_selected": 1,
+    "concepts": [
+     "guttate"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 972,
+    "pool": 1,
+    "eligible_selected": 1,
+    "concepts": [
+     "guttate"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD011977",
+   "included": 37,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 951,
+    "pool": 12,
+    "eligible_selected": 6,
+    "concepts": [
+     "blue-light filtering intraocular lenses",
+     "macular health"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 700,
+    "pool": 11,
+    "eligible_selected": 6,
+    "concepts": [
+     "blue-light filtering intraocular lenses",
+     "macular health"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD012223",
+   "included": 5,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 251,
+    "pool": 3,
+    "eligible_selected": 1,
+    "concepts": [
+     "cyclodestructive procedures",
+     "refractory glaucoma"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 372,
+    "pool": 3,
+    "eligible_selected": 1,
+    "concepts": [
+     "cyclodestructive procedures",
+     "refractory glaucoma"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD012455",
+   "included": 5,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 1074,
+    "pool": 5,
+    "eligible_selected": 5,
+    "concepts": [
+     "melatonin",
+     "sleep",
+     "intensive care unit"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 1059,
+    "pool": 5,
+    "eligible_selected": 5,
+    "concepts": [
+     "melatonin",
+     "sleep",
+     "intensive care unit"
+    ],
+    "status": "done"
+   }
+  },
+  {
+   "review": "CD012551",
+   "included": 29,
+   "v25": {
+    "version": "citelume-selection/2.6",
+    "records": 856,
+    "pool": 13,
+    "eligible_selected": 12,
+    "concepts": [
+     "chronic prostatitis"
+    ],
+    "status": "done"
+   },
+   "v26": {
+    "version": "citelume-selection/2.7",
+    "records": 630,
+    "pool": 13,
+    "eligible_selected": 13,
+    "concepts": [
+     "chronic prostatitis"
+    ],
+    "status": "done"
+   }
+  }
+ ]
+}

@@ -37,6 +37,9 @@ class ApiKeysConfig(BaseModel):
     enable_arxiv: bool = True
     enable_biorxiv: bool = True
     enable_s2: bool = True
+    # Protocol 2.7 sources: OpenAlex as a full source, and the ClinicalTrials.gov registry
+    enable_openalex: bool = True
+    enable_clinicaltrials: bool = True
     enable_hf: bool = True
     # Fetch open-access full text (Europe PMC, bioRxiv/medRxiv, arXiv, open PDFs) for the included studies
     enable_fulltext: bool = True
@@ -301,6 +304,9 @@ class FacetApiQueries(BaseModel):
     semantic_scholar: str = ""
     arxiv: str = ""
     biorxiv_medrxiv: List[str] = Field(default_factory=list)
+    # Protocol 2.7: OpenAlex title-and-abstract search (core and reviews) and ClinicalTrials.gov (core)
+    openalex: str = ""
+    clinicaltrials: str = ""
     hugging_face: str = ""
     hf_resource_targets: List[str] = Field(default_factory=lambda: ["models", "datasets"])
 
